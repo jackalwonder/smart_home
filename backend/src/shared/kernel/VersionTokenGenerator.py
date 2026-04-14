@@ -1,0 +1,9 @@
+from __future__ import annotations
+
+from typing import Protocol
+
+
+class VersionTokenGenerator(Protocol):
+    def next_settings_version(self) -> str: ...
+    def next_layout_version(self) -> str: ...
+    def next_draft_version(self) -> str: ...
