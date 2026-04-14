@@ -11,7 +11,16 @@ depends_on = None
 
 
 def _ddl_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql"
+    filename = "家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql"
+    current = Path(__file__).resolve()
+    candidates = [
+        current.parents[2] / filename,
+        current.parents[3] / filename,
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    raise FileNotFoundError(filename)
 
 
 def _statements() -> list[str]:

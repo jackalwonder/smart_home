@@ -68,13 +68,13 @@ class HomeOverviewQueryRepositoryImpl:
                     text(
                         """
                         SELECT
-                            hotspot_id,
-                            device_id::text AS device_id,
+                            layout_hotspots.hotspot_id,
+                            layout_hotspots.device_id::text AS device_id,
                             d.display_name,
                             d.device_type,
-                            x::float8 AS x,
-                            y::float8 AS y,
-                            icon_type,
+                            layout_hotspots.x::float8 AS x,
+                            layout_hotspots.y::float8 AS y,
+                            layout_hotspots.icon_type,
                             COALESCE(drs.status, 'UNKNOWN') AS status,
                             COALESCE(drs.is_offline, true) AS is_offline,
                             d.is_complex_device,
@@ -82,14 +82,14 @@ class HomeOverviewQueryRepositoryImpl:
                             d.entry_behavior::text AS entry_behavior,
                             d.default_control_target,
                             COALESCE(drs.status_summary_json, '{}'::jsonb) AS status_summary_json,
-                            display_policy::text AS display_policy
+                            layout_hotspots.display_policy::text AS display_policy
                         FROM layout_hotspots
                         JOIN devices d
                           ON d.id = layout_hotspots.device_id
                         LEFT JOIN device_runtime_states drs
                           ON drs.device_id = d.id
-                        WHERE layout_version_id = :layout_version_id
-                        ORDER BY structure_order ASC, created_at ASC
+                        WHERE layout_hotspots.layout_version_id = :layout_version_id
+                        ORDER BY layout_hotspots.structure_order ASC, layout_hotspots.created_at ASC
                         """
                     ),
                     {"layout_version_id": layout_row["id"]},

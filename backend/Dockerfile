@@ -8,10 +8,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app/backend
 
 COPY pyproject.toml ./
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY scripts ./scripts
 COPY src ./src
+COPY 家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql /app/家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN pip install --upgrade pip && pip install .
+RUN chmod +x ./docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./docker-entrypoint.sh"]
