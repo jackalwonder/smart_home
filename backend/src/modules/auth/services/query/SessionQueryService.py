@@ -26,10 +26,12 @@ class AuthSessionFeaturesView:
 @dataclass(frozen=True)
 class AuthSessionView:
     home_id: str
+    operator_id: str | None
     terminal_id: str
     terminal_mode: str
     login_mode: str
     pin_session_active: bool
+    pin_session_expires_at: str | None
     features: AuthSessionFeaturesView
 
 
@@ -60,10 +62,12 @@ class SessionQueryService:
 
         return AuthSessionView(
             home_id=session_context.home.id,
+            operator_id=active_pin_session.member_id if active_pin_session is not None else None,
             terminal_id=session_context.terminal.id,
             terminal_mode=session_context.terminal.terminal_mode,
             login_mode=session_context.auth_config.login_mode,
             pin_session_active=pin_session_active,
+            pin_session_expires_at=active_pin_session.expires_at if pin_session_active else None,
             features=AuthSessionFeaturesView(
                 music_enabled=session_context.function_settings.music_enabled
                 if session_context.function_settings is not None

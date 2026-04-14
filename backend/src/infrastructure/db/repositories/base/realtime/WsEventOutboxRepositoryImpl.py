@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import bindparam, text
 
 from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import as_dict, session_scope
+from src.infrastructure.db.repositories._support import as_dict, session_scope, to_jsonb
 from src.repositories.base.realtime.WsEventOutboxRepository import NewWsEventOutboxRow
 from src.repositories.rows.index import WsEventOutboxRow
 from src.shared.kernel.RepoContext import RepoContext
@@ -52,6 +52,9 @@ class WsEventOutboxRepositoryImpl:
                 :payload_json,
                 :occurred_at
             )
+            ON CONFLICT (home_id, event_id) DO UPDATE SET
+                payload_json = EXCLUDED.payload_json,
+                occurred_at = EXCLUDED.occurred_at
             RETURNING
                 id::text AS id,
                 home_id::text AS home_id,
@@ -75,7 +78,7 @@ class WsEventOutboxRepositoryImpl:
                         "event_type": input.event_type,
                         "change_domain": input.change_domain,
                         "snapshot_required": input.snapshot_required,
-                        "payload_json": as_dict(input.payload_json),
+                        "payload_json": to_jsonb(as_dict(input.payload_json)),
                         "occurred_at": input.occurred_at,
                     },
                 )
@@ -111,6 +114,35 @@ class WsEventOutboxRepositoryImpl:
         async with session_scope(self._database, ctx) as (session, _):
             rows = (await session.execute(stmt, {"limit": limit})).mappings().all()
         return [_to_outbox_row(row) for row in rows]
+
+    async def list_recent(
+        self,
+        home_id: str,
+        limit: int,
+        ctx: RepoContext | None = None,
+    ) -> list[WsEventOutboxRow]:
+        stmt = text(
+            """
+            SELECT
+                id::text AS id,
+                home_id::text AS home_id,
+                event_id,
+                event_type,
+                change_domain::text AS change_domain,
+                snapshot_required,
+                payload_json,
+                delivery_status::text AS delivery_status,
+                occurred_at::text AS occurred_at,
+                created_at::text AS created_at
+            FROM ws_event_outbox
+            WHERE home_id = :home_id
+            ORDER BY occurred_at DESC, created_at DESC
+            LIMIT :limit
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            rows = (await session.execute(stmt, {"home_id": home_id, "limit": limit})).mappings().all()
+        return [_to_outbox_row(row) for row in reversed(rows)]
 
     async def mark_dispatching(self, ids: list[str], ctx: RepoContext | None = None) -> None:
         if not ids:

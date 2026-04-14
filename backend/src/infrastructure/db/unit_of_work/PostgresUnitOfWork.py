@@ -19,7 +19,7 @@ class PostgresUnitOfWork:
         self._database = database
 
     async def run_in_transaction(self, fn):
-        async with self._database.session_factory() as session:
+        async with self._database.session_factory()() as session:
             async with session.begin():
                 tx = SqlAlchemyDbTx(session=session)
                 return await fn(tx)

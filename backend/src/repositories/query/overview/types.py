@@ -35,6 +35,7 @@ class SystemConnectionSummaryReadModel:
 @dataclass(frozen=True)
 class HomeOverviewReadModel:
     layout: CurrentLayoutVersion
+    settings_version: str | None
     hotspots: list[dict[str, Any]]
     devices: list[DeviceCardReadModel]
     favorites: list[FavoriteDeviceReadModel]

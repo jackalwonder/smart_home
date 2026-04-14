@@ -45,13 +45,18 @@ class HomeOverviewQueryRepositoryImpl:
                     text(
                         """
                         SELECT
-                            id::text AS id,
-                            home_id::text AS home_id,
-                            layout_version,
-                            background_asset_id::text AS background_asset_id,
-                            effective_at::text AS effective_at
-                        FROM v_current_layout_versions
-                        WHERE home_id = :home_id
+                            vclv.id::text AS id,
+                            vclv.home_id::text AS home_id,
+                            vclv.layout_version,
+                            vclv.background_asset_id::text AS background_asset_id,
+                            vclv.effective_at::text AS effective_at,
+                            pa.file_url AS background_image_url,
+                            pa.width AS background_image_width,
+                            pa.height AS background_image_height
+                        FROM v_current_layout_versions vclv
+                        LEFT JOIN page_assets pa
+                          ON pa.id = vclv.background_asset_id
+                        WHERE vclv.home_id = :home_id
                         """
                     ),
                     {"home_id": home_id},
@@ -65,14 +70,24 @@ class HomeOverviewQueryRepositoryImpl:
                         SELECT
                             hotspot_id,
                             device_id::text AS device_id,
+                            d.display_name,
+                            d.device_type,
                             x::float8 AS x,
                             y::float8 AS y,
                             icon_type,
-                            label_mode,
-                            is_visible,
-                            structure_order,
+                            COALESCE(drs.status, 'UNKNOWN') AS status,
+                            COALESCE(drs.is_offline, true) AS is_offline,
+                            d.is_complex_device,
+                            d.is_readonly_device,
+                            d.entry_behavior::text AS entry_behavior,
+                            d.default_control_target,
+                            COALESCE(drs.status_summary_json, '{}'::jsonb) AS status_summary_json,
                             display_policy::text AS display_policy
                         FROM layout_hotspots
+                        JOIN devices d
+                          ON d.id = layout_hotspots.device_id
+                        LEFT JOIN device_runtime_states drs
+                          ON drs.device_id = d.id
                         WHERE layout_version_id = :layout_version_id
                         ORDER BY structure_order ASC, created_at ASC
                         """
@@ -88,12 +103,24 @@ class HomeOverviewQueryRepositoryImpl:
                         SELECT
                             d.id::text AS device_id,
                             d.room_id::text AS room_id,
+                            r.room_name,
                             d.display_name,
+                            d.raw_name,
                             d.device_type,
                             COALESCE(drs.status, 'UNKNOWN') AS status,
                             COALESCE(drs.is_offline, true) AS is_offline,
+                            d.is_complex_device,
+                            d.is_readonly_device,
+                            d.confirmation_type::text AS confirmation_type,
+                            d.entry_behavior::text AS entry_behavior,
+                            d.default_control_target,
+                            d.is_homepage_visible,
+                            d.is_primary_device,
+                            COALESCE(d.capabilities_json, '{}'::jsonb) AS capabilities_json,
                             COALESCE(drs.status_summary_json, '{}'::jsonb) AS status_summary_json
                         FROM devices d
+                        LEFT JOIN rooms r
+                          ON r.id = d.room_id
                         LEFT JOIN device_runtime_states drs
                           ON drs.device_id = d.id
                         WHERE d.home_id = :home_id
@@ -160,7 +187,9 @@ class HomeOverviewQueryRepositoryImpl:
                             """
                             SELECT
                                 room_label_mode,
-                                homepage_display_policy_json
+                                homepage_display_policy_json,
+                                icon_policy_json,
+                                layout_preference_json
                             FROM page_settings
                             WHERE settings_version_id = :settings_version_id
                             """
@@ -176,7 +205,10 @@ class HomeOverviewQueryRepositoryImpl:
                                 music_enabled,
                                 low_battery_threshold::float8 AS low_battery_threshold,
                                 offline_threshold_seconds,
-                                favorite_limit
+                                favorite_limit,
+                                quick_entry_policy_json,
+                                auto_home_timeout_seconds,
+                                position_device_thresholds_json
                             FROM function_settings
                             WHERE settings_version_id = :settings_version_id
                             """
@@ -229,8 +261,13 @@ class HomeOverviewQueryRepositoryImpl:
                         SELECT
                             mb.binding_status::text AS binding_status,
                             mb.device_id::text AS device_id,
-                            drs.is_offline
+                            d.display_name,
+                            d.entry_behavior::text AS entry_behavior,
+                            drs.is_offline,
+                            drs.runtime_state_json
                         FROM media_bindings mb
+                        LEFT JOIN devices d
+                          ON d.id = mb.device_id
                         LEFT JOIN device_runtime_states drs
                           ON drs.device_id = mb.device_id
                         WHERE mb.home_id = :home_id
@@ -267,17 +304,28 @@ class HomeOverviewQueryRepositoryImpl:
                 layout_version=layout_row["layout_version"],
                 background_asset_id=layout_row["background_asset_id"],
                 effective_at=layout_row["effective_at"],
+                background_image_url=layout_row["background_image_url"],
+                background_image_width=layout_row["background_image_width"],
+                background_image_height=layout_row["background_image_height"],
             ),
+            settings_version=settings_row["settings_version"] if settings_row is not None else None,
             hotspots=[
                 {
                     "hotspot_id": row["hotspot_id"],
                     "device_id": row["device_id"],
+                    "display_name": row["display_name"],
+                    "device_type": row["device_type"],
                     "x": row["x"],
                     "y": row["y"],
                     "icon_type": row["icon_type"],
-                    "label_mode": row["label_mode"],
-                    "is_visible": row["is_visible"],
-                    "structure_order": row["structure_order"],
+                    "status": row["status"],
+                    "is_offline": row["is_offline"],
+                    "is_complex_device": row["is_complex_device"],
+                    "is_readonly_device": row["is_readonly_device"],
+                    "entry_behavior": row["entry_behavior"],
+                    "alert_badges": badge_map.get(row["device_id"], []),
+                    "status_summary": as_dict(row["status_summary_json"]),
+                    "default_control_target": row["default_control_target"],
                     "display_policy": row["display_policy"],
                 }
                 for row in hotspot_rows
@@ -286,10 +334,20 @@ class HomeOverviewQueryRepositoryImpl:
                 DeviceCardReadModel(
                     device_id=row["device_id"],
                     room_id=row["room_id"],
+                    room_name=row["room_name"],
                     display_name=row["display_name"],
+                    raw_name=row["raw_name"],
                     device_type=row["device_type"],
                     status=row["status"],
                     is_offline=row["is_offline"],
+                    is_complex_device=row["is_complex_device"],
+                    is_readonly_device=row["is_readonly_device"],
+                    confirmation_type=row["confirmation_type"],
+                    entry_behavior=row["entry_behavior"],
+                    default_control_target=row["default_control_target"],
+                    is_homepage_visible=row["is_homepage_visible"],
+                    is_primary_device=row["is_primary_device"],
+                    capabilities=as_dict(row["capabilities_json"]),
                     status_summary=as_dict(row["status_summary_json"]),
                     alert_badges=badge_map.get(row["device_id"], []),
                 )
@@ -310,6 +368,12 @@ class HomeOverviewQueryRepositoryImpl:
                 homepage_display_policy=as_dict(page_settings_row["homepage_display_policy_json"])
                 if page_settings_row is not None
                 else {},
+                icon_policy=as_dict(page_settings_row["icon_policy_json"])
+                if page_settings_row is not None
+                else {},
+                layout_preference=as_dict(page_settings_row["layout_preference_json"])
+                if page_settings_row is not None
+                else {},
             ),
             function_settings=FunctionSettingsReadModel(
                 music_enabled=function_settings_row["music_enabled"]
@@ -324,6 +388,17 @@ class HomeOverviewQueryRepositoryImpl:
                 favorite_limit=function_settings_row["favorite_limit"]
                 if function_settings_row is not None
                 else 8,
+                quick_entry_policy=as_dict(function_settings_row["quick_entry_policy_json"])
+                if function_settings_row is not None
+                else {},
+                auto_home_timeout_seconds=function_settings_row["auto_home_timeout_seconds"]
+                if function_settings_row is not None
+                else 30,
+                position_device_thresholds=as_dict(
+                    function_settings_row["position_device_thresholds_json"]
+                )
+                if function_settings_row is not None
+                else {},
             ),
             energy=EnergySummaryReadModel(
                 binding_status=energy_row["binding_status"],
@@ -347,6 +422,23 @@ class HomeOverviewQueryRepositoryImpl:
                     else None
                 ),
                 device_id=media_row["device_id"] if media_row is not None else None,
+                display_name=media_row["display_name"] if media_row is not None else None,
+                play_state=(
+                    as_dict(media_row["runtime_state_json"]).get("state")
+                    if media_row is not None and media_row["runtime_state_json"] is not None
+                    else None
+                ),
+                track_title=(
+                    as_dict(media_row["runtime_state_json"]).get("attributes", {}).get("media_title")
+                    if media_row is not None and media_row["runtime_state_json"] is not None
+                    else None
+                ),
+                artist=(
+                    as_dict(media_row["runtime_state_json"]).get("attributes", {}).get("media_artist")
+                    if media_row is not None and media_row["runtime_state_json"] is not None
+                    else None
+                ),
+                entry_behavior=media_row["entry_behavior"] if media_row is not None else None,
             ),
             system_connection=SystemConnectionSummaryReadModel(
                 system_type=system_connection_row["system_type"],

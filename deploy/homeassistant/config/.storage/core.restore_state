@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "core.restore_state",
+  "data": [
+    {
+      "state": {"entity_id":"conversation.home_assistant","state":"unknown","attributes":{"friendly_name":"Home Assistant","supported_features":1},"last_changed":"2026-04-14T08:39:41.531101+00:00","last_reported":"2026-04-14T08:39:41.531101+00:00","last_updated":"2026-04-14T08:39:41.531101+00:00","context":{"id":"01KP5JAXPVTZ4HAFT83BXNM3RS","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.backup_automatic_backup","state":"unknown","attributes":{"event_types":["completed","failed","in_progress"],"event_type":null,"friendly_name":"Backup 自动备份"},"last_changed":"2026-04-14T08:39:41.546541+00:00","last_reported":"2026-04-14T08:39:41.546541+00:00","last_updated":"2026-04-14T08:39:41.546541+00:00","context":{"id":"01KP5JAXQATSGS4HSMB2T7NKZJ","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"person.czzzh","state":"unknown","attributes":{"editable":true,"id":"czzzh","device_trackers":[],"user_id":"87bb3c6147fa41fa88a75e47e4baed34","friendly_name":"Czzzh"},"last_changed":"2026-04-14T08:39:41.662957+00:00","last_reported":"2026-04-14T08:39:43.024470+00:00","last_updated":"2026-04-14T08:39:43.024470+00:00","context":{"id":"01KP5JAZ5GNJVFTHVF1TK021TY","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"tts.gu_ge_fan_yi_en_com_google_translate_en_com","state":"unknown","attributes":{"friendly_name":"谷歌翻译 en com Google Translate en com"},"last_changed":"2026-04-14T08:39:41.818930+00:00","last_reported":"2026-04-14T08:39:41.818930+00:00","last_updated":"2026-04-14T08:39:41.818930+00:00","context":{"id":"01KP5JAXZTTGS9WX940DK2SK82","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"button.midjd6_cn_911878512_6101_reset_a_7_1","state":"unknown","attributes":{"friendly_name":"米家对开门冰箱（适用610L/606L/616L) * 恢复出厂设置 恢复出厂设置"},"last_changed":"2026-04-14T08:40:55.389093+00:00","last_reported":"2026-04-14T08:40:55.389349+00:00","last_updated":"2026-04-14T08:40:55.389093+00:00","context":{"id":"01KP5JD5TXPYA189REZS8ZQBP8","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"button.yunmai_cn_blt_3_1n482ua8s4k01_ms107_wakeup_device_a_10_1","state":"unknown","attributes":{"friendly_name":"米家体脂秤 S400 蓝色 * 工作模式 唤醒设备"},"last_changed":"2026-04-14T08:40:55.389601+00:00","last_reported":"2026-04-14T08:40:55.389637+00:00","last_updated":"2026-04-14T08:40:55.389601+00:00","context":{"id":"01KP5JD5TXTQCB3X87S2XRPSWR","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"button.njcuk_cn_blt_3_1m3lrdjg84k00_ad1204_reset_setting_a_2_1","state":"unknown","attributes":{"friendly_name":"酷态科10号超级电能充Ultra 充电器 * 充电器 恢复默认设置"},"last_changed":"2026-04-14T08:40:55.389995+00:00","last_reported":"2026-04-14T08:40:55.390034+00:00","last_updated":"2026-04-14T08:40:55.389995+00:00","context":{"id":"01KP5JD5TX130WGAVS73SJGZ8W","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.midjd6_cn_911878512_6101_fault_open_e_8_1","state":"unknown","attributes":{"event_types":["门开提醒"],"event_type":null,"friendly_name":"米家对开门冰箱（适用610L/606L/616L) * 异常事件 门开提醒"},"last_changed":"2026-04-14T08:40:55.390780+00:00","last_reported":"2026-04-14T08:40:55.390825+00:00","last_updated":"2026-04-14T08:40:55.390780+00:00","context":{"id":"01KP5JD5TYTQ79W4D1YS50BNZZ","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_customized_event_1_e_11_1022","state":"unknown","attributes":{"event_types":["自定义事件1(ble专用，参数长度不能超过9字节)"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色  离线称重网关上报 自定义事件1(ble专用，参数长度不能超过9字节)"},"last_changed":"2026-04-14T08:40:55.390925+00:00","last_reported":"2026-04-14T08:40:55.390954+00:00","last_updated":"2026-04-14T08:40:55.390925+00:00","context":{"id":"01KP5JD5TYKRRJTHGJDQ42TZ50","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_report_user_info_e_6_1","state":"unknown","attributes":{"event_types":["逐条上报用户信息"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 逐条上报用户信息"},"last_changed":"2026-04-14T08:40:55.391051+00:00","last_reported":"2026-04-14T08:40:55.391078+00:00","last_updated":"2026-04-14T08:40:55.391051+00:00","context":{"id":"01KP5JD5TZW6H5T1VT3J994J95","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_report_update_user_e_6_2","state":"unknown","attributes":{"event_types":["上报是否需要更新用户信息"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 上报是否需要更新用户信息"},"last_changed":"2026-04-14T08:40:55.391154+00:00","last_reported":"2026-04-14T08:40:55.391181+00:00","last_updated":"2026-04-14T08:40:55.391154+00:00","context":{"id":"01KP5JD5TZVMM8VHHXWJDDYK7G","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_report_user_count_e_6_3","state":"unknown","attributes":{"event_types":["上报miid下的用户数"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 上报miid下的用户数"},"last_changed":"2026-04-14T08:40:55.391254+00:00","last_reported":"2026-04-14T08:40:55.391278+00:00","last_updated":"2026-04-14T08:40:55.391254+00:00","context":{"id":"01KP5JD5TZ2DW76S3B5T68Z881","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_weight_upload_e_8_1","state":"unknown","attributes":{"event_types":["实时体重上报"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 在线数据 实时体重上报"},"last_changed":"2026-04-14T08:40:55.391358+00:00","last_reported":"2026-04-14T08:40:55.391387+00:00","last_updated":"2026-04-14T08:40:55.391358+00:00","context":{"id":"01KP5JD5TZSWGBNQ5WXKKB4VE2","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_upload_body_data_e_8_2","state":"unknown","attributes":{"event_types":["体脂心率过程上报"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 在线数据 体脂心率过程上报"},"last_changed":"2026-04-14T08:40:55.391459+00:00","last_reported":"2026-04-14T08:40:55.391485+00:00","last_updated":"2026-04-14T08:40:55.391459+00:00","context":{"id":"01KP5JD5TZD41XAC56CF4G8WQ8","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_report_offline_data_e_9_1","state":"unknown","attributes":{"event_types":["逐条上报离线数据"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 离线数据 逐条上报离线数据"},"last_changed":"2026-04-14T08:40:55.391561+00:00","last_reported":"2026-04-14T08:40:55.391585+00:00","last_updated":"2026-04-14T08:40:55.391561+00:00","context":{"id":"01KP5JD5TZM8GSMPNHDPF9XWTZ","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_report_offline_cnt_e_9_2","state":"unknown","attributes":{"event_types":["上报离线数据条数"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 离线数据 上报离线数据条数"},"last_changed":"2026-04-14T08:40:55.391654+00:00","last_reported":"2026-04-14T08:40:55.391678+00:00","last_updated":"2026-04-14T08:40:55.391654+00:00","context":{"id":"01KP5JD5TZF7E7X9MGD895P83B","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_baby_mode_status_e_10_1","state":"unknown","attributes":{"event_types":["抱婴模式数据上报"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 工作模式 抱婴模式数据上报"},"last_changed":"2026-04-14T08:40:55.391743+00:00","last_reported":"2026-04-14T08:40:55.391773+00:00","last_updated":"2026-04-14T08:40:55.391743+00:00","context":{"id":"01KP5JD5TZ8TZ011CZGKM5ZSSD","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_balance_mode_status_e_10_2","state":"unknown","attributes":{"event_types":["平衡模式数据上报"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 工作模式 平衡模式数据上报"},"last_changed":"2026-04-14T08:40:55.391843+00:00","last_reported":"2026-04-14T08:40:55.391866+00:00","last_updated":"2026-04-14T08:40:55.391843+00:00","context":{"id":"01KP5JD5TZS5JDG8B7WQ32YAVZ","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"event.yunmai_cn_blt_3_1n482ua8s4k01_ms107_sync_event_e_13_1","state":"unknown","attributes":{"event_types":["sync-event"],"event_type":null,"friendly_name":"米家体脂秤 S400 蓝色 * 连接后同步信息 sync-event"},"last_changed":"2026-04-14T08:40:55.391949+00:00","last_reported":"2026-04-14T08:40:55.391975+00:00","last_updated":"2026-04-14T08:40:55.391949+00:00","context":{"id":"01KP5JD5TZNXEE6BFGE4QKQBE3","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_update_user_a_6_1","state":"unknown","attributes":{"action params":"[小米ID(int), 用户duid(int), 设备所有者标志(bool), 用户类型(1：一级账户 2：虚拟用户 3：访客用户)(int), 用户年龄，范围（6-99岁）(int), 用户性别(int), 用户身高（90-220cm）(int), 用户体重(单位kg，步进0.1kg)(int), 时间戳(int), 体脂率(步进1表示0.1%)(int), APP版本读取(int)]","friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 新增/更新用户信息","supported_features":0},"last_changed":"2026-04-14T08:40:55.392572+00:00","last_reported":"2026-04-14T08:40:55.392610+00:00","last_updated":"2026-04-14T08:40:55.392572+00:00","context":{"id":"01KP5JD5V095528FRAHX8XERGG","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_query_update_user_a_6_2","state":"unknown","attributes":{"action params":"[小米ID(int), 设备所有者标志(bool), 账户列表hash值(str)]","friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 同步用户数据请求","supported_features":0},"last_changed":"2026-04-14T08:40:55.392696+00:00","last_reported":"2026-04-14T08:40:55.392728+00:00","last_updated":"2026-04-14T08:40:55.392696+00:00","context":{"id":"01KP5JD5V0C0PPX8P4TSMJ1K34","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_del_user_a_6_3","state":"unknown","attributes":{"action params":"[小米ID(int), 用户duid(int), 用户类型(1：一级账户 2：虚拟用户 3：访客用户)(int)]","friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 删除用户/账户","supported_features":0},"last_changed":"2026-04-14T08:40:55.392824+00:00","last_reported":"2026-04-14T08:40:55.392849+00:00","last_updated":"2026-04-14T08:40:55.392824+00:00","context":{"id":"01KP5JD5V0FDPAJGHJM118101M","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_requset_user_list_a_6_4","state":"unknown","attributes":{"action params":"[小米ID(int), 用户duid(int), 用户类型(1：一级账户 2：虚拟用户 3：访客用户)(int)]","friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 请求秤端用户列表","supported_features":0},"last_changed":"2026-04-14T08:40:55.392915+00:00","last_reported":"2026-04-14T08:40:55.392947+00:00","last_updated":"2026-04-14T08:40:55.392915+00:00","context":{"id":"01KP5JD5V0HM0FFAEHFAFAM42Q","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_update_base_weight_a_6_5","state":"unknown","attributes":{"action params":"[小米ID(int), 用户duid(int), 用户类型(1：一级账户 2：虚拟用户 3：访客用户)(int), 用户体重(单位kg，步进0.1kg)(int)]","friendly_name":"米家体脂秤 S400 蓝色 * 用户管理 更新用户基准体重","supported_features":0},"last_changed":"2026-04-14T08:40:55.393024+00:00","last_reported":"2026-04-14T08:40:55.393049+00:00","last_updated":"2026-04-14T08:40:55.393024+00:00","context":{"id":"01KP5JD5V1E24FXB5XKM5PWDSW","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_request_offline_data_a_9_1","state":"unknown","attributes":{"action params":"[仅需要上报条数(int)]","friendly_name":"米家体脂秤 S400 蓝色 * 离线数据 请求上报离线数据","supported_features":0},"last_changed":"2026-04-14T08:40:55.393113+00:00","last_reported":"2026-04-14T08:40:55.393136+00:00","last_updated":"2026-04-14T08:40:55.393113+00:00","context":{"id":"01KP5JD5V1WAA7XJVXJ0H0AF1V","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_end_of_reception_a_9_2","state":"unknown","attributes":{"action params":"[已上传的离线数据idx列表(str)]","friendly_name":"米家体脂秤 S400 蓝色 * 离线数据 接收结束","supported_features":0},"last_changed":"2026-04-14T08:40:55.393218+00:00","last_reported":"2026-04-14T08:40:55.393242+00:00","last_updated":"2026-04-14T08:40:55.393218+00:00","context":{"id":"01KP5JD5V1SYS37MPKXX4HQ0QX","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_sync_a_13_1","state":"unknown","attributes":{"action params":"[插件版本能力集合(int), 称重单位(int), unix timestamp时间戳（设备运行时间戳）(int), 心率开关(bool), 用户信息列表(str)]","friendly_name":"米家体脂秤 S400 蓝色 * 连接后同步信息 sync","supported_features":0},"last_changed":"2026-04-14T08:40:55.393312+00:00","last_reported":"2026-04-14T08:40:55.393335+00:00","last_updated":"2026-04-14T08:40:55.393312+00:00","context":{"id":"01KP5JD5V1H92EHYWFZR1SK5K6","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    },
+    {
+      "state": {"entity_id":"notify.yunmai_cn_blt_3_1n482ua8s4k01_ms107_del_share_users_a_14_1","state":"unknown","attributes":{"action params":"[分享用户列表(str)]","friendly_name":"米家体脂秤 S400 蓝色 * 取消分享 按分享用户列表删除","supported_features":0},"last_changed":"2026-04-14T08:40:55.393411+00:00","last_reported":"2026-04-14T08:40:55.393439+00:00","last_updated":"2026-04-14T08:40:55.393411+00:00","context":{"id":"01KP5JD5V1B8SD344NG4TBQFKG","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-04-14T12:09:43.071106+00:00"
+    }
+  ]
+}

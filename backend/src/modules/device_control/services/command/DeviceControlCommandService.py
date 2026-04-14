@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -46,8 +47,21 @@ class DeviceControlCommandInput:
 class DeviceControlAcceptedView:
     request_id: str
     device_id: str
+    accepted: bool
     acceptance_status: str
-    execution_status: str
+    confirmation_type: str
+    accepted_at: str | None
+    timeout_seconds: int
+    retry_scheduled: bool
+    message: str
+    result_query_path: str
+
+
+@dataclass(frozen=True)
+class ValidatedControlPayload:
+    payload: dict[str, Any]
+    schema_target_scope: str | None
+    schema_target_key: str | None
 
 
 def _stable_json(value: Any) -> str:
@@ -79,17 +93,163 @@ class DeviceControlCommandService:
         self._event_id_generator = event_id_generator
         self._clock = clock
 
+    def _validate_payload_shape(
+        self,
+        action_type: str,
+        payload: dict[str, Any],
+        control_schemas: list,
+    ) -> ValidatedControlPayload:
+        matching_schemas = [schema for schema in control_schemas if schema.action_type == action_type]
+        if not matching_schemas:
+            raise AppError(
+                ErrorCode.UNSUPPORTED_ACTION,
+                "action_type is not supported by this device",
+                details={"action_type": action_type},
+            )
+
+        requested_target_scope = payload.get("target_scope")
+        requested_target_key = payload.get("target_key")
+        matched_schema = None
+
+        if requested_target_scope is not None or requested_target_key is not None:
+            for schema in matching_schemas:
+                if (
+                    schema.target_scope == requested_target_scope
+                    and schema.target_key == requested_target_key
+                ):
+                    matched_schema = schema
+                    break
+            if matched_schema is None:
+                raise AppError(
+                    ErrorCode.UNSUPPORTED_TARGET,
+                    "control target is not supported by this device",
+                    details={
+                        "action_type": action_type,
+                        "target_scope": requested_target_scope,
+                        "target_key": requested_target_key,
+                    },
+                )
+        elif len(matching_schemas) == 1:
+            matched_schema = matching_schemas[0]
+        else:
+            raise AppError(
+                ErrorCode.UNSUPPORTED_TARGET,
+                "target_scope and target_key are required for this action",
+                details={"action_type": action_type},
+            )
+
+        value = payload.get("value")
+        unit = payload.get("unit")
+        if unit is not None and matched_schema.unit is not None and unit != matched_schema.unit:
+            raise AppError(
+                ErrorCode.VALUE_OUT_OF_RANGE,
+                "payload unit does not match schema unit",
+                details={
+                    "expected_unit": matched_schema.unit,
+                    "actual_unit": unit,
+                },
+            )
+
+        value_type = matched_schema.value_type or "NONE"
+        if value_type == "NONE":
+            if value is not None:
+                raise AppError(
+                    ErrorCode.INVALID_PARAMS,
+                    "payload value must be null for this action",
+                    details={"fields": [{"field": "payload.value", "reason": "must_be_null"}]},
+                )
+        elif value_type == "BOOLEAN":
+            if not isinstance(value, bool):
+                raise AppError(
+                    ErrorCode.INVALID_PARAMS,
+                    "payload value must be boolean",
+                    details={"fields": [{"field": "payload.value", "reason": "invalid_type"}]},
+                )
+        elif value_type == "ENUM":
+            allowed_values = matched_schema.allowed_values_json or []
+            if value not in allowed_values:
+                raise AppError(
+                    ErrorCode.VALUE_OUT_OF_RANGE,
+                    "payload value is outside allowed values",
+                    details={
+                        "allowed_values": allowed_values,
+                        "actual_value": value,
+                    },
+                )
+        elif value_type == "NUMBER":
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise AppError(
+                    ErrorCode.INVALID_PARAMS,
+                    "payload value must be numeric",
+                    details={"fields": [{"field": "payload.value", "reason": "invalid_type"}]},
+                )
+            number_value = float(value)
+            value_range = matched_schema.value_range_json or {}
+            minimum = value_range.get("min")
+            maximum = value_range.get("max")
+            step = value_range.get("step")
+            if minimum is not None and number_value < float(minimum):
+                raise AppError(
+                    ErrorCode.VALUE_OUT_OF_RANGE,
+                    "payload value is below minimum range",
+                    details={"min": minimum, "actual_value": number_value},
+                )
+            if maximum is not None and number_value > float(maximum):
+                raise AppError(
+                    ErrorCode.VALUE_OUT_OF_RANGE,
+                    "payload value exceeds maximum range",
+                    details={"max": maximum, "actual_value": number_value},
+                )
+            if step not in (None, 0) and minimum is not None:
+                distance = (number_value - float(minimum)) / float(step)
+                if not math.isclose(distance, round(distance), abs_tol=1e-6):
+                    raise AppError(
+                        ErrorCode.VALUE_OUT_OF_RANGE,
+                        "payload value does not match schema step",
+                        details={"step": step, "actual_value": number_value},
+                    )
+        else:
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "schema value_type is unsupported",
+                details={"value_type": value_type},
+            )
+
+        return ValidatedControlPayload(
+            payload={
+                "target_scope": requested_target_scope
+                if requested_target_scope is not None
+                else matched_schema.target_scope,
+                "target_key": requested_target_key
+                if requested_target_key is not None
+                else matched_schema.target_key,
+                "value": value,
+                "unit": unit if unit is not None else matched_schema.unit,
+            },
+            schema_target_scope=matched_schema.target_scope,
+            schema_target_key=matched_schema.target_key,
+        )
+
     async def accept(self, input: DeviceControlCommandInput) -> DeviceControlAcceptedView:
         existing = await self._device_control_request_repository.find_by_request_id(
             input.home_id,
             input.request_id,
         )
+        validated_payload = None
         if existing is not None:
-            same_semantics = (
-                existing.device_id == input.device_id
-                and existing.action_type == input.action_type
-                and _stable_json(existing.payload_json) == _stable_json(input.payload)
-            )
+            same_semantics = False
+            if existing.device_id == input.device_id and existing.action_type == input.action_type:
+                control_schemas = await self._device_control_schema_repository.list_by_device_id(
+                    input.device_id
+                )
+                validated_payload = self._validate_payload_shape(
+                    input.action_type,
+                    input.payload,
+                    control_schemas,
+                )
+                same_semantics = _stable_json(existing.payload_json) == _stable_json(
+                    validated_payload.payload
+                )
             if not same_semantics:
                 raise AppError(
                     ErrorCode.REQUEST_ID_CONFLICT,
@@ -98,15 +258,21 @@ class DeviceControlCommandService:
             return DeviceControlAcceptedView(
                 request_id=existing.request_id,
                 device_id=existing.device_id,
+                accepted=True,
                 acceptance_status="ACCEPTED",
-                execution_status="PENDING",
+                confirmation_type=existing.confirmation_type,
+                accepted_at=existing.accepted_at,
+                timeout_seconds=existing.timeout_seconds,
+                retry_scheduled=False,
+                message="Control request accepted",
+                result_query_path=f"/api/v1/device-controls/{existing.request_id}",
             )
 
         device = await self._device_repository.find_by_id(input.home_id, input.device_id)
         if device is None:
             raise AppError(ErrorCode.DEVICE_NOT_FOUND, "device not found")
         if device.is_readonly_device:
-            raise AppError(ErrorCode.DEVICE_READONLY, "device is readonly")
+            raise AppError(ErrorCode.READONLY_DEVICE, "device is readonly")
 
         runtime_states = await self._device_runtime_state_repository.find_by_device_ids(
             input.home_id,
@@ -119,23 +285,23 @@ class DeviceControlCommandService:
         control_schemas = await self._device_control_schema_repository.list_by_device_id(
             input.device_id
         )
-        schema_matched = any(schema.action_type == input.action_type for schema in control_schemas)
-        if not schema_matched:
-            raise AppError(
-                ErrorCode.INVALID_CONTROL_PAYLOAD,
-                "action_type is not supported by this device",
+        if validated_payload is None:
+            validated_payload = self._validate_payload_shape(
+                input.action_type,
+                input.payload,
+                control_schemas,
             )
 
         now_iso = self._clock.now().isoformat()
 
-        async def _transaction(tx: Any) -> None:
+        async def _transaction(tx: Any):
             inserted = await self._device_control_request_repository.insert(
                 NewDeviceControlRequestRow(
                     home_id=input.home_id,
                     request_id=input.request_id,
                     device_id=input.device_id,
                     action_type=input.action_type,
-                    payload_json=input.payload,
+                    payload_json=validated_payload.payload,
                     client_ts=input.client_ts,
                     acceptance_status="ACCEPTED",
                     confirmation_type="ACK_DRIVEN",
@@ -167,13 +333,20 @@ class DeviceControlCommandService:
                     payload_json={
                         "related_request_id": input.request_id,
                         "device_id": input.device_id,
+                        "confirmation_type": inserted.confirmation_type,
+                        "execution_status": inserted.execution_status,
+                        "runtime_state": None,
+                        "error_code": None,
+                        "error_message": None,
                     },
                     occurred_at=now_iso,
                 ),
                 ctx=RepoContext(tx=tx),
             )
 
-        await self._unit_of_work.run_in_transaction(_transaction)
+            return inserted
+
+        inserted = await self._unit_of_work.run_in_transaction(_transaction)
 
         await self._ha_control_gateway.submit_control(
             HaControlCommand(
@@ -181,13 +354,19 @@ class DeviceControlCommandService:
                 device_id=input.device_id,
                 request_id=input.request_id,
                 action_type=input.action_type,
-                payload=input.payload,
+                payload=validated_payload.payload,
             )
         )
 
         return DeviceControlAcceptedView(
             request_id=input.request_id,
             device_id=input.device_id,
+            accepted=True,
             acceptance_status="ACCEPTED",
-            execution_status="PENDING",
+            confirmation_type=inserted.confirmation_type,
+            accepted_at=inserted.accepted_at,
+            timeout_seconds=inserted.timeout_seconds,
+            retry_scheduled=False,
+            message="Control request accepted",
+            result_query_path=f"/api/v1/device-controls/{input.request_id}",
         )

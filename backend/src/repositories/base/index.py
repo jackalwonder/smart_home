@@ -17,10 +17,16 @@ from src.repositories.base.devices.DeviceRuntimeStateRepository import (
     DeviceRuntimeStateRepository,
 )
 from src.repositories.base.editor.DraftLeaseRepository import DraftLeaseRepository
+from src.repositories.base.editor.DraftLayoutRepository import DraftLayoutRepository
+from src.repositories.base.editor.DraftHotspotRepository import DraftHotspotRepository
 from src.repositories.base.realtime.WsEventOutboxRepository import (
     WsEventOutboxRepository,
 )
+from src.repositories.base.settings.FavoriteDevicesRepository import FavoriteDevicesRepository
+from src.repositories.base.settings.FunctionSettingsRepository import FunctionSettingsRepository
+from src.repositories.base.settings.LayoutHotspotRepository import LayoutHotspotRepository
 from src.repositories.base.settings.LayoutVersionRepository import LayoutVersionRepository
+from src.repositories.base.settings.PageSettingsRepository import PageSettingsRepository
 from src.repositories.base.settings.SettingsVersionRepository import (
     SettingsVersionRepository,
 )
@@ -36,7 +42,13 @@ __all__ = [
     "DeviceControlSchemaRepository",
     "LayoutVersionRepository",
     "SettingsVersionRepository",
+    "FavoriteDevicesRepository",
+    "PageSettingsRepository",
+    "FunctionSettingsRepository",
     "DraftLeaseRepository",
+    "DraftLayoutRepository",
+    "DraftHotspotRepository",
+    "LayoutHotspotRepository",
     "DeviceControlRequestRepository",
     "DeviceControlTransitionRepository",
     "WsEventOutboxRepository",

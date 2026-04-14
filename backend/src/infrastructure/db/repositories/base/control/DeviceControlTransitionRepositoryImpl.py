@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import text
 
 from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import as_dict, session_scope
+from src.infrastructure.db.repositories._support import as_dict, session_scope, to_jsonb
 from src.repositories.base.control.DeviceControlTransitionRepository import (
     NewDeviceControlTransitionRow,
 )
@@ -71,7 +71,7 @@ class DeviceControlTransitionRepositoryImpl:
                         "to_status": input.to_status,
                         "reason": input.reason,
                         "error_code": input.error_code,
-                        "payload_json": as_dict(input.payload_json),
+                        "payload_json": to_jsonb(as_dict(input.payload_json)),
                     },
                 )
             ).mappings().one()

@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import text
 
 from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import as_dict, session_scope
+from src.infrastructure.db.repositories._support import as_dict, session_scope, to_jsonb
 from src.repositories.base.control.DeviceControlRequestRepository import (
     DeviceControlResultUpdate,
     NewDeviceControlRequestRow,
@@ -21,7 +21,9 @@ def _to_request_row(row) -> DeviceControlRequestRow:
         action_type=row["action_type"],
         payload_json=as_dict(row["payload_json"]),
         acceptance_status=row["acceptance_status"],
+        confirmation_type=row["confirmation_type"],
         execution_status=row["execution_status"],
+        timeout_seconds=row["timeout_seconds"],
         final_runtime_state_json=as_dict(row["final_runtime_state_json"])
         if row["final_runtime_state_json"] is not None
         else None,
@@ -52,7 +54,9 @@ class DeviceControlRequestRepositoryImpl:
                 action_type,
                 payload_json,
                 acceptance_status::text AS acceptance_status,
+                confirmation_type::text AS confirmation_type,
                 execution_status::text AS execution_status,
+                timeout_seconds,
                 final_runtime_state_json,
                 error_code,
                 error_message,
@@ -112,7 +116,9 @@ class DeviceControlRequestRepositoryImpl:
                 action_type,
                 payload_json,
                 acceptance_status::text AS acceptance_status,
+                confirmation_type::text AS confirmation_type,
                 execution_status::text AS execution_status,
+                timeout_seconds,
                 final_runtime_state_json,
                 error_code,
                 error_message,
@@ -129,7 +135,7 @@ class DeviceControlRequestRepositoryImpl:
                         "request_id": input.request_id,
                         "device_id": input.device_id,
                         "action_type": input.action_type,
-                        "payload_json": as_dict(input.payload_json),
+                        "payload_json": to_jsonb(as_dict(input.payload_json)),
                         "client_ts": input.client_ts,
                         "acceptance_status": input.acceptance_status,
                         "confirmation_type": input.confirmation_type,
@@ -168,7 +174,11 @@ class DeviceControlRequestRepositoryImpl:
                     "home_id": input.home_id,
                     "request_id": input.request_id,
                     "execution_status": input.execution_status,
-                    "final_runtime_state_json": input.final_runtime_state_json,
+                    "final_runtime_state_json": (
+                        to_jsonb(input.final_runtime_state_json)
+                        if input.final_runtime_state_json is not None
+                        else None
+                    ),
                     "error_code": input.error_code,
                     "error_message": input.error_message,
                     "completed_at": input.completed_at,

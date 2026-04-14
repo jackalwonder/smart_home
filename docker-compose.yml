@@ -3,7 +3,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: smart-home-backend
     restart: unless-stopped
     environment:
       APP_ENV: ${APP_ENV:-docker}
@@ -11,9 +10,17 @@ services:
       APP_PORT: ${APP_PORT:-8000}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://smart_home:smart_home@postgres:5432/smart_home}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      TZ: ${TZ:-Asia/Shanghai}
+      CONNECTION_ENCRYPTION_SECRET: ${CONNECTION_ENCRYPTION_SECRET:-smart-home-local-secret}
+      HOME_ASSISTANT_BOOTSTRAP_ENABLED: ${HOME_ASSISTANT_BOOTSTRAP_ENABLED:-true}
+      HOME_ASSISTANT_BOOTSTRAP_URL: ${HOME_ASSISTANT_BOOTSTRAP_URL:-http://homeassistant:8123}
+      HOME_ASSISTANT_BOOTSTRAP_ACCESS_TOKEN: ${HOME_ASSISTANT_BOOTSTRAP_ACCESS_TOKEN:-}
+      HOME_ASSISTANT_BOOTSTRAP_CONNECTION_MODE: ${HOME_ASSISTANT_BOOTSTRAP_CONNECTION_MODE:-TOKEN}
     ports:
       - "${APP_PORT:-8000}:8000"
     depends_on:
+      homeassistant:
+        condition: service_started
       postgres:
         condition: service_healthy
       redis:
@@ -25,9 +32,24 @@ services:
       retries: 5
       start_period: 15s
 
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "${HOME_ASSISTANT_PORT:-8123}:8123"
+    volumes:
+      - ./deploy/homeassistant/config:/config
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8123/', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
   postgres:
     image: postgres:16-alpine
-    container_name: smart-home-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-smart_home}
@@ -45,7 +67,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: smart-home-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"

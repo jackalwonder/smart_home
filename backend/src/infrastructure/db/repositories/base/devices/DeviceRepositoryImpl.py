@@ -30,7 +30,13 @@ class DeviceRepositoryImpl:
                 device_type,
                 is_readonly_device,
                 is_complex_device,
-                entry_behavior::text AS entry_behavior
+                confirmation_type::text AS confirmation_type,
+                entry_behavior::text AS entry_behavior,
+                default_control_target,
+                is_homepage_visible,
+                is_primary_device,
+                capabilities_json,
+                source_meta_json
             FROM devices
             WHERE home_id = :home_id
               AND id = :device_id
@@ -50,6 +56,12 @@ class DeviceRepositoryImpl:
             is_readonly_device=row["is_readonly_device"],
             is_complex_device=row["is_complex_device"],
             entry_behavior=row["entry_behavior"],
+            confirmation_type=row["confirmation_type"],
+            default_control_target=row["default_control_target"],
+            is_homepage_visible=row["is_homepage_visible"],
+            is_primary_device=row["is_primary_device"],
+            capabilities_json=as_dict(row["capabilities_json"]),
+            source_meta_json=as_dict(row["source_meta_json"]),
         )
 
     async def list_by_home(
@@ -80,7 +92,13 @@ class DeviceRepositoryImpl:
                 device_type,
                 is_readonly_device,
                 is_complex_device,
-                entry_behavior::text AS entry_behavior
+                confirmation_type::text AS confirmation_type,
+                entry_behavior::text AS entry_behavior,
+                default_control_target,
+                is_homepage_visible,
+                is_primary_device,
+                capabilities_json,
+                source_meta_json
             FROM devices
             WHERE {' AND '.join(clauses)}
             ORDER BY display_name ASC, id ASC
@@ -105,6 +123,12 @@ class DeviceRepositoryImpl:
                 is_readonly_device=row["is_readonly_device"],
                 is_complex_device=row["is_complex_device"],
                 entry_behavior=row["entry_behavior"],
+                confirmation_type=row["confirmation_type"],
+                default_control_target=row["default_control_target"],
+                is_homepage_visible=row["is_homepage_visible"],
+                is_primary_device=row["is_primary_device"],
+                capabilities_json=as_dict(row["capabilities_json"]),
+                source_meta_json=as_dict(row["source_meta_json"]),
             )
             for row in rows
         ]

@@ -30,6 +30,8 @@ class HomeAuthConfigRow:
     pin_retry_limit: int
     pin_lock_minutes: int
     pin_session_ttl_seconds: int
+    pin_hash: str | None = None
+    pin_salt: str | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,12 @@ class DeviceRow:
     is_readonly_device: bool
     is_complex_device: bool
     entry_behavior: str
+    confirmation_type: str | None = None
+    default_control_target: str | None = None
+    is_homepage_visible: bool = False
+    is_primary_device: bool = False
+    capabilities_json: dict[str, Any] | None = None
+    source_meta_json: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +96,9 @@ class DeviceControlSchemaRow:
     value_type: str | None
     value_range_json: dict[str, Any] | None
     allowed_values_json: list[Any] | None
+    unit: str | None = None
+    is_quick_action: bool = False
+    requires_detail_entry: bool = False
 
 
 @dataclass(frozen=True)
@@ -121,6 +132,35 @@ class DraftLeaseRow:
 
 
 @dataclass(frozen=True)
+class DraftLayoutRow:
+    id: str
+    home_id: str
+    draft_version: str
+    base_layout_version: str
+    background_asset_id: str | None
+    layout_meta_json: dict[str, Any]
+    readonly_snapshot_json: dict[str, Any] | None
+    updated_by_member_id: str | None
+    updated_by_terminal_id: str | None
+    updated_at: str
+
+
+@dataclass(frozen=True)
+class DraftHotspotRow:
+    id: str
+    draft_layout_id: str
+    hotspot_id: str
+    device_id: str
+    x: float
+    y: float
+    icon_type: str | None
+    label_mode: str | None
+    is_visible: bool
+    structure_order: int
+    updated_at: str
+
+
+@dataclass(frozen=True)
 class DeviceControlRequestRow:
     id: str
     home_id: str
@@ -129,7 +169,9 @@ class DeviceControlRequestRow:
     action_type: str
     payload_json: dict[str, Any]
     acceptance_status: str
+    confirmation_type: str
     execution_status: str
+    timeout_seconds: int
     final_runtime_state_json: dict[str, Any] | None
     error_code: str | None
     error_message: str | None
