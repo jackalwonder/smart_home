@@ -65,9 +65,10 @@ class EditorLeaseQueryRepositoryImpl:
             derived_status = "GRANTED"
         elif active_lease.terminal_id == terminal_id:
             expires_at = datetime.fromisoformat(active_lease.lease_expires_at)
-            derived_status = "GRANTED" if expires_at > now else "LOST"
+            derived_status = "GRANTED" if expires_at > now else "READ_ONLY"
         else:
-            derived_status = "LOCKED_BY_OTHER"
+            expires_at = datetime.fromisoformat(active_lease.lease_expires_at)
+            derived_status = "LOCKED_BY_OTHER" if expires_at > now else "READ_ONLY"
         return EditorLeaseContextReadModel(
             active_lease=active_lease,
             derived_lock_status=derived_status,

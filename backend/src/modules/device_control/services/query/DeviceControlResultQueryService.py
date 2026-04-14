@@ -24,5 +24,5 @@ class DeviceControlResultQueryService:
             input.request_id,
         )
         if result is None:
-            raise AppError(ErrorCode.DEVICE_NOT_FOUND, "control request not found")
+            raise AppError(ErrorCode.CONTROL_REQUEST_NOT_FOUND, "control request not found")
         return result

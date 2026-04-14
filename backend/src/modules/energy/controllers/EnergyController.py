@@ -5,7 +5,8 @@ from dataclasses import asdict
 from fastapi import APIRouter, Body, Depends, Query, Request
 from pydantic import BaseModel, Field
 
-from src.app.container import get_energy_service
+from src.app.container import get_energy_service, get_request_context_service
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.energy.services.EnergyService import EnergyService
 from src.shared.http.ResponseEnvelope import success_response
 
@@ -13,8 +14,8 @@ router = APIRouter(prefix="/api/v1/energy", tags=["energy"])
 
 
 class EnergyBindingBody(BaseModel):
-    home_id: str
-    terminal_id: str
+    home_id: str | None = None
+    terminal_id: str | None = None
     payload: dict = Field(default_factory=dict)
     member_id: str | None = None
 
@@ -22,10 +23,11 @@ class EnergyBindingBody(BaseModel):
 @router.get("")
 async def get_energy(
     request: Request,
-    home_id: str = Query(...),
     service: EnergyService = Depends(get_energy_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    return success_response(request, asdict(await service.get_energy(home_id)))
+    context = await request_context_service.resolve_http_request(request, require_home=True)
+    return success_response(request, asdict(await service.get_energy(context.home_id)))
 
 
 @router.put("/binding")
@@ -33,10 +35,25 @@ async def put_energy_binding(
     request: Request,
     body: EnergyBindingBody = Body(...),
     service: EnergyService = Depends(get_energy_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     return success_response(
         request,
-        asdict(await service.update_binding(body.home_id, body.terminal_id, body.payload, body.member_id)),
+        asdict(
+            await service.update_binding(
+                context.home_id,
+                context.terminal_id,
+                body.payload,
+                body.member_id or context.operator_id,
+            )
+        ),
     )
 
 
@@ -45,10 +62,24 @@ async def delete_energy_binding(
     request: Request,
     body: EnergyBindingBody = Body(...),
     service: EnergyService = Depends(get_energy_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     return success_response(
         request,
-        asdict(await service.delete_binding(body.home_id, body.terminal_id, body.member_id)),
+        asdict(
+            await service.delete_binding(
+                context.home_id,
+                context.terminal_id,
+                body.member_id or context.operator_id,
+            )
+        ),
     )
 
 
@@ -57,5 +88,16 @@ async def post_energy_refresh(
     request: Request,
     body: EnergyBindingBody = Body(...),
     service: EnergyService = Depends(get_energy_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    return success_response(request, asdict(await service.refresh(body.home_id, body.terminal_id)))
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
+    return success_response(
+        request,
+        asdict(await service.refresh(context.home_id, context.terminal_id)),
+    )

@@ -4,9 +4,11 @@ from src.app.container import (
     get_energy_service,
     get_media_service,
     get_pin_verification_service,
+    get_request_context_service,
     get_session_query_service,
     get_system_connection_service,
 )
+from src.modules.auth.services.query.RequestContextService import RequestContext
 from src.modules.auth.services.command.PinVerificationService import (
     PinSessionStatusView,
     PinVerificationView,
@@ -54,6 +56,7 @@ class FakePinVerificationService:
             pin_session_expires_at="2026-04-14T10:30:00Z",
             remaining_attempts=5,
             lock_until=None,
+            session_token="pin-session-1",
         )
 
     async def get_session_status(self, _home_id, _terminal_id):
@@ -180,17 +183,24 @@ class FakeMediaService:
         }
 
 
+class FakeRequestContextService:
+    async def resolve_http_request(self, *_args, **_kwargs):
+        return RequestContext(
+            home_id="home-1",
+            terminal_id="terminal-1",
+            operator_id="member-1",
+        )
+
+
 def test_auth_system_energy_and_media_routes(app, client):
     app.dependency_overrides[get_session_query_service] = lambda: FakeSessionQueryService()
     app.dependency_overrides[get_pin_verification_service] = lambda: FakePinVerificationService()
     app.dependency_overrides[get_system_connection_service] = lambda: FakeSystemConnectionService()
     app.dependency_overrides[get_energy_service] = lambda: FakeEnergyService()
     app.dependency_overrides[get_media_service] = lambda: FakeMediaService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
-    auth_response = client.get(
-        "/api/v1/auth/session",
-        params={"home_id": "home-1", "terminal_id": "terminal-1"},
-    )
+    auth_response = client.get("/api/v1/auth/session")
     pin_verify_response = client.post(
         "/api/v1/auth/pin/verify",
         json={"home_id": "home-1", "terminal_id": "terminal-1", "pin": "1234"},
@@ -199,12 +209,10 @@ def test_auth_system_energy_and_media_routes(app, client):
         "/api/v1/auth/pin/session",
         params={"home_id": "home-1", "terminal_id": "terminal-1"},
     )
-    system_get_response = client.get("/api/v1/system-connections", params={"home_id": "home-1"})
+    system_get_response = client.get("/api/v1/system-connections")
     system_save_response = client.put(
         "/api/v1/system-connections/home-assistant",
         json={
-            "home_id": "home-1",
-            "terminal_id": "terminal-1",
             "base_url": "https://ha.example.com",
             "auth_payload": {"token": "secret"},
         },
@@ -212,28 +220,30 @@ def test_auth_system_energy_and_media_routes(app, client):
     system_test_response = client.post(
         "/api/v1/system-connections/home-assistant/test",
         json={
-            "home_id": "home-1",
-            "terminal_id": "terminal-1",
-            "base_url": "https://ha.example.com",
-            "auth_payload": {"token": "secret"},
+            "use_saved_config": False,
+            "candidate_config": {
+                "base_url": "https://ha.example.com",
+                "auth_payload": {"token": "secret"},
+            },
         },
     )
     reload_response = client.post(
         "/api/v1/devices/reload",
-        json={"home_id": "home-1", "terminal_id": "terminal-1"},
+        json={"force_full_sync": True},
     )
-    energy_get_response = client.get("/api/v1/energy", params={"home_id": "home-1"})
+    energy_get_response = client.get("/api/v1/energy")
     energy_refresh_response = client.post(
         "/api/v1/energy/refresh",
-        json={"home_id": "home-1", "terminal_id": "terminal-1", "payload": {}},
+        json={"terminal_id": "terminal-1", "payload": {}},
     )
-    media_get_response = client.get("/api/v1/media/default", params={"home_id": "home-1"})
+    media_get_response = client.get("/api/v1/media/default")
 
     assert auth_response.json()["data"]["operator_id"] == "member-1"
     assert auth_response.json()["data"]["pin_session_expires_at"] == "2026-04-14T10:30:00Z"
 
     assert pin_verify_response.json()["data"]["pin_session_active"] is True
     assert pin_verify_response.json()["data"]["remaining_attempts"] == 5
+    assert "pin_session_token=pin-session-1" in pin_verify_response.headers["set-cookie"]
     assert pin_session_response.json()["data"]["remaining_lock_seconds"] == 0
 
     assert system_get_response.json()["data"]["home_assistant"]["connection_status"] == "CONNECTED"

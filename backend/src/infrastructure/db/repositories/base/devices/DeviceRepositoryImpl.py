@@ -141,15 +141,18 @@ class DeviceRepositoryImpl:
     ) -> None:
         set_clauses: list[str] = []
         params: dict[str, object] = {"device_id": device_id}
-        if patch.room_id is not None:
+        if patch.room_id_provided:
             set_clauses.append("room_id = :room_id")
             params["room_id"] = patch.room_id
-        if patch.device_type is not None:
+        if patch.device_type_provided:
             set_clauses.append("device_type = :device_type")
             params["device_type"] = patch.device_type
-        if patch.is_primary_device is not None:
+        if patch.is_primary_device_provided:
             set_clauses.append("is_primary_device = :is_primary_device")
             params["is_primary_device"] = patch.is_primary_device
+        if patch.default_control_target_provided:
+            set_clauses.append("default_control_target = :default_control_target")
+            params["default_control_target"] = patch.default_control_target
         if patch.source_meta_json is not None:
             set_clauses.append("source_meta_json = :source_meta_json")
             params["source_meta_json"] = as_dict(patch.source_meta_json)

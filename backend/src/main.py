@@ -38,6 +38,8 @@ from src.shared.http.ResponseEnvelope import error_response, success_response
 
 
 def _status_code_for_error(code: ErrorCode) -> int:
+    if code == ErrorCode.UNAUTHORIZED:
+        return 401
     if code in {
         ErrorCode.REQUEST_ID_CONFLICT,
         ErrorCode.VERSION_CONFLICT,
@@ -47,7 +49,7 @@ def _status_code_for_error(code: ErrorCode) -> int:
         return 409
     if code in {ErrorCode.PIN_REQUIRED, ErrorCode.PIN_LOCKED}:
         return 403
-    if code == ErrorCode.DEVICE_NOT_FOUND:
+    if code in {ErrorCode.DEVICE_NOT_FOUND, ErrorCode.CONTROL_REQUEST_NOT_FOUND}:
         return 404
     if code == ErrorCode.HA_UNAVAILABLE:
         return 503

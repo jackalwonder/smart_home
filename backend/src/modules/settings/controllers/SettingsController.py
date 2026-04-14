@@ -8,9 +8,11 @@ from pydantic import BaseModel, Field
 
 from src.app.container import (
     get_favorites_query_service,
+    get_request_context_service,
     get_settings_query_service,
     get_settings_save_service,
 )
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.settings.services.command.SettingsSaveService import (
     SettingsSaveInput,
     SettingsSaveService,
@@ -29,7 +31,7 @@ router = APIRouter(tags=["settings"])
 
 
 class SettingsSaveRequestBody(BaseModel):
-    home_id: str = Field(...)
+    home_id: str | None = Field(default=None)
     settings_version: str | None = None
     page_settings: dict[str, Any] = Field(default_factory=dict)
     function_settings: dict[str, Any] = Field(default_factory=dict)
@@ -48,46 +50,50 @@ class SettingsSaveResponse(BaseModel):
 @router.get("/api/v1/settings")
 async def get_settings(
     request: Request,
-    home_id: str = Query(...),
     service: SettingsQueryService = Depends(get_settings_query_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    view = await service.get_settings(SettingsQueryInput(home_id=home_id))
+    context = await request_context_service.resolve_http_request(request, require_home=True)
+    view = await service.get_settings(SettingsQueryInput(home_id=context.home_id))
     return success_response(request, asdict(view))
 
 
 @router.get("/api/v1/function-settings")
 async def get_function_settings(
     request: Request,
-    home_id: str = Query(...),
     service: SettingsQueryService = Depends(get_settings_query_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(request, require_home=True)
     return success_response(
         request,
-        await service.get_function_settings(SettingsQueryInput(home_id=home_id)),
+        await service.get_function_settings(SettingsQueryInput(home_id=context.home_id)),
     )
 
 
 @router.get("/api/v1/page-settings")
 async def get_page_settings(
     request: Request,
-    home_id: str = Query(...),
     service: SettingsQueryService = Depends(get_settings_query_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(request, require_home=True)
     return success_response(
         request,
-        await service.get_page_settings(SettingsQueryInput(home_id=home_id)),
+        await service.get_page_settings(SettingsQueryInput(home_id=context.home_id)),
     )
 
 
 @router.get("/api/v1/favorites")
 async def get_favorites(
     request: Request,
-    home_id: str = Query(...),
     service: FavoritesQueryService = Depends(get_favorites_query_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(request, require_home=True)
     return success_response(
         request,
-        await service.get_favorites(FavoritesQueryInput(home_id=home_id)),
+        await service.get_favorites(FavoritesQueryInput(home_id=context.home_id)),
     )
 
 
@@ -96,16 +102,24 @@ async def save_settings(
     request: Request,
     body: SettingsSaveRequestBody = Body(...),
     service: SettingsSaveService = Depends(get_settings_save_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     view = await service.save(
         SettingsSaveInput(
-            home_id=body.home_id,
+            home_id=context.home_id,
             settings_version=body.settings_version,
             page_settings=body.page_settings,
             function_settings=body.function_settings,
             favorites=body.favorites,
-            terminal_id=body.terminal_id,
-            member_id=body.member_id,
+            terminal_id=context.terminal_id,
+            member_id=body.member_id or context.operator_id,
         )
     )
     return success_response(request, SettingsSaveResponse.model_validate(asdict(view)))

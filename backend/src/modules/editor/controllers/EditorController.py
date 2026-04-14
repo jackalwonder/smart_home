@@ -10,7 +10,9 @@ from src.app.container import (
     get_editor_draft_service,
     get_editor_publish_service,
     get_editor_session_service,
+    get_request_context_service,
 )
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.editor.services.EditorDraftService import (
     EditorDraftDiscardInput,
     EditorDraftInput,
@@ -36,19 +38,19 @@ router = APIRouter(prefix="/api/v1/editor", tags=["editor"])
 
 
 class EditorSessionRequestBody(BaseModel):
-    home_id: str
+    home_id: str | None = None
     terminal_id: str
     takeover_if_locked: bool = False
     member_id: str | None = None
 
 
 class EditorHeartbeatRequestBody(BaseModel):
-    home_id: str
+    home_id: str | None = None
     terminal_id: str
 
 
 class EditorDraftSaveRequestBody(BaseModel):
-    home_id: str
+    home_id: str | None = None
     terminal_id: str
     lease_id: str
     draft_version: str
@@ -60,7 +62,7 @@ class EditorDraftSaveRequestBody(BaseModel):
 
 
 class EditorPublishRequestBody(BaseModel):
-    home_id: str
+    home_id: str | None = None
     terminal_id: str
     lease_id: str
     draft_version: str
@@ -69,7 +71,7 @@ class EditorPublishRequestBody(BaseModel):
 
 
 class EditorDraftDeleteRequestBody(BaseModel):
-    home_id: str
+    home_id: str | None = None
     terminal_id: str
     lease_id: str
     draft_version: str | None = None
@@ -80,13 +82,21 @@ async def open_editor_session(
     request: Request,
     body: EditorSessionRequestBody = Body(...),
     service: EditorSessionService = Depends(get_editor_session_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     view: EditorSessionView = await service.open_session(
         EditorSessionInput(
-            home_id=body.home_id,
-            terminal_id=body.terminal_id,
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
             takeover_if_locked=body.takeover_if_locked,
-            member_id=body.member_id,
+            member_id=body.member_id or context.operator_id,
         )
     )
     return success_response(request, asdict(view))
@@ -95,38 +105,23 @@ async def open_editor_session(
 @router.get("/draft")
 async def get_editor_draft(
     request: Request,
-    home_id: str = Query(...),
+    lease_id: str | None = Query(default=None),
     service: EditorDraftService = Depends(get_editor_draft_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    view = await service.get_draft(EditorDraftInput(home_id=home_id))
-    if view is None:
-        return success_response(
-            request,
-            {
-                "draft_exists": False,
-                "draft_version": None,
-                "base_layout_version": None,
-                "lock_status": "READ_ONLY",
-                "layout": None,
-                "readonly": True,
-            },
-        )
-    return success_response(
+    context = await request_context_service.resolve_http_request(
         request,
-        {
-            "draft_exists": True,
-            "draft_version": view.draft_version,
-            "base_layout_version": view.base_layout_version,
-            "lock_status": "GRANTED" if view.active_lease is not None else "READ_ONLY",
-            "layout": {
-                "background_image_url": view.background_asset_id,
-                "background_image_size": None,
-                "hotspots": view.hotspots,
-                "layout_meta": view.layout_meta,
-            },
-            "readonly": view.active_lease is None,
-        },
+        require_home=True,
+        require_terminal=False,
     )
+    view = await service.get_draft(
+        EditorDraftInput(
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
+            lease_id=lease_id,
+        )
+    )
+    return success_response(request, asdict(view))
 
 
 @router.post("/sessions/{lease_id}/heartbeat")
@@ -135,11 +130,19 @@ async def editor_heartbeat(
     lease_id: str,
     body: EditorHeartbeatRequestBody = Body(...),
     service: EditorSessionService = Depends(get_editor_session_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     view: EditorHeartbeatView = await service.heartbeat(
         EditorHeartbeatInput(
-            home_id=body.home_id,
-            terminal_id=body.terminal_id,
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
             lease_id=lease_id,
         )
     )
@@ -152,13 +155,22 @@ async def editor_takeover(
     lease_id: str,
     body: EditorSessionRequestBody = Body(...),
     service: EditorSessionService = Depends(get_editor_session_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     view = await service.open_session(
         EditorSessionInput(
-            home_id=body.home_id,
-            terminal_id=body.terminal_id,
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
             takeover_if_locked=True,
-            member_id=body.member_id,
+            member_id=body.member_id or context.operator_id,
+            expected_lease_id=lease_id,
         )
     )
     return success_response(
@@ -167,7 +179,7 @@ async def editor_takeover(
             "taken_over": True,
             "new_lease_id": view.lease_id,
             "lease_expires_at": view.lease_expires_at,
-            "previous_terminal_id": view.locked_by,
+            "previous_terminal_id": view.previous_terminal_id,
             "draft_version": view.draft_version,
         },
     )
@@ -178,18 +190,26 @@ async def save_editor_draft(
     request: Request,
     body: EditorDraftSaveRequestBody = Body(...),
     service: EditorDraftService = Depends(get_editor_draft_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     view: EditorDraftSaveView = await service.save_draft(
         EditorDraftSaveInput(
-            home_id=body.home_id,
-            terminal_id=body.terminal_id,
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
             lease_id=body.lease_id,
             draft_version=body.draft_version,
             base_layout_version=body.base_layout_version,
             background_asset_id=body.background_asset_id,
             layout_meta=body.layout_meta,
             hotspots=body.hotspots,
-            member_id=body.member_id,
+            member_id=body.member_id or context.operator_id,
         )
     )
     return success_response(request, asdict(view))
@@ -200,15 +220,23 @@ async def publish_editor_draft(
     request: Request,
     body: EditorPublishRequestBody = Body(...),
     service: EditorPublishService = Depends(get_editor_publish_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     view: EditorPublishView = await service.publish(
         EditorPublishInput(
-            home_id=body.home_id,
-            terminal_id=body.terminal_id,
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
             lease_id=body.lease_id,
             draft_version=body.draft_version,
             base_layout_version=body.base_layout_version,
-            member_id=body.member_id,
+            member_id=body.member_id or context.operator_id,
         )
     )
     return success_response(request, asdict(view))
@@ -219,13 +247,21 @@ async def discard_editor_draft(
     request: Request,
     body: EditorDraftDeleteRequestBody = Body(...),
     service: EditorDraftService = Depends(get_editor_draft_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=body.home_id,
+        explicit_terminal_id=body.terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
     return success_response(
         request,
         await service.discard_draft(
             EditorDraftDiscardInput(
-                home_id=body.home_id,
-                terminal_id=body.terminal_id,
+                home_id=context.home_id,
+                terminal_id=context.terminal_id,
                 lease_id=body.lease_id,
                 draft_version=body.draft_version,
             )

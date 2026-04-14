@@ -112,6 +112,7 @@ from src.modules.auth.services.command.PinVerificationService import (
 from src.modules.backups.services.BackupRestoreService import BackupRestoreService
 from src.modules.backups.services.BackupService import BackupService
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.auth.services.query.SessionQueryService import SessionQueryService
 from src.modules.device_control.services.command.DeviceControlCommandService import (
     DeviceControlCommandService,
@@ -390,6 +391,11 @@ def get_management_pin_guard() -> ManagementPinGuard:
 
 
 @lru_cache(maxsize=1)
+def get_request_context_service() -> RequestContextService:
+    return RequestContextService(get_database())
+
+
+@lru_cache(maxsize=1)
 def get_session_query_service() -> SessionQueryService:
     return SessionQueryService(
         auth_session_query_repository=get_auth_session_query_repository(),
@@ -508,6 +514,7 @@ def get_editor_draft_service() -> EditorDraftService:
         draft_lease_repository=get_draft_lease_repository(),
         management_pin_guard=get_management_pin_guard(),
         version_token_generator=get_version_token_generator(),
+        clock=get_clock(),
     )
 
 

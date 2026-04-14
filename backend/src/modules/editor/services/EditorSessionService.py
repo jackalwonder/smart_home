@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from src.repositories.base.editor.DraftHotspotRepository import (
     DraftHotspotRepository,
@@ -29,6 +29,9 @@ from src.shared.kernel.RepoContext import RepoContext
 from src.shared.kernel.UnitOfWork import UnitOfWork
 from src.shared.kernel.VersionTokenGenerator import VersionTokenGenerator
 
+LEASE_TTL_SECONDS = 60
+HEARTBEAT_INTERVAL_SECONDS = 20
+
 
 @dataclass(frozen=True)
 class EditorSessionInput:
@@ -36,6 +39,7 @@ class EditorSessionInput:
     terminal_id: str
     takeover_if_locked: bool = False
     member_id: str | None = None
+    expected_lease_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -48,6 +52,7 @@ class EditorSessionView:
     locked_by: str | None
     draft_version: str | None
     current_layout_version: str | None
+    previous_terminal_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -95,6 +100,11 @@ class EditorSessionService:
         self._event_id_generator = event_id_generator
         self._clock = clock
 
+    def _is_lease_valid(self, lease, now) -> bool:
+        if lease is None or not lease.is_active:
+            return False
+        return lease.lease_expires_at is not None and now < datetime.fromisoformat(lease.lease_expires_at)
+
     async def open_session(self, input: EditorSessionInput) -> EditorSessionView:
         await self._management_pin_guard.require_active_session(input.home_id, input.terminal_id)
         now = self._clock.now()
@@ -105,15 +115,16 @@ class EditorSessionService:
             now,
         )
         active_lease = lease_context.active_lease
+        active_lease_is_valid = self._is_lease_valid(active_lease, now)
         draft = await self._draft_layout_repository.find_by_home_id(input.home_id)
-        if active_lease is not None and active_lease.terminal_id == input.terminal_id:
+        if active_lease_is_valid and active_lease is not None and active_lease.terminal_id == input.terminal_id:
             return EditorSessionView(
                 granted=True,
                 lock_status="GRANTED",
                 lease_id=active_lease.lease_id,
                 lease_expires_at=active_lease.lease_expires_at,
-                heartbeat_interval_seconds=10,
-                locked_by=input.terminal_id,
+                heartbeat_interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
+                locked_by=None,
                 draft_version=draft.draft_version if draft is not None else None,
                 current_layout_version=(
                     draft.base_layout_version
@@ -121,13 +132,18 @@ class EditorSessionService:
                     else current_layout.layout_version if current_layout is not None else None
                 ),
             )
-        if active_lease is not None and active_lease.terminal_id != input.terminal_id and not input.takeover_if_locked:
+        if (
+            active_lease_is_valid
+            and active_lease is not None
+            and active_lease.terminal_id != input.terminal_id
+            and not input.takeover_if_locked
+        ):
             return EditorSessionView(
                 granted=False,
                 lock_status="LOCKED_BY_OTHER",
                 lease_id=active_lease.lease_id,
                 lease_expires_at=active_lease.lease_expires_at,
-                heartbeat_interval_seconds=10,
+                heartbeat_interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
                 locked_by=active_lease.terminal_id,
                 draft_version=draft.draft_version if draft is not None else None,
                 current_layout_version=(
@@ -136,12 +152,22 @@ class EditorSessionService:
                     else current_layout.layout_version if current_layout is not None else None
                 ),
             )
+        if (
+            input.takeover_if_locked
+            and input.expected_lease_id is not None
+            and active_lease_is_valid
+            and active_lease is not None
+            and input.expected_lease_id != active_lease.lease_id
+        ):
+            raise AppError(ErrorCode.DRAFT_LOCK_LOST, "editor lease takeover target is stale")
 
         async def _transaction(tx) -> EditorSessionView:
             ctx = RepoContext(tx=tx)
             takeover_from = None
+            previous_terminal_id = None
             if active_lease is not None:
                 takeover_from = active_lease.lease_id
+                previous_terminal_id = active_lease.terminal_id
                 await self._draft_lease_repository.deactivate_lease(
                     active_lease.lease_id,
                     "TAKEN_OVER" if active_lease.terminal_id != input.terminal_id else "RELEASED",
@@ -150,7 +176,7 @@ class EditorSessionService:
                 )
             lease_id = self._id_generator.next_id()
             heartbeat_at = now.isoformat()
-            lease_expires_at = (now + timedelta(seconds=30)).isoformat()
+            lease_expires_at = (now + timedelta(seconds=LEASE_TTL_SECONDS)).isoformat()
             inserted_lease = await self._draft_lease_repository.insert(
                 NewDraftLeaseRow(
                     home_id=input.home_id,
@@ -160,7 +186,7 @@ class EditorSessionService:
                     lease_status="ACTIVE",
                     is_active=True,
                     lease_expires_at=lease_expires_at,
-                    heartbeat_interval_seconds=10,
+                    heartbeat_interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
                     last_heartbeat_at=heartbeat_at,
                     taken_over_from_lease_id=takeover_from,
                 ),
@@ -231,10 +257,15 @@ class EditorSessionService:
                 lock_status="GRANTED",
                 lease_id=inserted_lease.lease_id,
                 lease_expires_at=inserted_lease.lease_expires_at,
-                heartbeat_interval_seconds=10,
-                locked_by=input.terminal_id,
+                heartbeat_interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
+                locked_by=None,
                 draft_version=draft.draft_version,
                 current_layout_version=base_layout_version,
+                previous_terminal_id=(
+                    previous_terminal_id
+                    if previous_terminal_id != input.terminal_id
+                    else None
+                ),
             )
 
         return await self._unit_of_work.run_in_transaction(_transaction)
@@ -244,7 +275,9 @@ class EditorSessionService:
         if lease is None or not lease.is_active or lease.terminal_id != input.terminal_id:
             raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
         now = self._clock.now()
-        expires_at = (now + timedelta(seconds=30)).isoformat()
+        if not self._is_lease_valid(lease, now):
+            raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
+        expires_at = (now + timedelta(seconds=LEASE_TTL_SECONDS)).isoformat()
         updated = await self._draft_lease_repository.heartbeat(
             input.lease_id,
             now.isoformat(),

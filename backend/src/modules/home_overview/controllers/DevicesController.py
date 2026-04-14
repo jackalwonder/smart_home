@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, Depends, Query, Request
 from pydantic import BaseModel
 
-from src.app.container import get_device_catalog_service
+from src.app.container import get_device_catalog_service, get_request_context_service
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.home_overview.services.DeviceCatalogService import DeviceCatalogService
 from src.shared.http.ResponseEnvelope import success_response
 
@@ -11,17 +12,15 @@ router = APIRouter(tags=["devices"])
 
 
 class DeviceMappingBody(BaseModel):
-    home_id: str
-    terminal_id: str
-    room_name: str | None = None
+    room_id: str | None = None
     device_type: str | None = None
     is_primary_device: bool | None = None
+    default_control_target: str | None = None
 
 
 @router.get("/api/v1/devices")
 async def list_devices(
     request: Request,
-    home_id: str = Query(...),
     room_id: str | None = Query(default=None),
     device_type: str | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -31,11 +30,16 @@ async def list_devices(
     page: int = Query(default=1),
     page_size: int = Query(default=20),
     service: DeviceCatalogService = Depends(get_device_catalog_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+    )
     return success_response(
         request,
         await service.list_devices(
-            home_id,
+            context.home_id,
             room_id=room_id,
             device_type=device_type,
             status=status,
@@ -52,15 +56,19 @@ async def list_devices(
 async def get_device_detail(
     request: Request,
     device_id: str,
-    home_id: str = Query(...),
     include_runtime_fields: bool = Query(default=True),
     include_editor_fields: bool = Query(default=False),
     service: DeviceCatalogService = Depends(get_device_catalog_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+    )
     return success_response(
         request,
         await service.get_device_detail(
-            home_id,
+            context.home_id,
             device_id,
             include_runtime_fields=include_runtime_fields,
             include_editor_fields=include_editor_fields,
@@ -71,14 +79,18 @@ async def get_device_detail(
 @router.get("/api/v1/rooms")
 async def list_rooms(
     request: Request,
-    home_id: str = Query(...),
     include_counts: bool = Query(default=True),
     service: DeviceCatalogService = Depends(get_device_catalog_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+    )
     return success_response(
         request,
         {
-            "rooms": await service.list_rooms(home_id, include_counts=include_counts),
+            "rooms": await service.list_rooms(context.home_id, include_counts=include_counts),
         },
     )
 
@@ -89,15 +101,23 @@ async def update_device_mapping(
     device_id: str,
     body: DeviceMappingBody = Body(...),
     service: DeviceCatalogService = Depends(get_device_catalog_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=True,
+    )
     return success_response(
         request,
         await service.update_mapping(
-            home_id=body.home_id,
-            terminal_id=body.terminal_id,
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
             device_id=device_id,
-            room_name=body.room_name,
+            room_id=body.room_id,
             device_type=body.device_type,
             is_primary_device=body.is_primary_device,
+            default_control_target=body.default_control_target,
+            provided_fields=body.model_fields_set,
         ),
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
 from src.repositories.base.editor.DraftHotspotRepository import DraftHotspotRepository
@@ -66,10 +67,21 @@ class EditorPublishService:
         self._event_id_generator = event_id_generator
         self._clock = clock
 
+    def _is_lease_valid(self, lease, now: datetime) -> bool:
+        if lease is None or not lease.is_active:
+            return False
+        return now < datetime.fromisoformat(lease.lease_expires_at)
+
     async def publish(self, input: EditorPublishInput) -> EditorPublishView:
         await self._management_pin_guard.require_active_session(input.home_id, input.terminal_id)
         lease = await self._draft_lease_repository.find_by_lease_id(input.home_id, input.lease_id)
-        if lease is None or not lease.is_active or lease.terminal_id != input.terminal_id:
+        now = self._clock.now()
+        if (
+            lease is None
+            or not lease.is_active
+            or lease.terminal_id != input.terminal_id
+            or not self._is_lease_valid(lease, now)
+        ):
             raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
         draft = await self._draft_layout_repository.find_by_home_id(input.home_id)
         if draft is None:
@@ -78,7 +90,7 @@ class EditorPublishService:
             raise AppError(ErrorCode.VERSION_CONFLICT, "draft version is stale")
 
         layout_version = self._version_token_generator.next_layout_version()
-        now_iso = self._clock.now().isoformat()
+        now_iso = now.isoformat()
 
         async def _transaction(tx) -> None:
             ctx = RepoContext(tx=tx)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import asdict, dataclass
+from typing import Any, AbstractSet
 
 from sqlalchemy import bindparam, text
 
@@ -26,6 +26,17 @@ class DeviceCatalogItem:
     is_readonly_device: bool
     is_complex_device: bool
     entry_behavior: str
+
+
+@dataclass(frozen=True)
+class DeviceMappingSaveView:
+    saved: bool
+    device_id: str
+    room_id: str | None
+    device_type: str | None
+    is_primary_device: bool
+    default_control_target: str | None
+    updated_at: str
 
 
 class DeviceCatalogService:
@@ -253,56 +264,88 @@ class DeviceCatalogService:
         home_id: str,
         terminal_id: str,
         device_id: str,
-        room_name: str | None,
+        room_id: str | None,
         device_type: str | None,
         is_primary_device: bool | None,
-    ) -> dict[str, str]:
+        default_control_target: str | None,
+        provided_fields: AbstractSet[str],
+    ) -> dict[str, Any]:
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
 
         async def _transaction(tx):
-            room_id = None
-            if room_name:
-                row = (
+            device = await self._device_repository.find_by_id(
+                home_id,
+                device_id,
+                ctx=RepoContext(tx=tx),
+            )
+            if device is None:
+                raise AppError(ErrorCode.DEVICE_NOT_FOUND, "device not found")
+
+            if "room_id" in provided_fields and room_id is not None:
+                room_row = (
                     await tx.session.execute(
                         text(
                             """
-                            INSERT INTO rooms (
-                                home_id,
-                                room_name,
-                                priority,
-                                visible_in_editor,
-                                sort_order,
-                                created_at,
-                                updated_at
-                            ) VALUES (
-                                :home_id,
-                                :room_name,
-                                0,
-                                true,
-                                0,
-                                now(),
-                                now()
-                            )
-                            ON CONFLICT (home_id, room_name) DO UPDATE
-                            SET updated_at = now()
-                            RETURNING id::text AS id
+                            SELECT id::text AS room_id
+                            FROM rooms
+                            WHERE home_id = :home_id
+                              AND id::text = :room_id
                             """
                         ),
-                        {"home_id": home_id, "room_name": room_name},
+                        {"home_id": home_id, "room_id": room_id},
                     )
-                ).mappings().one()
-                room_id = str(row["id"])
+                ).mappings().one_or_none()
+                if room_row is None:
+                    raise AppError(
+                        ErrorCode.INVALID_PARAMS,
+                        "room_id is invalid",
+                        details={"fields": [{"field": "room_id", "reason": "not_found"}]},
+                    )
 
             await self._device_repository.update_mapping(
                 device_id,
                 DeviceMappingPatch(
                     room_id=room_id,
+                    room_id_provided="room_id" in provided_fields,
                     device_type=device_type,
+                    device_type_provided="device_type" in provided_fields,
                     is_primary_device=is_primary_device,
+                    is_primary_device_provided="is_primary_device" in provided_fields,
+                    default_control_target=default_control_target,
+                    default_control_target_provided="default_control_target" in provided_fields,
                 ),
                 ctx=RepoContext(tx=tx),
             )
-            return {"device_id": device_id}
+            row = (
+                await tx.session.execute(
+                    text(
+                        """
+                        SELECT
+                            id::text AS device_id,
+                            room_id::text AS room_id,
+                            device_type,
+                            is_primary_device,
+                            default_control_target,
+                            updated_at::text AS updated_at
+                        FROM devices
+                        WHERE home_id = :home_id
+                          AND id = :device_id
+                        """
+                    ),
+                    {"home_id": home_id, "device_id": device_id},
+                )
+            ).mappings().one()
+            return asdict(
+                DeviceMappingSaveView(
+                    saved=True,
+                    device_id=row["device_id"],
+                    room_id=row["room_id"],
+                    device_type=row["device_type"],
+                    is_primary_device=row["is_primary_device"],
+                    default_control_target=row["default_control_target"],
+                    updated_at=row["updated_at"],
+                )
+            )
 
         return await self._unit_of_work.run_in_transaction(_transaction)
 

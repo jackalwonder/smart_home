@@ -48,23 +48,6 @@ class RealtimeService:
         self._ws_event_outbox_repository = ws_event_outbox_repository
         self._database = database
 
-    async def _validate_terminal(self, home_id: str, terminal_id: str) -> bool:
-        if self._database is None:
-            return True
-        stmt = text(
-            """
-            SELECT 1
-            FROM terminals
-            WHERE id = :terminal_id
-              AND home_id = :home_id
-            """
-        )
-        async with session_scope(self._database) as (session, _):
-            row = (
-                await session.execute(stmt, {"home_id": home_id, "terminal_id": terminal_id})
-            ).first()
-        return row is not None
-
     async def _touch_terminal(self, terminal_id: str, client_host: str | None) -> None:
         if self._database is None:
             return
@@ -162,12 +145,9 @@ class RealtimeService:
         self,
         websocket: WebSocket,
         home_id: str,
-        terminal_id: str | None,
+        terminal_id: str,
         last_event_id: str | None = None,
     ) -> None:
-        if terminal_id is None or not await self._validate_terminal(home_id, terminal_id):
-            await websocket.close(code=4401)
-            return
         await websocket.accept()
         await self._touch_terminal(terminal_id, websocket.client.host if websocket.client is not None else None)
         state = RealtimeConnectionState(

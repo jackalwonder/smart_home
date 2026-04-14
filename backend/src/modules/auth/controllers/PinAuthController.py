@@ -54,7 +54,22 @@ async def verify_pin(
             member_id=body.member_id,
         )
     )
-    return success_response(request, PinVerifyResponse.model_validate(asdict(view)))
+    response = success_response(request, PinVerifyResponse.model_validate(asdict(view)))
+    if view.session_token is not None:
+        response.set_cookie(
+            key="pin_session_token",
+            value=view.session_token,
+            httponly=True,
+            samesite="lax",
+        )
+        response.set_cookie(key="home_id", value=body.home_id, httponly=False, samesite="lax")
+        response.set_cookie(
+            key="terminal_id",
+            value=body.terminal_id,
+            httponly=False,
+            samesite="lax",
+        )
+    return response
 
 
 @router.get("/session")

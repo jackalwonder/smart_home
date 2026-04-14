@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from src.app.container import get_device_catalog_service
 from src.app.container import get_home_overview_query_service
+from src.app.container import get_request_context_service
 from src.infrastructure.weather.WeatherProvider import WeatherSnapshot
+from src.modules.auth.services.query.RequestContextService import RequestContext
 from src.modules.home_overview.services.query.HomeOverviewQueryService import HomeOverviewView
 from src.repositories.query.overview.types import (
     EnergySummaryReadModel,
@@ -122,7 +124,15 @@ class FakeDeviceCatalogService:
         }
 
     async def update_mapping(self, **_kwargs):
-        return {"device_id": "device-1"}
+        return {
+            "saved": True,
+            "device_id": "device-1",
+            "room_id": "room-1",
+            "device_type": "light",
+            "is_primary_device": True,
+            "default_control_target": "light",
+            "updated_at": "2026-04-14T10:00:00Z",
+        }
 
 
 class FakeHomeOverviewQueryService:
@@ -234,20 +244,35 @@ class FakeHomeOverviewQueryService:
         )
 
 
+class FakeRequestContextService:
+    async def resolve_http_request(self, *_args, **_kwargs):
+        return RequestContext(home_id="home-1", terminal_id="terminal-1")
+
+
 def test_catalog_routes_are_wrapped(app, client):
     app.dependency_overrides[get_device_catalog_service] = lambda: FakeDeviceCatalogService()
     app.dependency_overrides[get_home_overview_query_service] = lambda: FakeHomeOverviewQueryService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
-    overview_response = client.get("/api/v1/home/overview", params={"home_id": "home-1"})
-    devices_response = client.get("/api/v1/devices", params={"home_id": "home-1"})
-    rooms_response = client.get("/api/v1/rooms", params={"home_id": "home-1"})
+    overview_response = client.get("/api/v1/home/overview")
+    devices_response = client.get("/api/v1/devices")
+    rooms_response = client.get("/api/v1/rooms")
     detail_response = client.get(
         "/api/v1/devices/device-1",
-        params={"home_id": "home-1", "include_editor_fields": "true"},
+        params={"include_editor_fields": "true"},
     )
     panel_response = client.get(
         "/api/v1/home/panels/FAVORITES",
-        params={"home_id": "home-1", "room_id": "room-1"},
+        params={"room_id": "room-1"},
+    )
+    mapping_response = client.put(
+        "/api/v1/device-mappings/device-1",
+        json={
+            "room_id": "room-1",
+            "device_type": "light",
+            "is_primary_device": True,
+            "default_control_target": "light",
+        },
     )
 
     assert overview_response.status_code == 200
@@ -274,3 +299,8 @@ def test_catalog_routes_are_wrapped(app, client):
     assert panel_response.json()["success"] is True
     assert panel_response.json()["data"]["panel_type"] == "FAVORITES"
     assert panel_response.json()["data"]["summary"]["count"] == 1
+
+    assert mapping_response.status_code == 200
+    assert mapping_response.json()["success"] is True
+    assert mapping_response.json()["data"]["saved"] is True
+    assert mapping_response.json()["data"]["default_control_target"] == "light"

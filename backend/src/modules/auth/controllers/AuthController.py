@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
-from src.app.container import get_session_query_service
+from src.app.container import get_request_context_service, get_session_query_service
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.auth.services.query.SessionQueryService import (
     AuthSessionView,
     SessionQueryInput,
@@ -30,11 +31,18 @@ class AuthSessionResponse(BaseModel):
 @router.get("/session")
 async def get_auth_session(
     request: Request,
-    home_id: str = Query(...),
-    terminal_id: str = Query(...),
     service: SessionQueryService = Depends(get_session_query_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=True,
+    )
     view: AuthSessionView = await service.get_session(
-        SessionQueryInput(home_id=home_id, terminal_id=terminal_id)
+        SessionQueryInput(
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
+        )
     )
     return success_response(request, AuthSessionResponse.model_validate(asdict(view)))

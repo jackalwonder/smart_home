@@ -4,11 +4,15 @@ from src.app.container import (
     get_editor_draft_service,
     get_editor_publish_service,
     get_editor_session_service,
+    get_request_context_service,
 )
-from src.modules.editor.services.EditorDraftService import EditorDraftSaveView
+from src.modules.auth.services.query.RequestContextService import RequestContext
+from src.modules.editor.services.EditorDraftService import EditorDraftSaveView, EditorDraftView
 from src.modules.editor.services.EditorPublishService import EditorPublishView
-from src.modules.editor.services.EditorSessionService import EditorSessionView
-from src.repositories.read_models.index import DraftLeaseReadModel, EditorDraftReadModel
+from src.modules.editor.services.EditorSessionService import (
+    EditorHeartbeatView,
+    EditorSessionView,
+)
 
 
 class FakeEditorSessionService:
@@ -18,15 +22,13 @@ class FakeEditorSessionService:
             lock_status="GRANTED",
             lease_id="lease-1",
             lease_expires_at="2026-04-14T10:00:00+00:00",
-            heartbeat_interval_seconds=10,
-            locked_by="terminal-1",
+            heartbeat_interval_seconds=20,
+            locked_by=None,
             draft_version="dv_1",
             current_layout_version="lv_current",
         )
 
     async def heartbeat(self, _input):
-        from src.modules.editor.services.EditorSessionService import EditorHeartbeatView
-
         return EditorHeartbeatView(
             lease_id="lease-1",
             lease_expires_at="2026-04-14T10:00:00+00:00",
@@ -36,34 +38,29 @@ class FakeEditorSessionService:
 
 class FakeEditorDraftService:
     async def get_draft(self, _input):
-        return EditorDraftReadModel(
-            draft_id="draft-1",
-            home_id="home-1",
+        return EditorDraftView(
+            draft_exists=True,
             draft_version="dv_1",
             base_layout_version="INITIAL",
-            background_asset_id=None,
-            layout_meta={"density": "comfortable"},
-            hotspots=[
-                {
-                    "hotspot_id": "hs-1",
-                    "device_id": "device-1",
-                    "x": 0.5,
-                    "y": 0.5,
-                    "is_visible": True,
-                    "structure_order": 0,
-                    "icon_type": None,
-                    "label_mode": None,
-                }
-            ],
-            active_lease=DraftLeaseReadModel(
-                lease_id="lease-1",
-                terminal_id="terminal-1",
-                member_id=None,
-                lease_status="ACTIVE",
-                is_active=True,
-                lease_expires_at="2026-04-14T10:00:00+00:00",
-                last_heartbeat_at="2026-04-14T09:59:30+00:00",
-            ),
+            lock_status="GRANTED",
+            layout={
+                "background_image_url": None,
+                "background_image_size": None,
+                "hotspots": [
+                    {
+                        "hotspot_id": "hs-1",
+                        "device_id": "device-1",
+                        "x": 0.5,
+                        "y": 0.5,
+                        "is_visible": True,
+                        "structure_order": 0,
+                        "icon_type": None,
+                        "label_mode": None,
+                    }
+                ],
+                "layout_meta": {"density": "comfortable"},
+            },
+            readonly=False,
         )
 
     async def save_draft(self, _input):
@@ -88,15 +85,21 @@ class FakeEditorPublishService:
         )
 
 
+class FakeRequestContextService:
+    async def resolve_http_request(self, *_args, **_kwargs):
+        return RequestContext(home_id="home-1", terminal_id="terminal-1", operator_id=None)
+
+
 def test_open_and_get_editor_draft(app, client):
     app.dependency_overrides[get_editor_session_service] = lambda: FakeEditorSessionService()
     app.dependency_overrides[get_editor_draft_service] = lambda: FakeEditorDraftService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
     open_response = client.post(
         "/api/v1/editor/sessions",
-        json={"home_id": "home-1", "terminal_id": "terminal-1"},
+        json={"terminal_id": "terminal-1"},
     )
-    draft_response = client.get("/api/v1/editor/draft", params={"home_id": "home-1"})
+    draft_response = client.get("/api/v1/editor/draft", params={"lease_id": "lease-1"})
 
     assert open_response.status_code == 200
     assert open_response.json()["success"] is True
@@ -112,11 +115,11 @@ def test_open_and_get_editor_draft(app, client):
 def test_save_and_publish_editor_draft(app, client):
     app.dependency_overrides[get_editor_draft_service] = lambda: FakeEditorDraftService()
     app.dependency_overrides[get_editor_publish_service] = lambda: FakeEditorPublishService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
     save_response = client.put(
         "/api/v1/editor/draft",
         json={
-            "home_id": "home-1",
             "terminal_id": "terminal-1",
             "lease_id": "lease-1",
             "draft_version": "dv_1",
@@ -129,7 +132,6 @@ def test_save_and_publish_editor_draft(app, client):
     publish_response = client.post(
         "/api/v1/editor/publish",
         json={
-            "home_id": "home-1",
             "terminal_id": "terminal-1",
             "lease_id": "lease-1",
             "draft_version": "dv_2",
@@ -149,12 +151,12 @@ def test_save_and_publish_editor_draft(app, client):
 
 def test_delete_editor_draft(app, client):
     app.dependency_overrides[get_editor_draft_service] = lambda: FakeEditorDraftService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
     response = client.request(
         "DELETE",
         "/api/v1/editor/draft",
         json={
-            "home_id": "home-1",
             "terminal_id": "terminal-1",
             "lease_id": "lease-1",
             "draft_version": "dv_1",

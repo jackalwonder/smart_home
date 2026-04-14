@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
@@ -16,6 +17,7 @@ from src.repositories.base.editor.DraftLeaseRepository import DraftLeaseReposito
 from src.repositories.query.editor.EditorDraftQueryRepository import EditorDraftQueryRepository
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
+from src.shared.kernel.Clock import Clock
 from src.shared.kernel.UnitOfWork import UnitOfWork
 from src.shared.kernel.VersionTokenGenerator import VersionTokenGenerator
 
@@ -23,6 +25,8 @@ from src.shared.kernel.VersionTokenGenerator import VersionTokenGenerator
 @dataclass(frozen=True)
 class EditorDraftInput:
     home_id: str
+    terminal_id: str | None = None
+    lease_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,16 @@ class EditorDraftSaveView:
     lock_status: str
 
 
+@dataclass(frozen=True)
+class EditorDraftView:
+    draft_exists: bool
+    draft_version: str | None
+    base_layout_version: str | None
+    lock_status: str
+    layout: dict[str, Any] | None
+    readonly: bool
+
+
 class EditorDraftService:
     def __init__(
         self,
@@ -64,6 +78,7 @@ class EditorDraftService:
         draft_lease_repository: DraftLeaseRepository,
         management_pin_guard: ManagementPinGuard,
         version_token_generator: VersionTokenGenerator,
+        clock: Clock,
     ) -> None:
         self._unit_of_work = unit_of_work
         self._editor_draft_query_repository = editor_draft_query_repository
@@ -72,14 +87,63 @@ class EditorDraftService:
         self._draft_lease_repository = draft_lease_repository
         self._management_pin_guard = management_pin_guard
         self._version_token_generator = version_token_generator
+        self._clock = clock
 
-    async def get_draft(self, input: EditorDraftInput):
-        return await self._editor_draft_query_repository.get_draft_context(input.home_id)
+    def _is_lease_valid(self, lease, now: datetime) -> bool:
+        if lease is None or not lease.is_active:
+            return False
+        return now < datetime.fromisoformat(lease.lease_expires_at)
+
+    def _derive_lock_status(self, *, active_lease, terminal_id: str | None, lease_id: str | None, now: datetime) -> str:
+        if not self._is_lease_valid(active_lease, now):
+            return "READ_ONLY"
+        if terminal_id is not None and lease_id == active_lease.lease_id and active_lease.terminal_id == terminal_id:
+            return "GRANTED"
+        if terminal_id is not None and active_lease.terminal_id != terminal_id:
+            return "LOCKED_BY_OTHER"
+        return "READ_ONLY"
+
+    async def get_draft(self, input: EditorDraftInput) -> EditorDraftView:
+        draft = await self._editor_draft_query_repository.get_draft_context(input.home_id)
+        now = self._clock.now()
+        if draft is None:
+            return EditorDraftView(
+                draft_exists=False,
+                draft_version=None,
+                base_layout_version=None,
+                lock_status="READ_ONLY",
+                layout=None,
+                readonly=True,
+            )
+        lock_status = self._derive_lock_status(
+            active_lease=draft.active_lease,
+            terminal_id=input.terminal_id,
+            lease_id=input.lease_id,
+            now=now,
+        )
+        return EditorDraftView(
+            draft_exists=True,
+            draft_version=draft.draft_version,
+            base_layout_version=draft.base_layout_version,
+            lock_status=lock_status,
+            layout={
+                "background_image_url": draft.background_asset_id,
+                "background_image_size": None,
+                "hotspots": draft.hotspots,
+                "layout_meta": draft.layout_meta,
+            },
+            readonly=lock_status != "GRANTED",
+        )
 
     async def save_draft(self, input: EditorDraftSaveInput) -> EditorDraftSaveView:
         await self._management_pin_guard.require_active_session(input.home_id, input.terminal_id)
         lease = await self._draft_lease_repository.find_by_lease_id(input.home_id, input.lease_id)
-        if lease is None or not lease.is_active or lease.terminal_id != input.terminal_id:
+        if (
+            lease is None
+            or not lease.is_active
+            or lease.terminal_id != input.terminal_id
+            or not self._is_lease_valid(lease, self._clock.now())
+        ):
             raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
         draft = await self._draft_layout_repository.find_by_home_id(input.home_id)
         if draft is None:
@@ -136,7 +200,12 @@ class EditorDraftService:
     async def discard_draft(self, input: EditorDraftDiscardInput) -> dict[str, bool]:
         await self._management_pin_guard.require_active_session(input.home_id, input.terminal_id)
         lease = await self._draft_lease_repository.find_by_lease_id(input.home_id, input.lease_id)
-        if lease is None or not lease.is_active or lease.terminal_id != input.terminal_id:
+        if (
+            lease is None
+            or not lease.is_active
+            or lease.terminal_id != input.terminal_id
+            or not self._is_lease_valid(lease, self._clock.now())
+        ):
             raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
 
         draft = await self._draft_layout_repository.find_by_home_id(input.home_id)

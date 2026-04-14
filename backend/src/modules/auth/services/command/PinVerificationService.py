@@ -33,6 +33,7 @@ class PinVerificationView:
     pin_session_expires_at: str
     remaining_attempts: int
     lock_until: str | None
+    session_token: str | None = None
 
 
 @dataclass(frozen=True)
@@ -94,13 +95,14 @@ class PinVerificationService:
             input.terminal_id,
         )
         expires_at = (now + timedelta(seconds=auth.pin_session_ttl_seconds)).isoformat()
+        session_token = self._id_generator.next_id()
         await self._pin_session_repository.insert(
             NewPinSessionRow(
                 home_id=input.home_id,
                 terminal_id=input.terminal_id,
                 member_id=input.member_id,
                 verified_for_action=input.target_action,
-                session_token_hash=self._id_generator.next_id(),
+                session_token_hash=session_token,
                 verified_at=now.isoformat(),
                 expires_at=expires_at,
             )
@@ -111,6 +113,7 @@ class PinVerificationService:
             pin_session_expires_at=expires_at,
             remaining_attempts=auth.pin_retry_limit,
             lock_until=None,
+            session_token=session_token,
         )
 
     async def get_session_status(self, home_id: str, terminal_id: str) -> PinSessionStatusView:

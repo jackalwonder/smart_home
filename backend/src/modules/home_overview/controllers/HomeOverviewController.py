@@ -6,7 +6,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from src.app.container import get_device_catalog_service, get_home_overview_query_service
+from src.app.container import (
+    get_device_catalog_service,
+    get_home_overview_query_service,
+    get_request_context_service,
+)
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.home_overview.services.DeviceCatalogService import DeviceCatalogService
 from src.modules.home_overview.services.query.HomeOverviewQueryService import (
     HomeOverviewQueryInput,
@@ -60,13 +65,17 @@ def _build_summary(devices: list[dict[str, Any]]) -> dict[str, Any]:
 @router.get("/overview")
 async def get_home_overview(
     request: Request,
-    home_id: str = Query(...),
     layout_version: str | None = Query(default=None),
     settings_version: str | None = Query(default=None),
     terminal_mode: str | None = Query(default=None),
     service: HomeOverviewQueryService = Depends(get_home_overview_query_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    view = await service.get_overview(HomeOverviewQueryInput(home_id=home_id))
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+    )
+    view = await service.get_overview(HomeOverviewQueryInput(home_id=context.home_id))
     overview = view.overview
     devices = [asdict(device) for device in overview.devices]
     weather = asdict(view.weather) if view.weather is not None else None
@@ -122,16 +131,20 @@ async def get_home_overview(
 async def get_home_panel(
     request: Request,
     panel_type: str,
-    home_id: str = Query(...),
     room_id: str | None = Query(default=None),
     page: int | None = Query(default=None),
     page_size: int | None = Query(default=None),
     service: DeviceCatalogService = Depends(get_device_catalog_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+    )
     return success_response(
         request,
         await service.get_panel(
-            home_id,
+            context.home_id,
             panel_type,
             room_id=room_id,
             page=page,
