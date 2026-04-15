@@ -1,0 +1,46 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  --bg: #eef2e6;
+  --bg-strong: #d8e0c6;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-strong: #ffffff;
+  --border: rgba(44, 67, 41, 0.12);
+  --text: #1f2a1f;
+  --muted: #617061;
+  --accent: #2b7a4b;
+  --accent-soft: #dff1e6;
+  --danger: #b24b3a;
+  --shadow: 0 20px 60px rgba(38, 58, 27, 0.12);
+  background:
+    radial-gradient(circle at top left, rgba(170, 209, 160, 0.45), transparent 32%),
+    radial-gradient(circle at top right, rgba(246, 208, 148, 0.35), transparent 28%),
+    linear-gradient(180deg, #f5f7ef 0%, #edf1e5 100%);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: transparent;
+  color: var(--text);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
