@@ -1,3 +1,0 @@
-2026-04-14 16:39:41.052 WARNING (SyncWorker_0) [homeassistant.loader] We found a custom integration xiaomi_home which has not been tested by Home Assistant. This component might cause stability problems, be sure to disable it if you experience issues with Home Assistant
-2026-04-14 16:39:41.433 WARNING (Recorder) [homeassistant.components.recorder.util] The system could not validate that the sqlite3 database at //config/home-assistant_v2.db was shutdown cleanly
-2026-04-14 16:39:41.440 WARNING (Recorder) [homeassistant.components.recorder.util] Ended unfinished session (id=1 from 2026-04-14 08:19:44.500927)
