@@ -1,0 +1,131 @@
+.settings-page__aside {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.settings-side-nav {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: rgba(9, 14, 26, 0.88);
+}
+
+.settings-side-nav__item {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-side-nav__item strong {
+  color: var(--text);
+}
+
+.settings-side-nav__item.is-active {
+  background: linear-gradient(135deg, rgba(74, 101, 255, 0.22), rgba(77, 211, 196, 0.1));
+  border: 1px solid rgba(111, 145, 255, 0.26);
+}
+
+.settings-header-bar,
+.settings-module-card {
+  display: grid;
+  gap: 18px;
+}
+
+.settings-action-dock {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.favorite-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.favorite-editor__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 120px 150px auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.settings-module-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.policy-editor,
+.policy-editor__list {
+  display: grid;
+  gap: 12px;
+}
+
+.policy-editor {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.policy-editor__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.policy-editor__header h4 {
+  margin: 0 0 6px;
+}
+
+.policy-editor__row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) 120px minmax(0, 1.3fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.policy-editor__empty {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.policy-preset-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.policy-preset-panel__header h4 {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 980px) {
+  .settings-form-grid,
+  .favorite-editor__row,
+  .policy-editor__row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,110 @@
+.page--editor {
+  gap: 18px;
+}
+
+.editor-command-bar {
+  display: grid;
+  gap: 18px;
+}
+
+.editor-workbench {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  gap: 18px;
+}
+
+.editor-toolbox,
+.editor-inspector,
+.editor-realtime-feed {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.editor-toolbox__list,
+.editor-realtime-feed__list {
+  display: grid;
+  gap: 10px;
+}
+
+.editor-toolbox__item,
+.editor-realtime-feed__item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: left;
+  color: inherit;
+}
+
+.editor-toolbox__item span,
+.editor-realtime-feed__item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editor-toolbox__item.is-active {
+  border-color: rgba(255, 179, 87, 0.42);
+  background: rgba(255, 179, 87, 0.12);
+}
+
+.editor-toolbox__item.is-muted {
+  opacity: 0.6;
+}
+
+.editor-toolbox__item strong {
+  display: block;
+}
+
+.editor-canvas-workspace__surface {
+  position: relative;
+  overflow: hidden;
+  min-height: 720px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+    radial-gradient(circle at top left, rgba(120, 140, 255, 0.18), transparent 28%),
+    #0b1120;
+}
+
+.editor-selection-layer__item {
+  min-width: 120px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  cursor: grab;
+}
+
+.editor-selection-layer__item small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.editor-selection-layer__item.is-dragging {
+  transform: translate(-50%, -50%) scale(1.04);
+  border-color: rgba(93, 124, 255, 0.45);
+  background: rgba(93, 124, 255, 0.18);
+  box-shadow: 0 16px 32px rgba(24, 35, 82, 0.42);
+  cursor: grabbing;
+}
+
+.editor-canvas-workspace__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editor-inspector__meta {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+@media (max-width: 1320px) {
+  .editor-workbench {
+    grid-template-columns: 1fr;
+  }
+}

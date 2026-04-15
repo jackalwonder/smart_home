@@ -10,12 +10,12 @@ import { syncRealtimeSession } from "../../system/realtime";
 
 function formatRemainingLock(seconds: number) {
   if (seconds <= 0) {
-    return "Ready";
+    return "可用";
   }
 
   const minutes = Math.floor(seconds / 60);
   const remainSeconds = seconds % 60;
-  return `${minutes}m ${remainSeconds}s`;
+  return `${minutes}分 ${remainSeconds}秒`;
 }
 
 export function PinAccessCard() {
@@ -73,7 +73,7 @@ export function PinAccessCard() {
       });
       syncRealtimeSession(currentSession);
       setPinValue("");
-      setLocalMessage("PIN verified. Management actions are now enabled.");
+      setLocalMessage("PIN 验证通过，管理操作现已可用。");
     } catch (error) {
       const apiError = normalizeApiError(error);
       appStore.setPinError(apiError.message);
@@ -89,35 +89,36 @@ export function PinAccessCard() {
   }
 
   return (
-    <section className="app-shell__status-card pin-card">
+    <section className="utility-card pin-card">
       <div className="pin-card__header">
         <div>
-          <h2>Management PIN</h2>
-          <p className="page__hint">Verify before editing settings, draft, or system actions.</p>
+          <span className="card-eyebrow">安全</span>
+          <h3>管理 PIN</h3>
+          <p className="muted-copy">编辑设置、草稿和系统连接前，需要先验证管理 PIN。</p>
         </div>
-        <button className="button-link" onClick={() => void refreshPinState()} type="button">
-          Refresh
+        <button className="button button--ghost" onClick={() => void refreshPinState()} type="button">
+          刷新状态
         </button>
       </div>
 
       <dl className="pin-card__meta">
         <div>
-          <dt>Status</dt>
-          <dd>{pin.active ? "Verified" : "Pending"}</dd>
+          <dt>状态</dt>
+          <dd>{pin.active ? "已验证" : "待验证"}</dd>
         </div>
         <div>
-          <dt>Lock</dt>
+          <dt>锁定</dt>
           <dd>{formatRemainingLock(pin.remainingLockSeconds)}</dd>
         </div>
         <div>
-          <dt>Expires</dt>
+          <dt>过期时间</dt>
           <dd>{pin.expiresAt ?? "-"}</dd>
         </div>
       </dl>
 
       {pin.active ? (
         <p className="pin-card__success">
-          Management session is active. Settings and editor requests will use the current cookie.
+          当前管理会话已生效，设置页和编辑器都会复用这次验证结果。
         </p>
       ) : (
         <form className="pin-card__form" onSubmit={(event) => void handleSubmit(event)}>
@@ -128,20 +129,20 @@ export function PinAccessCard() {
               inputMode="numeric"
               maxLength={6}
               onChange={(event) => setPinValue(event.target.value)}
-              placeholder="Enter management PIN"
+              placeholder="输入管理 PIN"
               type="password"
               value={pinValue}
             />
           </label>
-          <button className="tab-bar__item is-active" disabled={disabled} type="submit">
-            {pin.status === "loading" ? "Verifying..." : "Verify PIN"}
+          <button className="button button--primary" disabled={disabled} type="submit">
+            {pin.status === "loading" ? "验证中..." : "验证 PIN"}
           </button>
         </form>
       )}
 
       {localMessage ? <p className="pin-card__success">{localMessage}</p> : null}
-      {pin.error ? <p className="page__error">{pin.error}</p> : null}
-      <p className="page__hint">Dev seed PIN in this Docker environment: `1234`.</p>
+      {pin.error ? <p className="inline-error">{pin.error}</p> : null}
+      <p className="muted-copy">当前 Docker 开发环境的默认 PIN：`1234`。</p>
     </section>
   );
 }

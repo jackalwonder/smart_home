@@ -105,7 +105,7 @@ export interface HomeOverviewDto {
     key: string;
     title: string;
     badge_count?: number;
-  }>;
+  }> | Record<string, boolean>;
   energy_bar?: {
     binding_status?: string;
     refresh_status?: string;
@@ -139,6 +139,57 @@ export interface SettingsSaveDto {
   effective_at: string;
 }
 
+export interface SystemConnectionDto {
+  connection_mode: string | null;
+  base_url_masked: string | null;
+  connection_status: string;
+  auth_configured: boolean;
+  settings_version: string | null;
+  last_test_at: string | null;
+  last_test_result: string | null;
+  last_sync_at: string | null;
+  last_sync_result: string | null;
+}
+
+export interface SystemConnectionsEnvelopeDto {
+  home_assistant: SystemConnectionDto | null;
+  settings_version: string | null;
+}
+
+export interface SystemConnectionSaveInput {
+  connection_mode: string;
+  base_url: string;
+  auth_payload: {
+    access_token?: string;
+  };
+}
+
+export interface SystemConnectionSaveDto {
+  saved: boolean;
+  connection_status: string;
+  updated_at: string;
+  message: string;
+}
+
+export interface SystemConnectionTestInput {
+  use_saved_config?: boolean;
+  candidate_config?: {
+    connection_mode: string;
+    base_url: string;
+    auth_payload: {
+      access_token?: string;
+    };
+  };
+}
+
+export interface SystemConnectionTestDto {
+  tested: boolean;
+  connection_status: string;
+  latency_ms: number | null;
+  tested_at: string;
+  message: string | null;
+}
+
 export interface EditorSessionDto {
   granted: boolean;
   lease_id: string | null;
@@ -168,6 +219,50 @@ export interface EditorDraftDto {
     layout_meta: Record<string, unknown>;
   } | null;
   readonly: boolean;
+}
+
+export interface EditorDraftSaveHotspotInput {
+  hotspot_id: string;
+  device_id: string;
+  x: number;
+  y: number;
+  icon_type?: string | null;
+  label_mode?: string | null;
+  is_visible?: boolean;
+  structure_order?: number;
+}
+
+export interface EditorDraftSaveInput {
+  home_id?: string | null;
+  terminal_id: string;
+  lease_id: string;
+  draft_version: string;
+  base_layout_version: string;
+  background_asset_id?: string | null;
+  layout_meta: Record<string, unknown>;
+  hotspots: EditorDraftSaveHotspotInput[];
+}
+
+export interface EditorDraftSaveDto {
+  saved_to_draft: boolean;
+  draft_version: string;
+  preview_only: boolean;
+  lock_status: "GRANTED" | "LOCKED_BY_OTHER" | "READ_ONLY";
+}
+
+export interface EditorPublishInput {
+  home_id?: string | null;
+  terminal_id: string;
+  lease_id: string;
+  draft_version: string;
+  base_layout_version: string;
+}
+
+export interface EditorPublishDto {
+  published: boolean;
+  layout_version: string;
+  effective_at: string;
+  lock_released: boolean;
 }
 
 export interface PinVerifyInput {

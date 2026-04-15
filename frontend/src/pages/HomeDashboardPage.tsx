@@ -1,21 +1,39 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { fetchHomeOverview } from "../api/homeApi";
 import { normalizeApiError } from "../api/httpClient";
-import { FloorplanStagePanel } from "../components/home/FloorplanStagePanel";
-import { HomeQuickEntriesPanel } from "../components/home/HomeQuickEntriesPanel";
-import { HomeSidebarPanel } from "../components/home/HomeSidebarPanel";
+import { BottomStatsStrip } from "../components/home/BottomStatsStrip";
+import { HomeCommandStage } from "../components/home/HomeCommandStage";
+import { HomeInsightRail } from "../components/home/HomeInsightRail";
+import { PageFrame } from "../components/layout/PageFrame";
 import { appStore, useAppStore } from "../store/useAppStore";
+import { mapHomeOverviewViewModel } from "../view-models/home";
+import { labelize } from "../view-models/utils";
 
-interface HomeOverviewView {
-  stage?: Record<string, unknown>;
-  sidebar?: Record<string, unknown>;
-  quick_entries?: Array<Record<string, unknown>>;
-  energy_bar?: Record<string, unknown>;
-  cache_mode?: boolean;
+function translateEventLabel(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized === "publish_succeeded") {
+    return "发布成功";
+  }
+  if (normalized === "draft_saved") {
+    return "草稿已保存";
+  }
+  if (normalized === "settings_saved") {
+    return "设置已保存";
+  }
+  if (normalized === "layout") {
+    return "布局";
+  }
+  if (normalized === "settings") {
+    return "设置";
+  }
+  return labelize(value);
 }
 
 export function HomeDashboardPage() {
   const home = useAppStore((state) => state.home);
+  const realtime = useAppStore((state) => state.realtime);
+  const events = useAppStore((state) => state.wsEvents);
+  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -41,36 +59,45 @@ export function HomeDashboardPage() {
     };
   }, []);
 
-  const overview = (home.data as HomeOverviewView | null) ?? null;
+  const viewModel = mapHomeOverviewViewModel(home.data);
 
   return (
     <section className="page page--home">
-      <header className="page__header">
-        <div>
-          <span className="page__eyebrow">Home Overview</span>
-          <h2>Home workspace</h2>
-          <p>Stage, sidebar, quick entries, and energy rail are now reading the live overview API.</p>
-        </div>
-        <div className="page__badge-row">
-          <span className="status-pill">{home.status}</span>
-          <span className="status-pill">
-            {overview?.cache_mode ? "cache_mode" : "live_mode"}
-          </span>
-        </div>
-      </header>
-
-      <div className="home-layout">
-        <FloorplanStagePanel stage={overview?.stage ?? null} />
-        <div className="home-layout__rail">
-          <HomeSidebarPanel
-            sidebar={overview?.sidebar ?? null}
-            energyBar={overview?.energy_bar ?? null}
+      {home.error ? <p className="inline-error">{home.error}</p> : null}
+      <PageFrame
+        aside={
+          <HomeInsightRail
+            actions={viewModel.quickActions}
+            date={viewModel.timeline.date}
+            energyFields={viewModel.energyFields}
+            humidity={viewModel.timeline.humidity}
+            mediaFields={viewModel.mediaFields}
+            metrics={viewModel.metrics}
+            time={viewModel.timeline.time}
+            weatherCondition={viewModel.timeline.weatherCondition}
+            weatherTemperature={viewModel.timeline.weatherTemperature}
           />
-          <HomeQuickEntriesPanel entries={overview?.quick_entries ?? []} />
-        </div>
-      </div>
-
-      {home.error ? <p className="page__error">{home.error}</p> : null}
+        }
+        footer={
+          <BottomStatsStrip
+            connectionStatus={realtime.connectionStatus}
+            events={events.slice(0, 4).map((event) => ({
+              title: translateEventLabel(event.event_type),
+              subtitle: `${translateEventLabel(event.change_domain)} · #${event.sequence}`,
+            }))}
+            stats={viewModel.bottomStats}
+          />
+        }
+        className="page-frame--home"
+      >
+        <HomeCommandStage
+          backgroundImageUrl={viewModel.stage.backgroundImageUrl}
+          cacheMode={viewModel.cacheMode}
+          hotspots={viewModel.stage.hotspots}
+          onSelectHotspot={setSelectedHotspotId}
+          selectedHotspotId={selectedHotspotId}
+        />
+      </PageFrame>
     </section>
   );
 }
