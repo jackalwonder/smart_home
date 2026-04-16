@@ -1,0 +1,1086 @@
+{
+  "$defs": {
+    "BackupRestoreCompletedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "BACKUP",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "backup_restore_completed",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/BackupRestoreCompletedPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": true,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "BackupRestoreCompletedEvent",
+      "type": "object"
+    },
+    "BackupRestoreCompletedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "backup_id": {
+          "title": "Backup Id",
+          "type": "string"
+        },
+        "effective_at": {
+          "title": "Effective At",
+          "type": "string"
+        },
+        "layout_version": {
+          "title": "Layout Version",
+          "type": "string"
+        },
+        "restored_by_terminal_id": {
+          "title": "Restored By Terminal Id",
+          "type": "string"
+        },
+        "settings_version": {
+          "title": "Settings Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "backup_id",
+        "settings_version",
+        "layout_version",
+        "effective_at",
+        "restored_by_terminal_id"
+      ],
+      "title": "BackupRestoreCompletedPayload",
+      "type": "object"
+    },
+    "ConnectionStatusPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "connection_status": {
+          "title": "Connection Status",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "home_id",
+        "connection_status",
+        "message"
+      ],
+      "title": "ConnectionStatusPayload",
+      "type": "object"
+    },
+    "DeviceStateChangedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "DEVICE_STATE",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "device_state_changed",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/DeviceStateChangedPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "DeviceStateChangedEvent",
+      "type": "object"
+    },
+    "DeviceStateChangedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmation_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confirmation Type"
+        },
+        "device_id": {
+          "title": "Device Id",
+          "type": "string"
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Id"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "execution_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Status"
+        },
+        "home_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Home Id"
+        },
+        "related_request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Related Request Id"
+        },
+        "runtime_state": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime State"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "device_id"
+      ],
+      "title": "DeviceStateChangedPayload",
+      "type": "object"
+    },
+    "DraftLockAcquiredEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "EDITOR_LOCK",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "draft_lock_acquired",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/DraftLockAcquiredPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "DraftLockAcquiredEvent",
+      "type": "object"
+    },
+    "DraftLockAcquiredPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "lease_expires_at": {
+          "title": "Lease Expires At",
+          "type": "string"
+        },
+        "lease_id": {
+          "title": "Lease Id",
+          "type": "string"
+        },
+        "terminal_id": {
+          "title": "Terminal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lease_id",
+        "terminal_id",
+        "lease_expires_at"
+      ],
+      "title": "DraftLockAcquiredPayload",
+      "type": "object"
+    },
+    "EnergyRefreshCompletedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "ENERGY",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "energy_refresh_completed",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/EnergyRefreshPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "EnergyRefreshCompletedEvent",
+      "type": "object"
+    },
+    "EnergyRefreshFailedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "ENERGY",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "energy_refresh_failed",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/EnergyRefreshPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "EnergyRefreshFailedEvent",
+      "type": "object"
+    },
+    "EnergyRefreshPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "refresh_status": {
+          "title": "Refresh Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "refresh_status"
+      ],
+      "title": "EnergyRefreshPayload",
+      "type": "object"
+    },
+    "HaSyncDegradedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "SUMMARY",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "ha_sync_degraded",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ConnectionStatusPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "HaSyncDegradedEvent",
+      "type": "object"
+    },
+    "HaSyncRecoveredEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "SUMMARY",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "ha_sync_recovered",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ConnectionStatusPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "HaSyncRecoveredEvent",
+      "type": "object"
+    },
+    "MediaStateChangedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "DEVICE_STATE",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "media_state_changed",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/DeviceStateChangedPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "MediaStateChangedEvent",
+      "type": "object"
+    },
+    "PublishSucceededEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "LAYOUT",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "publish_succeeded",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/PublishSucceededPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": true,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "PublishSucceededEvent",
+      "type": "object"
+    },
+    "PublishSucceededPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "effective_at": {
+          "title": "Effective At",
+          "type": "string"
+        },
+        "layout_version": {
+          "title": "Layout Version",
+          "type": "string"
+        },
+        "published_by_terminal_id": {
+          "title": "Published By Terminal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layout_version",
+        "effective_at",
+        "published_by_terminal_id"
+      ],
+      "title": "PublishSucceededPayload",
+      "type": "object"
+    },
+    "RealtimeAckMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "ack",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "event_id"
+      ],
+      "title": "RealtimeAckMessage",
+      "type": "object"
+    },
+    "RealtimePollMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "poll",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "RealtimePollMessage",
+      "type": "object"
+    },
+    "RealtimeResumeMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "last_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Event Id"
+        },
+        "type": {
+          "const": "resume",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "RealtimeResumeMessage",
+      "type": "object"
+    },
+    "SettingsUpdatedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "SETTINGS",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "settings_updated",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SettingsUpdatedPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": true,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "SettingsUpdatedEvent",
+      "type": "object"
+    },
+    "SettingsUpdatedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "effective_at": {
+          "title": "Effective At",
+          "type": "string"
+        },
+        "settings_version": {
+          "title": "Settings Version",
+          "type": "string"
+        },
+        "updated_domains": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Updated Domains",
+          "type": "array"
+        }
+      },
+      "required": [
+        "settings_version",
+        "updated_domains",
+        "effective_at"
+      ],
+      "title": "SettingsUpdatedPayload",
+      "type": "object"
+    },
+    "SummaryUpdatedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "SUMMARY",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "summary_updated",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SummaryUpdatedPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "SummaryUpdatedEvent",
+      "type": "object"
+    },
+    "SummaryUpdatedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "device_count": {
+          "title": "Device Count",
+          "type": "integer"
+        },
+        "entity_count": {
+          "title": "Entity Count",
+          "type": "integer"
+        },
+        "linked_entity_count": {
+          "title": "Linked Entity Count",
+          "type": "integer"
+        },
+        "room_count": {
+          "title": "Room Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "room_count",
+        "entity_count",
+        "device_count",
+        "linked_entity_count"
+      ],
+      "title": "SummaryUpdatedPayload",
+      "type": "object"
+    },
+    "VersionConflictDetectedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "SUMMARY",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "version_conflict_detected",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/VersionConflictDetectedPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": true,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "VersionConflictDetectedEvent",
+      "type": "object"
+    },
+    "VersionConflictDetectedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "last_event_id": {
+          "title": "Last Event Id",
+          "type": "string"
+        },
+        "reason": {
+          "const": "EVENT_GAP",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "last_event_id"
+      ],
+      "title": "VersionConflictDetectedPayload",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "client_message": {
+      "discriminator": {
+        "mapping": {
+          "ack": "#/$defs/RealtimeAckMessage",
+          "poll": "#/$defs/RealtimePollMessage",
+          "resume": "#/$defs/RealtimeResumeMessage"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RealtimeAckMessage"
+        },
+        {
+          "$ref": "#/$defs/RealtimeResumeMessage"
+        },
+        {
+          "$ref": "#/$defs/RealtimePollMessage"
+        }
+      ],
+      "title": "Client Message"
+    },
+    "server_event": {
+      "discriminator": {
+        "mapping": {
+          "backup_restore_completed": "#/$defs/BackupRestoreCompletedEvent",
+          "device_state_changed": "#/$defs/DeviceStateChangedEvent",
+          "draft_lock_acquired": "#/$defs/DraftLockAcquiredEvent",
+          "energy_refresh_completed": "#/$defs/EnergyRefreshCompletedEvent",
+          "energy_refresh_failed": "#/$defs/EnergyRefreshFailedEvent",
+          "ha_sync_degraded": "#/$defs/HaSyncDegradedEvent",
+          "ha_sync_recovered": "#/$defs/HaSyncRecoveredEvent",
+          "media_state_changed": "#/$defs/MediaStateChangedEvent",
+          "publish_succeeded": "#/$defs/PublishSucceededEvent",
+          "settings_updated": "#/$defs/SettingsUpdatedEvent",
+          "summary_updated": "#/$defs/SummaryUpdatedEvent",
+          "version_conflict_detected": "#/$defs/VersionConflictDetectedEvent"
+        },
+        "propertyName": "event_type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SettingsUpdatedEvent"
+        },
+        {
+          "$ref": "#/$defs/SummaryUpdatedEvent"
+        },
+        {
+          "$ref": "#/$defs/DeviceStateChangedEvent"
+        },
+        {
+          "$ref": "#/$defs/MediaStateChangedEvent"
+        },
+        {
+          "$ref": "#/$defs/HaSyncRecoveredEvent"
+        },
+        {
+          "$ref": "#/$defs/HaSyncDegradedEvent"
+        },
+        {
+          "$ref": "#/$defs/EnergyRefreshCompletedEvent"
+        },
+        {
+          "$ref": "#/$defs/EnergyRefreshFailedEvent"
+        },
+        {
+          "$ref": "#/$defs/DraftLockAcquiredEvent"
+        },
+        {
+          "$ref": "#/$defs/PublishSucceededEvent"
+        },
+        {
+          "$ref": "#/$defs/BackupRestoreCompletedEvent"
+        },
+        {
+          "$ref": "#/$defs/VersionConflictDetectedEvent"
+        }
+      ],
+      "title": "Server Event"
+    }
+  },
+  "required": [
+    "server_event",
+    "client_message"
+  ],
+  "title": "RealtimeContractBundle",
+  "type": "object"
+}

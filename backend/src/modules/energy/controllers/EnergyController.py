@@ -16,23 +16,58 @@ router = APIRouter(prefix="/api/v1/energy", tags=["energy"])
 
 
 class EnergyBindingBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
     payload: dict = Field(default_factory=dict)
     member_id: str | None = None
 
 
-@router.get("", response_model=SuccessEnvelope[dict[str, Any]])
+class EnergyResponse(ApiSchema):
+    binding_status: str
+    refresh_status: str | None = None
+    yesterday_usage: float | None = None
+    monthly_usage: float | None = None
+    balance: float | None = None
+    yearly_usage: float | None = None
+    updated_at: str | None = None
+    cache_mode: bool
+    last_error_code: str | None = None
+
+
+class EnergyBindingResponse(ApiSchema):
+    saved: bool
+    binding_status: str
+    updated_at: str
+    message: str
+
+
+class EnergyRefreshResponse(ApiSchema):
+    accepted: bool
+    refresh_status: str
+    started_at: str
+    timeout_seconds: int
+
+
+@router.get("", response_model=SuccessEnvelope[EnergyResponse])
 async def get_energy(
     request: Request,
     service: EnergyService = Depends(get_energy_service),
     request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
     context = await request_context_service.resolve_http_request(request, require_home=True)
-    return success_response(request, asdict(await service.get_energy(context.home_id)))
+    payload = asdict(await service.get_energy(context.home_id))
+    return success_response(request, EnergyResponse.model_validate(payload))
 
 
-@router.put("/binding", response_model=SuccessEnvelope[dict[str, Any]])
+@router.put("/binding", response_model=SuccessEnvelope[EnergyBindingResponse])
 async def put_energy_binding(
     request: Request,
     body: EnergyBindingBody = Body(...),
@@ -46,20 +81,18 @@ async def put_energy_binding(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        asdict(
-            await service.update_binding(
-                context.home_id,
-                context.terminal_id,
-                body.payload,
-                body.member_id or context.operator_id,
-            )
-        ),
+    payload = asdict(
+        await service.update_binding(
+            context.home_id,
+            context.terminal_id,
+            body.payload,
+            body.member_id or context.operator_id,
+        )
     )
+    return success_response(request, EnergyBindingResponse.model_validate(payload))
 
 
-@router.delete("/binding", response_model=SuccessEnvelope[dict[str, Any]])
+@router.delete("/binding", response_model=SuccessEnvelope[EnergyBindingResponse])
 async def delete_energy_binding(
     request: Request,
     body: EnergyBindingBody = Body(...),
@@ -73,19 +106,17 @@ async def delete_energy_binding(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        asdict(
-            await service.delete_binding(
-                context.home_id,
-                context.terminal_id,
-                body.member_id or context.operator_id,
-            )
-        ),
+    payload = asdict(
+        await service.delete_binding(
+            context.home_id,
+            context.terminal_id,
+            body.member_id or context.operator_id,
+        )
     )
+    return success_response(request, EnergyBindingResponse.model_validate(payload))
 
 
-@router.post("/refresh", response_model=SuccessEnvelope[dict[str, Any]])
+@router.post("/refresh", response_model=SuccessEnvelope[EnergyRefreshResponse])
 async def post_energy_refresh(
     request: Request,
     body: EnergyBindingBody = Body(...),
@@ -99,7 +130,5 @@ async def post_energy_refresh(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        asdict(await service.refresh(context.home_id, context.terminal_id)),
-    )
+    payload = asdict(await service.refresh(context.home_id, context.terminal_id))
+    return success_response(request, EnergyRefreshResponse.model_validate(payload))

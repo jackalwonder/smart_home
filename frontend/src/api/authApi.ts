@@ -3,7 +3,9 @@ import { PinSessionDto, PinVerifyDto, PinVerifyInput, SessionDto, SessionModel }
 import { setAccessToken } from "../auth/accessToken";
 
 export async function fetchCurrentSession(): Promise<SessionModel> {
-  const dto = await apiRequest<SessionDto>("/api/v1/auth/session");
+  const dto = await apiRequest<SessionDto>("/api/v1/auth/session", {
+    includeLegacyContext: true,
+  });
   setAccessToken(dto.access_token);
 
   return {

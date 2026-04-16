@@ -4,13 +4,19 @@ import asyncio
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
 from sqlalchemy import text
 from starlette.websockets import WebSocketState
 
 from src.infrastructure.db.connection.Database import Database
 from src.infrastructure.db.repositories._support import session_scope
+from src.modules.realtime.RealtimeSchemas import (
+    realtime_client_message_adapter,
+    realtime_server_event_adapter,
+)
 from src.repositories.base.realtime.WsEventOutboxRepository import WsEventOutboxRepository
 
 
@@ -67,17 +73,19 @@ class RealtimeService:
                 await session.commit()
 
     async def _send_event(self, websocket: WebSocket, state: RealtimeConnectionState, event) -> None:
+        payload: dict[str, Any] = {
+            "event_id": event.event_id,
+            "event_type": event.event_type,
+            "occurred_at": event.occurred_at,
+            "sequence": state.next_sequence(),
+            "home_id": event.home_id,
+            "change_domain": event.change_domain,
+            "snapshot_required": event.snapshot_required,
+            "payload": event.payload_json,
+        }
+        normalized_event = realtime_server_event_adapter.validate_python(payload)
         await websocket.send_json(
-            {
-                "event_id": event.event_id,
-                "event_type": event.event_type,
-                "occurred_at": event.occurred_at,
-                "sequence": state.next_sequence(),
-                "home_id": event.home_id,
-                "change_domain": event.change_domain,
-                "snapshot_required": event.snapshot_required,
-                "payload": event.payload_json,
-            }
+            normalized_event.model_dump(mode="json")
         )
         state.sent_event_ids.add(event.event_id)
         state.pending_ack_ids[event.event_id] = event.id
@@ -170,16 +178,20 @@ class RealtimeService:
                     continue
                 if not isinstance(message, dict):
                     continue
-                message_type = message.get("type")
+                try:
+                    client_message = realtime_client_message_adapter.validate_python(message)
+                except ValidationError:
+                    continue
+                message_type = client_message.type
                 if message_type == "ack":
-                    event_id = message.get("event_id")
-                    if isinstance(event_id, str) and event_id in state.sent_event_ids:
+                    event_id = client_message.event_id
+                    if event_id in state.sent_event_ids:
                         row_id = state.pending_ack_ids.get(event_id)
                         if row_id is not None:
                             await self._ws_event_outbox_repository.mark_dispatched(row_id)
                         state.pending_ack_ids.pop(event_id, None)
                 elif message_type == "resume":
-                    await self._push_resume_backlog(websocket, state, message.get("last_event_id"))
+                    await self._push_resume_backlog(websocket, state, client_message.last_event_id)
                 elif message_type == "poll":
                     wakeup.set()
         except WebSocketDisconnect:

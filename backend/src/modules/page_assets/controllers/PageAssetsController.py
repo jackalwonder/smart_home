@@ -8,16 +8,36 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from src.app.container import get_floorplan_asset_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.page_assets.services.FloorplanAssetService import FloorplanAssetService
+from src.shared.http.ApiSchema import ApiSchema
 from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/page-assets", tags=["page_assets"])
 
 
-@router.post("/floorplan", response_model=SuccessEnvelope[dict[str, Any]])
+class FloorplanImageSizeResponse(ApiSchema):
+    width: int | None = None
+    height: int | None = None
+
+
+class FloorplanAssetResponse(ApiSchema):
+    asset_updated: bool
+    asset_id: str
+    background_image_url: str
+    background_image_size: FloorplanImageSizeResponse
+    updated_at: str
+
+
+@router.post("/floorplan", response_model=SuccessEnvelope[FloorplanAssetResponse])
 async def upload_floorplan(
     request: Request,
-    home_id: str | None = Form(default=None, description="Legacy compatibility context field."),
-    terminal_id: str = Form(...),
+    home_id: str | None = Form(
+        default=None,
+        description="Legacy compatibility context field.",
+    ),
+    terminal_id: str | None = Form(
+        default=None,
+        description="Legacy compatibility context field.",
+    ),
     operator_id: str | None = Form(default=None),
     replace_current: bool = Form(default=False),
     file: UploadFile = File(...),
@@ -41,4 +61,4 @@ async def upload_floorplan(
         data=payload,
         replace_current=replace_current,
     )
-    return success_response(request, asdict(view))
+    return success_response(request, FloorplanAssetResponse.model_validate(asdict(view)))

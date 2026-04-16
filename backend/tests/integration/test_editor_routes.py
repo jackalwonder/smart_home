@@ -97,7 +97,7 @@ def test_open_and_get_editor_draft(app, client):
 
     open_response = client.post(
         "/api/v1/editor/sessions",
-        json={"terminal_id": "terminal-1"},
+        json={},
     )
     draft_response = client.get("/api/v1/editor/draft", params={"lease_id": "lease-1"})
 
@@ -120,7 +120,6 @@ def test_save_and_publish_editor_draft(app, client):
     save_response = client.put(
         "/api/v1/editor/draft",
         json={
-            "terminal_id": "terminal-1",
             "lease_id": "lease-1",
             "draft_version": "dv_1",
             "base_layout_version": "INITIAL",
@@ -132,7 +131,6 @@ def test_save_and_publish_editor_draft(app, client):
     publish_response = client.post(
         "/api/v1/editor/publish",
         json={
-            "terminal_id": "terminal-1",
             "lease_id": "lease-1",
             "draft_version": "dv_2",
             "base_layout_version": "INITIAL",
@@ -157,7 +155,6 @@ def test_delete_editor_draft(app, client):
         "DELETE",
         "/api/v1/editor/draft",
         json={
-            "terminal_id": "terminal-1",
             "lease_id": "lease-1",
             "draft_version": "dv_1",
         },

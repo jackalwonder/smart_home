@@ -18,7 +18,14 @@ class DeviceReloadBody(ApiSchema):
     force_full_sync: bool = False
 
 
-@router.post("/reload", response_model=SuccessEnvelope[dict[str, Any]])
+class DeviceReloadResponse(ApiSchema):
+    accepted: bool
+    reload_status: str
+    started_at: str
+    message: str
+
+
+@router.post("/reload", response_model=SuccessEnvelope[DeviceReloadResponse])
 async def reload_devices(
     request: Request,
     body: DeviceReloadBody = Body(...),
@@ -30,13 +37,11 @@ async def reload_devices(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        asdict(
-            await service.reload_devices(
-                context.home_id,
-                context.terminal_id,
-                force_full_sync=body.force_full_sync,
-            )
-        ),
+    payload = asdict(
+        await service.reload_devices(
+            context.home_id,
+            context.terminal_id,
+            force_full_sync=body.force_full_sync,
+        )
     )
+    return success_response(request, DeviceReloadResponse.model_validate(payload))

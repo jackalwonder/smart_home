@@ -13,9 +13,10 @@ router = APIRouter(tags=["realtime"])
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    home_id: str | None = Query(default=None),
-    terminal_id: str | None = Query(default=None),
-    token: str | None = Query(default=None),
+    home_id: str | None = Query(default=None, deprecated=True),
+    terminal_id: str | None = Query(default=None, deprecated=True),
+    access_token: str | None = Query(default=None),
+    token: str | None = Query(default=None, deprecated=True),
     last_event_id: str | None = Query(default=None),
     service: RealtimeService = Depends(get_realtime_service),
     request_context_service: RequestContextService = Depends(get_request_context_service),
@@ -25,7 +26,7 @@ async def websocket_endpoint(
             websocket,
             explicit_home_id=home_id,
             explicit_terminal_id=terminal_id,
-            explicit_token=token,
+            explicit_token=access_token or token,
             require_home=True,
             require_terminal=True,
             require_session_auth=True,

@@ -453,7 +453,6 @@ export function SettingsWorkspacePage() {
               ? Number(favorite.favoriteOrder)
               : index,
           })),
-        terminal_id: session.data.terminalId,
       });
       setSaveMessage(`保存完成，settings_version 已更新为 ${response.settings_version}。`);
       await loadSettings();

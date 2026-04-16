@@ -1,4 +1,4 @@
-import { WsEvent } from "../api/types";
+import { WsEvent } from "../ws/types";
 import { asArray, asNumber, asOptionalString, asRecord, asString, labelize } from "./utils";
 
 export interface EditorHotspotViewModel {

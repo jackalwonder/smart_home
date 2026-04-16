@@ -8,30 +8,40 @@ const API_BASE_URL =
   configuredBaseUrl ||
   (typeof window !== "undefined" ? window.location.origin : "http://localhost:8000");
 
+interface ApiRequestOptions extends RequestInit {
+  includeLegacyContext?: boolean;
+}
+
 export async function apiRequest<T>(
   input: string,
-  init?: RequestInit,
+  init?: ApiRequestOptions,
 ): Promise<T> {
   const url = new URL(`${API_BASE_URL}${input}`);
-  const { homeId, terminalId } = getRequestContext();
-  if (!url.searchParams.has("home_id")) {
-    url.searchParams.set("home_id", homeId);
-  }
-  if (!url.searchParams.has("terminal_id")) {
-    url.searchParams.set("terminal_id", terminalId);
-  }
   const accessToken = getAccessToken();
+  const includeLegacyContext = init?.includeLegacyContext ?? false;
+
+  if (includeLegacyContext) {
+    const { homeId, terminalId } = getRequestContext();
+    if (!url.searchParams.has("home_id")) {
+      url.searchParams.set("home_id", homeId);
+    }
+    if (!url.searchParams.has("terminal_id")) {
+      url.searchParams.set("terminal_id", terminalId);
+    }
+  }
+
+  const headers = new Headers(init?.headers ?? undefined);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
 
   const response = await fetch(url.toString(), {
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      "x-home-id": homeId,
-      "x-terminal-id": terminalId,
-      ...(init?.headers ?? {}),
-    },
     ...init,
+    headers,
   });
 
   let envelope: ApiEnvelope<T> | null = null;

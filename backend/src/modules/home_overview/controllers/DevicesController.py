@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from src.app.container import get_device_catalog_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
@@ -48,6 +48,42 @@ class DeviceControlSchemaItem(ApiSchema):
     requires_detail_entry: bool
 
 
+class DeviceEntityLinkResponse(ApiSchema):
+    ha_entity_row_id: str | None = None
+    entity_id: str
+    platform: str | None = None
+    domain: str | None = None
+    raw_name: str | None = None
+    state: str | None = None
+    room_hint: str | None = None
+    is_available: bool | None = None
+    last_synced_at: str | None = None
+    last_state_changed_at: str | None = None
+    entity_role: str | None = None
+    is_primary: bool
+    sort_order: int | None = None
+
+
+class DeviceSourceInfoResponse(ApiSchema):
+    model_config = ConfigDict(extra="allow")
+
+    entity_links: list[DeviceEntityLinkResponse] = Field(default_factory=list)
+
+
+class DeviceEditorHotspotResponse(ApiSchema):
+    hotspot_id: str
+    x: float
+    y: float
+    icon_type: str | None = None
+    label_mode: str | None = None
+    is_visible: bool
+    structure_order: int
+
+
+class DeviceEditorConfigResponse(ApiSchema):
+    hotspots: list[DeviceEditorHotspotResponse] = Field(default_factory=list)
+
+
 class DeviceDetailResponse(ApiSchema):
     device_id: str
     display_name: str
@@ -67,11 +103,71 @@ class DeviceDetailResponse(ApiSchema):
     status_summary: dict[str, Any] = Field(default_factory=dict)
     runtime_state: DeviceRuntimeState | None = None
     control_schema: list[DeviceControlSchemaItem] = Field(default_factory=list)
-    editor_config: dict[str, Any] | None = None
-    source_info: dict[str, Any] = Field(default_factory=dict)
+    editor_config: DeviceEditorConfigResponse | None = None
+    source_info: DeviceSourceInfoResponse = Field(default_factory=DeviceSourceInfoResponse)
 
 
-@router.get("/api/v1/devices", response_model=SuccessEnvelope[dict[str, Any]])
+class DeviceListItemResponse(ApiSchema):
+    device_id: str
+    display_name: str
+    raw_name: str | None = None
+    device_type: str
+    room_id: str | None = None
+    room_name: str | None = None
+    status: str
+    is_offline: bool
+    is_complex_device: bool
+    is_readonly_device: bool
+    confirmation_type: str | None = None
+    entry_behavior: str | None = None
+    default_control_target: str | None = None
+    is_homepage_visible: bool
+    is_primary_device: bool
+    is_favorite: bool
+    favorite_order: int | None = None
+    is_favorite_candidate: bool
+    favorite_exclude_reason: str | None = None
+    capabilities: dict[str, Any] = Field(default_factory=dict)
+    alert_badges: list[DeviceAlertBadge] = Field(default_factory=list)
+    status_summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class DeviceListPageInfoResponse(ApiSchema):
+    page: int
+    page_size: int
+    total: int
+    has_next: bool
+
+
+class DeviceListResponse(ApiSchema):
+    items: list[DeviceListItemResponse] = Field(default_factory=list)
+    page_info: DeviceListPageInfoResponse
+
+
+class RoomListItemResponse(ApiSchema):
+    room_id: str
+    room_name: str
+    priority: int
+    device_count: int
+    homepage_device_count: int
+    visible_in_editor: bool
+
+
+class RoomListResponse(ApiSchema):
+    rooms: list[RoomListItemResponse] = Field(default_factory=list)
+
+
+class DeviceMappingSaveResponse(ApiSchema):
+    saved: bool
+    device_id: str
+    room_id: str | None = None
+    device_type: str | None = None
+    is_primary_device: bool
+    default_control_target: str | None = None
+    updated_at: str
+
+
+@router.get("/api/v1/devices", response_model=SuccessEnvelope[DeviceListResponse])
 async def list_devices(
     request: Request,
     room_id: str | None = Query(default=None),
@@ -89,20 +185,18 @@ async def list_devices(
         request,
         require_home=True,
     )
-    return success_response(
-        request,
-        await service.list_devices(
-            context.home_id,
-            room_id=room_id,
-            device_type=device_type,
-            status=status,
-            keyword=keyword,
-            only_homepage_candidate=only_homepage_candidate,
-            only_favorite_candidate=only_favorite_candidate,
-            page=page,
-            page_size=page_size,
-        ),
+    payload = await service.list_devices(
+        context.home_id,
+        room_id=room_id,
+        device_type=device_type,
+        status=status,
+        keyword=keyword,
+        only_homepage_candidate=only_homepage_candidate,
+        only_favorite_candidate=only_favorite_candidate,
+        page=page,
+        page_size=page_size,
     )
+    return success_response(request, DeviceListResponse.model_validate(payload))
 
 
 @router.get("/api/v1/devices/{device_id}", response_model=SuccessEnvelope[DeviceDetailResponse])
@@ -129,7 +223,7 @@ async def get_device_detail(
     )
 
 
-@router.get("/api/v1/rooms", response_model=SuccessEnvelope[dict[str, list[dict[str, Any]]]])
+@router.get("/api/v1/rooms", response_model=SuccessEnvelope[RoomListResponse])
 async def list_rooms(
     request: Request,
     include_counts: bool = Query(default=True),
@@ -140,15 +234,13 @@ async def list_rooms(
         request,
         require_home=True,
     )
-    return success_response(
-        request,
-        {
-            "rooms": await service.list_rooms(context.home_id, include_counts=include_counts),
-        },
-    )
+    payload = {
+        "rooms": await service.list_rooms(context.home_id, include_counts=include_counts),
+    }
+    return success_response(request, RoomListResponse.model_validate(payload))
 
 
-@router.put("/api/v1/device-mappings/{device_id}", response_model=SuccessEnvelope[dict[str, Any]])
+@router.put("/api/v1/device-mappings/{device_id}", response_model=SuccessEnvelope[DeviceMappingSaveResponse])
 async def update_device_mapping(
     request: Request,
     device_id: str,
@@ -161,16 +253,14 @@ async def update_device_mapping(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        await service.update_mapping(
-            home_id=context.home_id,
-            terminal_id=context.terminal_id,
-            device_id=device_id,
-            room_id=body.room_id,
-            device_type=body.device_type,
-            is_primary_device=body.is_primary_device,
-            default_control_target=body.default_control_target,
-            provided_fields=body.model_fields_set,
-        ),
+    payload = await service.update_mapping(
+        home_id=context.home_id,
+        terminal_id=context.terminal_id,
+        device_id=device_id,
+        room_id=body.room_id,
+        device_type=body.device_type,
+        is_primary_device=body.is_primary_device,
+        default_control_target=body.default_control_target,
+        provided_fields=body.model_fields_set,
     )
+    return success_response(request, DeviceMappingSaveResponse.model_validate(payload))

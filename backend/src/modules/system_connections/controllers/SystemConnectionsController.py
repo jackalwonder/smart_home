@@ -36,7 +36,39 @@ class HomeAssistantTestBody(ApiSchema):
     candidate_config: HomeAssistantCandidateConfigBody | None = None
 
 
-@router.get("", response_model=SuccessEnvelope[dict[str, Any]])
+class SystemConnectionResponse(ApiSchema):
+    connection_mode: str | None = None
+    base_url_masked: str | None = None
+    connection_status: str
+    auth_configured: bool
+    settings_version: str | None = None
+    last_test_at: str | None = None
+    last_test_result: str | None = None
+    last_sync_at: str | None = None
+    last_sync_result: str | None = None
+
+
+class SystemConnectionsEnvelopeResponse(ApiSchema):
+    home_assistant: SystemConnectionResponse | None = None
+    settings_version: str | None = None
+
+
+class SystemConnectionSaveResponse(ApiSchema):
+    saved: bool
+    connection_status: str
+    updated_at: str
+    message: str
+
+
+class SystemConnectionTestResponse(ApiSchema):
+    tested: bool
+    connection_status: str
+    latency_ms: int | None = None
+    tested_at: str
+    message: str | None = None
+
+
+@router.get("", response_model=SuccessEnvelope[SystemConnectionsEnvelopeResponse])
 async def get_system_connections(
     request: Request,
     service: SystemConnectionService = Depends(get_system_connection_service),
@@ -48,16 +80,14 @@ async def get_system_connections(
     )
     views = await service.get_system_connections(context.home_id)
     current = views[0] if views else None
-    return success_response(
-        request,
-        {
-            "home_assistant": asdict(current) if current is not None else None,
-            "settings_version": current.settings_version if current is not None else None,
-        },
-    )
+    payload = {
+        "home_assistant": asdict(current) if current is not None else None,
+        "settings_version": current.settings_version if current is not None else None,
+    }
+    return success_response(request, SystemConnectionsEnvelopeResponse.model_validate(payload))
 
 
-@router.put("/home-assistant", response_model=SuccessEnvelope[dict[str, Any]])
+@router.put("/home-assistant", response_model=SuccessEnvelope[SystemConnectionSaveResponse])
 async def save_home_assistant(
     request: Request,
     body: HomeAssistantSaveBody = Body(...),
@@ -69,22 +99,20 @@ async def save_home_assistant(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        asdict(
-            await service.save_home_assistant(
-                home_id=context.home_id,
-                terminal_id=context.terminal_id,
-                connection_mode=body.connection_mode,
-                base_url=body.base_url,
-                auth_payload=body.auth_payload,
-                member_id=body.member_id or context.operator_id,
-            )
-        ),
+    payload = asdict(
+        await service.save_home_assistant(
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
+            connection_mode=body.connection_mode,
+            base_url=body.base_url,
+            auth_payload=body.auth_payload,
+            member_id=body.member_id or context.operator_id,
+        )
     )
+    return success_response(request, SystemConnectionSaveResponse.model_validate(payload))
 
 
-@router.post("/home-assistant/test", response_model=SuccessEnvelope[dict[str, Any]])
+@router.post("/home-assistant/test", response_model=SuccessEnvelope[SystemConnectionTestResponse])
 async def test_home_assistant(
     request: Request,
     body: HomeAssistantTestBody = Body(...),
@@ -105,14 +133,12 @@ async def test_home_assistant(
             auth_payload=body.candidate_config.auth_payload,
         )
     )
-    return success_response(
-        request,
-        asdict(
-            await service.test_home_assistant(
-                home_id=context.home_id,
-                terminal_id=context.terminal_id,
-                use_saved_config=body.use_saved_config,
-                candidate_config=candidate_config,
-            )
-        ),
+    payload = asdict(
+        await service.test_home_assistant(
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
+            use_saved_config=body.use_saved_config,
+            candidate_config=candidate_config,
+        )
     )
+    return success_response(request, SystemConnectionTestResponse.model_validate(payload))

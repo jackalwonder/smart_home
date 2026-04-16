@@ -21,19 +21,61 @@ router = APIRouter(prefix="/api/v1/system/backups", tags=["backups"])
 
 
 class BackupCreateBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
     operator_id: str | None = None
     note: str | None = None
 
 
 class BackupRestoreBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
     operator_id: str | None = None
 
 
-@router.post("", response_model=SuccessEnvelope[dict[str, Any]])
+class BackupCreateResponse(ApiSchema):
+    backup_id: str
+    created_at: str
+    status: str
+
+
+class BackupListItemResponse(ApiSchema):
+    backup_id: str
+    created_at: str
+    created_by: str | None = None
+    status: str
+    note: str | None = None
+
+
+class BackupListResponse(ApiSchema):
+    items: list[BackupListItemResponse] = Field(default_factory=list)
+
+
+class BackupRestoreResponse(ApiSchema):
+    restored: bool
+    settings_version: str
+    layout_version: str
+    effective_at: str
+    message: str
+
+
+@router.post("", response_model=SuccessEnvelope[BackupCreateResponse])
 async def create_backup(
     request: Request,
     body: BackupCreateBody = Body(...),
@@ -53,10 +95,10 @@ async def create_backup(
         operator_id=body.operator_id or context.operator_id,
         note=body.note,
     )
-    return success_response(request, asdict(view))
+    return success_response(request, BackupCreateResponse.model_validate(asdict(view)))
 
 
-@router.get("", response_model=SuccessEnvelope[list[dict[str, Any]]])
+@router.get("", response_model=SuccessEnvelope[BackupListResponse])
 async def list_backups(
     request: Request,
     service: BackupService = Depends(get_backup_service),
@@ -67,16 +109,14 @@ async def list_backups(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        await service.list_backups(
-            home_id=context.home_id,
-            terminal_id=context.terminal_id,
-        ),
+    payload = await service.list_backups(
+        home_id=context.home_id,
+        terminal_id=context.terminal_id,
     )
+    return success_response(request, BackupListResponse.model_validate(payload))
 
 
-@router.post("/{backup_id}/restore", response_model=SuccessEnvelope[dict[str, Any]])
+@router.post("/{backup_id}/restore", response_model=SuccessEnvelope[BackupRestoreResponse])
 async def restore_backup(
     request: Request,
     backup_id: str,
@@ -97,4 +137,4 @@ async def restore_backup(
         terminal_id=context.terminal_id,
         operator_id=body.operator_id or context.operator_id,
     )
-    return success_response(request, asdict(view))
+    return success_response(request, BackupRestoreResponse.model_validate(asdict(view)))

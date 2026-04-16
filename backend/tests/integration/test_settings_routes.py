@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from src.app.container import (
     get_favorites_query_service,
+    get_request_context_service,
     get_settings_query_service,
     get_settings_save_service,
 )
+from src.modules.auth.services.query.RequestContextService import RequestContext
 from src.modules.settings.services.command.SettingsSaveService import SettingsSaveView
 from src.modules.settings.services.query.SettingsQueryService import SettingsView
 from src.repositories.read_models.index import (
@@ -103,10 +105,16 @@ class FakeFavoritesQueryService:
         }
 
 
+class FakeRequestContextService:
+    async def resolve_http_request(self, *_args, **_kwargs):
+        return RequestContext(home_id="home-1", terminal_id="terminal-1", operator_id="member-1")
+
+
 def test_get_settings_returns_snapshot(app, client):
     app.dependency_overrides[get_settings_query_service] = lambda: FakeSettingsQueryService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
-    response = client.get("/api/v1/settings", params={"home_id": "home-1"})
+    response = client.get("/api/v1/settings")
 
     assert response.status_code == 200
     body = response.json()
@@ -124,10 +132,11 @@ def test_get_settings_returns_snapshot(app, client):
 def test_get_split_settings_routes(app, client):
     app.dependency_overrides[get_settings_query_service] = lambda: FakeSettingsQueryService()
     app.dependency_overrides[get_favorites_query_service] = lambda: FakeFavoritesQueryService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
-    function_response = client.get("/api/v1/function-settings", params={"home_id": "home-1"})
-    favorites_response = client.get("/api/v1/favorites", params={"home_id": "home-1"})
-    page_response = client.get("/api/v1/page-settings", params={"home_id": "home-1"})
+    function_response = client.get("/api/v1/function-settings")
+    favorites_response = client.get("/api/v1/favorites")
+    page_response = client.get("/api/v1/page-settings")
 
     assert function_response.status_code == 200
     assert function_response.json()["data"]["music_enabled"] is True
@@ -144,13 +153,12 @@ def test_get_split_settings_routes(app, client):
 
 def test_put_settings_returns_new_version(app, client):
     app.dependency_overrides[get_settings_save_service] = lambda: FakeSettingsSaveService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
     response = client.put(
         "/api/v1/settings",
         json={
-            "home_id": "home-1",
             "settings_version": "sv_current",
-            "terminal_id": "terminal-1",
             "page_settings": {},
             "function_settings": {},
             "favorites": [],

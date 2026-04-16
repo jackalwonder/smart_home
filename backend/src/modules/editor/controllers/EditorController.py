@@ -39,32 +39,64 @@ router = APIRouter(prefix="/api/v1/editor", tags=["editor"])
 
 
 class EditorSessionRequestBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
     takeover_if_locked: bool = False
     member_id: str | None = None
 
 
 class EditorHeartbeatRequestBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
 
 
 class EditorDraftSaveRequestBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
     lease_id: str
     draft_version: str
     base_layout_version: str
     background_asset_id: str | None = None
     layout_meta: dict[str, Any] = Field(default_factory=dict)
-    hotspots: list[dict[str, Any]] = Field(default_factory=list)
+    hotspots: list["EditorDraftSaveHotspotRequestBody"] = Field(default_factory=list)
     member_id: str | None = None
 
 
 class EditorPublishRequestBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
     lease_id: str
     draft_version: str
     base_layout_version: str
@@ -72,13 +104,127 @@ class EditorPublishRequestBody(ApiSchema):
 
 
 class EditorDraftDeleteRequestBody(ApiSchema):
-    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
-    terminal_id: str
+    home_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
+    terminal_id: str | None = Field(
+        default=None,
+        description="Legacy compatibility context field.",
+        json_schema_extra={"deprecated": True},
+    )
     lease_id: str
     draft_version: str | None = None
 
 
-@router.post("/sessions", response_model=SuccessEnvelope[dict[str, Any]])
+class EditorDraftSaveHotspotRequestBody(ApiSchema):
+    hotspot_id: str
+    device_id: str
+    x: float
+    y: float
+    icon_type: str | None = None
+    label_mode: str | None = None
+    is_visible: bool = True
+    structure_order: int = 0
+
+
+class EditorLockedByResponse(ApiSchema):
+    terminal_id: str | None = None
+    operator_id: str | None = None
+
+
+class EditorSessionResponse(ApiSchema):
+    granted: bool
+    lock_status: str
+    lease_id: str | None = None
+    lease_expires_at: str | None = None
+    heartbeat_interval_seconds: int | None = None
+    locked_by: EditorLockedByResponse | None = None
+    draft_version: str | None = None
+    current_layout_version: str | None = None
+    previous_terminal_id: str | None = None
+
+
+class EditorDraftLayoutImageSizeResponse(ApiSchema):
+    width: int | None = None
+    height: int | None = None
+
+
+class EditorDraftHotspotResponse(ApiSchema):
+    hotspot_id: str
+    device_id: str
+    x: float
+    y: float
+    icon_type: str | None = None
+    label_mode: str | None = None
+    is_visible: bool
+    structure_order: int
+
+
+class EditorDraftLayoutResponse(ApiSchema):
+    background_image_url: str | None = None
+    background_image_size: EditorDraftLayoutImageSizeResponse | None = None
+    hotspots: list[EditorDraftHotspotResponse] = Field(default_factory=list)
+    layout_meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class EditorDraftResponse(ApiSchema):
+    draft_exists: bool
+    draft_version: str | None = None
+    base_layout_version: str | None = None
+    lock_status: str
+    layout: EditorDraftLayoutResponse | None = None
+    readonly: bool
+
+
+class EditorHeartbeatResponse(ApiSchema):
+    lease_id: str
+    lease_expires_at: str
+    lock_status: str
+
+
+class EditorTakeoverResponse(ApiSchema):
+    taken_over: bool
+    new_lease_id: str | None = None
+    lease_expires_at: str | None = None
+    previous_terminal_id: str | None = None
+    draft_version: str | None = None
+
+
+class EditorDraftSaveResponse(ApiSchema):
+    saved_to_draft: bool
+    draft_version: str
+    preview_only: bool
+    lock_status: str
+
+
+class EditorPublishResponse(ApiSchema):
+    published: bool
+    layout_version: str
+    effective_at: str
+    lock_released: bool
+
+
+class EditorDraftDiscardResponse(ApiSchema):
+    discarded: bool
+    lock_released: bool
+
+
+def _serialize_editor_session(view: EditorSessionView) -> EditorSessionResponse:
+    payload = asdict(view)
+    payload["locked_by"] = (
+        {
+            "terminal_id": view.locked_by,
+            "operator_id": None,
+        }
+        if view.locked_by is not None
+        else None
+    )
+    return EditorSessionResponse.model_validate(payload)
+
+
+@router.post("/sessions", response_model=SuccessEnvelope[EditorSessionResponse])
 async def open_editor_session(
     request: Request,
     body: EditorSessionRequestBody = Body(...),
@@ -100,10 +246,10 @@ async def open_editor_session(
             member_id=body.member_id or context.operator_id,
         )
     )
-    return success_response(request, asdict(view))
+    return success_response(request, _serialize_editor_session(view))
 
 
-@router.get("/draft", response_model=SuccessEnvelope[dict[str, Any]])
+@router.get("/draft", response_model=SuccessEnvelope[EditorDraftResponse])
 async def get_editor_draft(
     request: Request,
     lease_id: str | None = Query(default=None),
@@ -122,10 +268,10 @@ async def get_editor_draft(
             lease_id=lease_id,
         )
     )
-    return success_response(request, asdict(view))
+    return success_response(request, EditorDraftResponse.model_validate(asdict(view)))
 
 
-@router.post("/sessions/{lease_id}/heartbeat", response_model=SuccessEnvelope[dict[str, Any]])
+@router.post("/sessions/{lease_id}/heartbeat", response_model=SuccessEnvelope[EditorHeartbeatResponse])
 async def editor_heartbeat(
     request: Request,
     lease_id: str,
@@ -147,10 +293,10 @@ async def editor_heartbeat(
             lease_id=lease_id,
         )
     )
-    return success_response(request, asdict(view))
+    return success_response(request, EditorHeartbeatResponse.model_validate(asdict(view)))
 
 
-@router.post("/sessions/{lease_id}/takeover", response_model=SuccessEnvelope[dict[str, Any]])
+@router.post("/sessions/{lease_id}/takeover", response_model=SuccessEnvelope[EditorTakeoverResponse])
 async def editor_takeover(
     request: Request,
     lease_id: str,
@@ -174,19 +320,17 @@ async def editor_takeover(
             expected_lease_id=lease_id,
         )
     )
-    return success_response(
-        request,
-        {
-            "taken_over": True,
-            "new_lease_id": view.lease_id,
-            "lease_expires_at": view.lease_expires_at,
-            "previous_terminal_id": view.previous_terminal_id,
-            "draft_version": view.draft_version,
-        },
-    )
+    payload = {
+        "taken_over": True,
+        "new_lease_id": view.lease_id,
+        "lease_expires_at": view.lease_expires_at,
+        "previous_terminal_id": view.previous_terminal_id,
+        "draft_version": view.draft_version,
+    }
+    return success_response(request, EditorTakeoverResponse.model_validate(payload))
 
 
-@router.put("/draft", response_model=SuccessEnvelope[dict[str, Any]])
+@router.put("/draft", response_model=SuccessEnvelope[EditorDraftSaveResponse])
 async def save_editor_draft(
     request: Request,
     body: EditorDraftSaveRequestBody = Body(...),
@@ -213,10 +357,10 @@ async def save_editor_draft(
             member_id=body.member_id or context.operator_id,
         )
     )
-    return success_response(request, asdict(view))
+    return success_response(request, EditorDraftSaveResponse.model_validate(asdict(view)))
 
 
-@router.post("/publish", response_model=SuccessEnvelope[dict[str, Any]])
+@router.post("/publish", response_model=SuccessEnvelope[EditorPublishResponse])
 async def publish_editor_draft(
     request: Request,
     body: EditorPublishRequestBody = Body(...),
@@ -240,10 +384,10 @@ async def publish_editor_draft(
             member_id=body.member_id or context.operator_id,
         )
     )
-    return success_response(request, asdict(view))
+    return success_response(request, EditorPublishResponse.model_validate(asdict(view)))
 
 
-@router.delete("/draft", response_model=SuccessEnvelope[dict[str, Any]])
+@router.delete("/draft", response_model=SuccessEnvelope[EditorDraftDiscardResponse])
 async def discard_editor_draft(
     request: Request,
     body: EditorDraftDeleteRequestBody = Body(...),
@@ -257,14 +401,12 @@ async def discard_editor_draft(
         require_home=True,
         require_terminal=True,
     )
-    return success_response(
-        request,
-        await service.discard_draft(
-            EditorDraftDiscardInput(
-                home_id=context.home_id,
-                terminal_id=context.terminal_id,
-                lease_id=body.lease_id,
-                draft_version=body.draft_version,
-            )
-        ),
+    payload = await service.discard_draft(
+        EditorDraftDiscardInput(
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
+            lease_id=body.lease_id,
+            draft_version=body.draft_version,
+        )
     )
+    return success_response(request, EditorDraftDiscardResponse.model_validate(payload))

@@ -106,6 +106,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -140,11 +141,96 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Terminal Id"
           }
         },
         "title": "BackupCreateBody",
+        "type": "object"
+      },
+      "BackupCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_id": {
+            "title": "Backup Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "backup_id",
+          "created_at",
+          "status"
+        ],
+        "title": "BackupCreateResponse",
+        "type": "object"
+      },
+      "BackupListItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_id": {
+            "title": "Backup Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "backup_id",
+          "created_at",
+          "status"
+        ],
+        "title": "BackupListItemResponse",
+        "type": "object"
+      },
+      "BackupListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BackupListItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "BackupListResponse",
         "type": "object"
       },
       "BackupRestoreBody": {
@@ -159,6 +245,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -182,11 +269,46 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Terminal Id"
           }
         },
         "title": "BackupRestoreBody",
+        "type": "object"
+      },
+      "BackupRestoreResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_at": {
+            "title": "Effective At",
+            "type": "string"
+          },
+          "layout_version": {
+            "title": "Layout Version",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "restored": {
+            "title": "Restored",
+            "type": "boolean"
+          },
+          "settings_version": {
+            "title": "Settings Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "restored",
+          "settings_version",
+          "layout_version",
+          "effective_at",
+          "message"
+        ],
+        "title": "BackupRestoreResponse",
         "type": "object"
       },
       "BindMediaBody": {
@@ -205,6 +327,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -228,6 +351,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Terminal Id"
           }
@@ -274,15 +398,130 @@
             "type": "boolean"
           },
           "terminal_id": {
-            "title": "Terminal Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Legacy compatibility context field.",
+            "title": "Terminal Id"
           }
         },
         "required": [
-          "terminal_id",
           "file"
         ],
         "title": "Body_upload_floorplan_api_v1_page_assets_floorplan_post",
+        "type": "object"
+      },
+      "DefaultMediaResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "availability_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Status"
+          },
+          "binding_status": {
+            "title": "Binding Status",
+            "type": "string"
+          },
+          "confirmation_type": {
+            "title": "Confirmation Type",
+            "type": "string"
+          },
+          "control_schema": {
+            "items": {
+              "$ref": "#/components/schemas/MediaControlSchemaItemResponse"
+            },
+            "title": "Control Schema",
+            "type": "array"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "entry_behavior": {
+            "title": "Entry Behavior",
+            "type": "string"
+          },
+          "play_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play State"
+          },
+          "track_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Track Title"
+          }
+        },
+        "required": [
+          "binding_status",
+          "entry_behavior",
+          "confirmation_type"
+        ],
+        "title": "DefaultMediaResponse",
         "type": "object"
       },
       "DeviceAlertBadge": {
@@ -743,14 +982,12 @@
           "editor_config": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/DeviceEditorConfigResponse"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Editor Config"
+            ]
           },
           "entry_behavior": {
             "anyOf": [
@@ -819,9 +1056,7 @@
             ]
           },
           "source_info": {
-            "additionalProperties": true,
-            "title": "Source Info",
-            "type": "object"
+            "$ref": "#/components/schemas/DeviceSourceInfoResponse"
           },
           "status": {
             "title": "Status",
@@ -843,6 +1078,434 @@
           "is_readonly_device"
         ],
         "title": "DeviceDetailResponse",
+        "type": "object"
+      },
+      "DeviceEditorConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hotspots": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceEditorHotspotResponse"
+            },
+            "title": "Hotspots",
+            "type": "array"
+          }
+        },
+        "title": "DeviceEditorConfigResponse",
+        "type": "object"
+      },
+      "DeviceEditorHotspotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hotspot_id": {
+            "title": "Hotspot Id",
+            "type": "string"
+          },
+          "icon_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Type"
+          },
+          "is_visible": {
+            "title": "Is Visible",
+            "type": "boolean"
+          },
+          "label_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Mode"
+          },
+          "structure_order": {
+            "title": "Structure Order",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hotspot_id",
+          "x",
+          "y",
+          "is_visible",
+          "structure_order"
+        ],
+        "title": "DeviceEditorHotspotResponse",
+        "type": "object"
+      },
+      "DeviceEntityLinkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Role"
+          },
+          "ha_entity_row_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Entity Row Id"
+          },
+          "is_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Available"
+          },
+          "is_primary": {
+            "title": "Is Primary",
+            "type": "boolean"
+          },
+          "last_state_changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last State Changed At"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "raw_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Name"
+          },
+          "room_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Hint"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "entity_id",
+          "is_primary"
+        ],
+        "title": "DeviceEntityLinkResponse",
+        "type": "object"
+      },
+      "DeviceListItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_badges": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceAlertBadge"
+            },
+            "title": "Alert Badges",
+            "type": "array"
+          },
+          "capabilities": {
+            "additionalProperties": true,
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "confirmation_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Type"
+          },
+          "default_control_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Control Target"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_type": {
+            "title": "Device Type",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "entry_behavior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Behavior"
+          },
+          "favorite_exclude_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Exclude Reason"
+          },
+          "favorite_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Order"
+          },
+          "is_complex_device": {
+            "title": "Is Complex Device",
+            "type": "boolean"
+          },
+          "is_favorite": {
+            "title": "Is Favorite",
+            "type": "boolean"
+          },
+          "is_favorite_candidate": {
+            "title": "Is Favorite Candidate",
+            "type": "boolean"
+          },
+          "is_homepage_visible": {
+            "title": "Is Homepage Visible",
+            "type": "boolean"
+          },
+          "is_offline": {
+            "title": "Is Offline",
+            "type": "boolean"
+          },
+          "is_primary_device": {
+            "title": "Is Primary Device",
+            "type": "boolean"
+          },
+          "is_readonly_device": {
+            "title": "Is Readonly Device",
+            "type": "boolean"
+          },
+          "raw_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Name"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_summary": {
+            "additionalProperties": true,
+            "title": "Status Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "device_id",
+          "display_name",
+          "device_type",
+          "status",
+          "is_offline",
+          "is_complex_device",
+          "is_readonly_device",
+          "is_homepage_visible",
+          "is_primary_device",
+          "is_favorite",
+          "is_favorite_candidate"
+        ],
+        "title": "DeviceListItemResponse",
+        "type": "object"
+      },
+      "DeviceListPageInfoResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "total",
+          "has_next"
+        ],
+        "title": "DeviceListPageInfoResponse",
+        "type": "object"
+      },
+      "DeviceListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceListItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page_info": {
+            "$ref": "#/components/schemas/DeviceListPageInfoResponse"
+          }
+        },
+        "required": [
+          "page_info"
+        ],
+        "title": "DeviceListResponse",
         "type": "object"
       },
       "DeviceMappingBody": {
@@ -896,6 +1559,68 @@
         "title": "DeviceMappingBody",
         "type": "object"
       },
+      "DeviceMappingSaveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default_control_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Control Target"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Type"
+          },
+          "is_primary_device": {
+            "title": "Is Primary Device",
+            "type": "boolean"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saved",
+          "device_id",
+          "is_primary_device",
+          "updated_at"
+        ],
+        "title": "DeviceMappingSaveResponse",
+        "type": "object"
+      },
       "DeviceReloadBody": {
         "additionalProperties": false,
         "properties": {
@@ -906,6 +1631,35 @@
           }
         },
         "title": "DeviceReloadBody",
+        "type": "object"
+      },
+      "DeviceReloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "reload_status": {
+            "title": "Reload Status",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "reload_status",
+          "started_at",
+          "message"
+        ],
+        "title": "DeviceReloadResponse",
         "type": "object"
       },
       "DeviceRuntimeState": {
@@ -971,6 +1725,20 @@
         "title": "DeviceRuntimeState",
         "type": "object"
       },
+      "DeviceSourceInfoResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "entity_links": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceEntityLinkResponse"
+            },
+            "title": "Entity Links",
+            "type": "array"
+          }
+        },
+        "title": "DeviceSourceInfoResponse",
+        "type": "object"
+      },
       "EditorDraftDeleteRequestBody": {
         "additionalProperties": false,
         "properties": {
@@ -994,6 +1762,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -1002,15 +1771,289 @@
             "type": "string"
           },
           "terminal_id": {
-            "title": "Terminal Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Legacy compatibility context field.",
+            "title": "Terminal Id"
           }
         },
         "required": [
-          "terminal_id",
           "lease_id"
         ],
         "title": "EditorDraftDeleteRequestBody",
+        "type": "object"
+      },
+      "EditorDraftDiscardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "discarded": {
+            "title": "Discarded",
+            "type": "boolean"
+          },
+          "lock_released": {
+            "title": "Lock Released",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "discarded",
+          "lock_released"
+        ],
+        "title": "EditorDraftDiscardResponse",
+        "type": "object"
+      },
+      "EditorDraftHotspotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "hotspot_id": {
+            "title": "Hotspot Id",
+            "type": "string"
+          },
+          "icon_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Type"
+          },
+          "is_visible": {
+            "title": "Is Visible",
+            "type": "boolean"
+          },
+          "label_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Mode"
+          },
+          "structure_order": {
+            "title": "Structure Order",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hotspot_id",
+          "device_id",
+          "x",
+          "y",
+          "is_visible",
+          "structure_order"
+        ],
+        "title": "EditorDraftHotspotResponse",
+        "type": "object"
+      },
+      "EditorDraftLayoutImageSizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "title": "EditorDraftLayoutImageSizeResponse",
+        "type": "object"
+      },
+      "EditorDraftLayoutResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "background_image_size": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EditorDraftLayoutImageSizeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "background_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Background Image Url"
+          },
+          "hotspots": {
+            "items": {
+              "$ref": "#/components/schemas/EditorDraftHotspotResponse"
+            },
+            "title": "Hotspots",
+            "type": "array"
+          },
+          "layout_meta": {
+            "additionalProperties": true,
+            "title": "Layout Meta",
+            "type": "object"
+          }
+        },
+        "title": "EditorDraftLayoutResponse",
+        "type": "object"
+      },
+      "EditorDraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "base_layout_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Layout Version"
+          },
+          "draft_exists": {
+            "title": "Draft Exists",
+            "type": "boolean"
+          },
+          "draft_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Version"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EditorDraftLayoutResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lock_status": {
+            "title": "Lock Status",
+            "type": "string"
+          },
+          "readonly": {
+            "title": "Readonly",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "draft_exists",
+          "lock_status",
+          "readonly"
+        ],
+        "title": "EditorDraftResponse",
+        "type": "object"
+      },
+      "EditorDraftSaveHotspotRequestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "hotspot_id": {
+            "title": "Hotspot Id",
+            "type": "string"
+          },
+          "icon_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Type"
+          },
+          "is_visible": {
+            "default": true,
+            "title": "Is Visible",
+            "type": "boolean"
+          },
+          "label_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Mode"
+          },
+          "structure_order": {
+            "default": 0,
+            "title": "Structure Order",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hotspot_id",
+          "device_id",
+          "x",
+          "y"
+        ],
+        "title": "EditorDraftSaveHotspotRequestBody",
         "type": "object"
       },
       "EditorDraftSaveRequestBody": {
@@ -1044,13 +2087,13 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
           "hotspots": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/EditorDraftSaveHotspotRequestBody"
             },
             "title": "Hotspots",
             "type": "array"
@@ -1076,17 +2119,54 @@
             "title": "Member Id"
           },
           "terminal_id": {
-            "title": "Terminal Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Legacy compatibility context field.",
+            "title": "Terminal Id"
           }
         },
         "required": [
-          "terminal_id",
           "lease_id",
           "draft_version",
           "base_layout_version"
         ],
         "title": "EditorDraftSaveRequestBody",
+        "type": "object"
+      },
+      "EditorDraftSaveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "draft_version": {
+            "title": "Draft Version",
+            "type": "string"
+          },
+          "lock_status": {
+            "title": "Lock Status",
+            "type": "string"
+          },
+          "preview_only": {
+            "title": "Preview Only",
+            "type": "boolean"
+          },
+          "saved_to_draft": {
+            "title": "Saved To Draft",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "saved_to_draft",
+          "draft_version",
+          "preview_only",
+          "lock_status"
+        ],
+        "title": "EditorDraftSaveResponse",
         "type": "object"
       },
       "EditorHeartbeatRequestBody": {
@@ -1101,18 +2181,78 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
           "terminal_id": {
-            "title": "Terminal Id",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Legacy compatibility context field.",
+            "title": "Terminal Id"
+          }
+        },
+        "title": "EditorHeartbeatRequestBody",
+        "type": "object"
+      },
+      "EditorHeartbeatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lease_expires_at": {
+            "title": "Lease Expires At",
+            "type": "string"
+          },
+          "lease_id": {
+            "title": "Lease Id",
+            "type": "string"
+          },
+          "lock_status": {
+            "title": "Lock Status",
             "type": "string"
           }
         },
         "required": [
-          "terminal_id"
+          "lease_id",
+          "lease_expires_at",
+          "lock_status"
         ],
-        "title": "EditorHeartbeatRequestBody",
+        "title": "EditorHeartbeatResponse",
+        "type": "object"
+      },
+      "EditorLockedByResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "operator_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator Id"
+          },
+          "terminal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Id"
+          }
+        },
+        "title": "EditorLockedByResponse",
         "type": "object"
       },
       "EditorPublishRequestBody": {
@@ -1135,6 +2275,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -1154,17 +2295,54 @@
             "title": "Member Id"
           },
           "terminal_id": {
-            "title": "Terminal Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Legacy compatibility context field.",
+            "title": "Terminal Id"
           }
         },
         "required": [
-          "terminal_id",
           "lease_id",
           "draft_version",
           "base_layout_version"
         ],
         "title": "EditorPublishRequestBody",
+        "type": "object"
+      },
+      "EditorPublishResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_at": {
+            "title": "Effective At",
+            "type": "string"
+          },
+          "layout_version": {
+            "title": "Layout Version",
+            "type": "string"
+          },
+          "lock_released": {
+            "title": "Lock Released",
+            "type": "boolean"
+          },
+          "published": {
+            "title": "Published",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "published",
+          "layout_version",
+          "effective_at",
+          "lock_released"
+        ],
+        "title": "EditorPublishResponse",
         "type": "object"
       },
       "EditorSessionRequestBody": {
@@ -1179,6 +2357,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -1199,14 +2378,173 @@
             "type": "boolean"
           },
           "terminal_id": {
-            "title": "Terminal Id",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Legacy compatibility context field.",
+            "title": "Terminal Id"
+          }
+        },
+        "title": "EditorSessionRequestBody",
+        "type": "object"
+      },
+      "EditorSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current_layout_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Layout Version"
+          },
+          "draft_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Version"
+          },
+          "granted": {
+            "title": "Granted",
+            "type": "boolean"
+          },
+          "heartbeat_interval_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat Interval Seconds"
+          },
+          "lease_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Expires At"
+          },
+          "lease_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Id"
+          },
+          "lock_status": {
+            "title": "Lock Status",
             "type": "string"
+          },
+          "locked_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EditorLockedByResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previous_terminal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Terminal Id"
           }
         },
         "required": [
-          "terminal_id"
+          "granted",
+          "lock_status"
         ],
-        "title": "EditorSessionRequestBody",
+        "title": "EditorSessionResponse",
+        "type": "object"
+      },
+      "EditorTakeoverResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "draft_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Version"
+          },
+          "lease_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Expires At"
+          },
+          "new_lease_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Lease Id"
+          },
+          "previous_terminal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Terminal Id"
+          },
+          "taken_over": {
+            "title": "Taken Over",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "taken_over"
+        ],
+        "title": "EditorTakeoverResponse",
         "type": "object"
       },
       "EnergyBindingBody": {
@@ -1221,6 +2559,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -1249,11 +2588,348 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Terminal Id"
           }
         },
         "title": "EnergyBindingBody",
+        "type": "object"
+      },
+      "EnergyBindingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_status": {
+            "title": "Binding Status",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saved",
+          "binding_status",
+          "updated_at",
+          "message"
+        ],
+        "title": "EnergyBindingResponse",
+        "type": "object"
+      },
+      "EnergyRefreshResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "refresh_status": {
+            "title": "Refresh Status",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted",
+          "refresh_status",
+          "started_at",
+          "timeout_seconds"
+        ],
+        "title": "EnergyRefreshResponse",
+        "type": "object"
+      },
+      "EnergyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "balance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance"
+          },
+          "binding_status": {
+            "title": "Binding Status",
+            "type": "string"
+          },
+          "cache_mode": {
+            "title": "Cache Mode",
+            "type": "boolean"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error Code"
+          },
+          "monthly_usage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Usage"
+          },
+          "refresh_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Status"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "yearly_usage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yearly Usage"
+          },
+          "yesterday_usage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yesterday Usage"
+          }
+        },
+        "required": [
+          "binding_status",
+          "cache_mode"
+        ],
+        "title": "EnergyResponse",
+        "type": "object"
+      },
+      "FavoritesCatalogItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_type": {
+            "title": "Device Type",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "exclude_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Reason"
+          },
+          "favorite_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Order"
+          },
+          "is_selectable": {
+            "title": "Is Selectable",
+            "type": "boolean"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "device_id",
+          "display_name",
+          "device_type",
+          "selected",
+          "is_selectable"
+        ],
+        "title": "FavoritesCatalogItemResponse",
+        "type": "object"
+      },
+      "FavoritesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FavoritesCatalogItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "max_allowed": {
+            "title": "Max Allowed",
+            "type": "integer"
+          },
+          "max_recommended": {
+            "title": "Max Recommended",
+            "type": "integer"
+          },
+          "selected_count": {
+            "title": "Selected Count",
+            "type": "integer"
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
+          }
+        },
+        "required": [
+          "selected_count",
+          "max_recommended",
+          "max_allowed"
+        ],
+        "title": "FavoritesResponse",
+        "type": "object"
+      },
+      "FloorplanAssetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "asset_updated": {
+            "title": "Asset Updated",
+            "type": "boolean"
+          },
+          "background_image_size": {
+            "$ref": "#/components/schemas/FloorplanImageSizeResponse"
+          },
+          "background_image_url": {
+            "title": "Background Image Url",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_updated",
+          "asset_id",
+          "background_image_url",
+          "background_image_size",
+          "updated_at"
+        ],
+        "title": "FloorplanAssetResponse",
+        "type": "object"
+      },
+      "FloorplanImageSizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "title": "FloorplanImageSizeResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1348,6 +3024,1139 @@
           }
         },
         "title": "HomeAssistantTestBody",
+        "type": "object"
+      },
+      "HomeOverviewDateTimeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current_time": {
+            "title": "Current Time",
+            "type": "string"
+          },
+          "terminal_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Mode"
+          }
+        },
+        "required": [
+          "current_time"
+        ],
+        "title": "HomeOverviewDateTimeResponse",
+        "type": "object"
+      },
+      "HomeOverviewDefaultMediaStateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "availability_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Status"
+          },
+          "binding_status": {
+            "title": "Binding Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding_status"
+        ],
+        "title": "HomeOverviewDefaultMediaStateResponse",
+        "type": "object"
+      },
+      "HomeOverviewEnergyBarResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "balance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance"
+          },
+          "binding_status": {
+            "title": "Binding Status",
+            "type": "string"
+          },
+          "monthly_usage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Usage"
+          },
+          "refresh_status": {
+            "title": "Refresh Status",
+            "type": "string"
+          },
+          "yearly_usage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yearly Usage"
+          },
+          "yesterday_usage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yesterday Usage"
+          }
+        },
+        "required": [
+          "binding_status",
+          "refresh_status"
+        ],
+        "title": "HomeOverviewEnergyBarResponse",
+        "type": "object"
+      },
+      "HomeOverviewHomeInfoResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "home_id": {
+            "title": "Home Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "home_id"
+        ],
+        "title": "HomeOverviewHomeInfoResponse",
+        "type": "object"
+      },
+      "HomeOverviewHotspotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_badges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Alert Badges",
+            "type": "array"
+          },
+          "default_control_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Control Target"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_type": {
+            "title": "Device Type",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "display_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Policy"
+          },
+          "entry_behavior": {
+            "title": "Entry Behavior",
+            "type": "string"
+          },
+          "hotspot_id": {
+            "title": "Hotspot Id",
+            "type": "string"
+          },
+          "icon_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Type"
+          },
+          "is_complex_device": {
+            "title": "Is Complex Device",
+            "type": "boolean"
+          },
+          "is_offline": {
+            "title": "Is Offline",
+            "type": "boolean"
+          },
+          "is_readonly_device": {
+            "title": "Is Readonly Device",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_summary": {
+            "additionalProperties": true,
+            "title": "Status Summary",
+            "type": "object"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hotspot_id",
+          "device_id",
+          "display_name",
+          "device_type",
+          "x",
+          "y",
+          "status",
+          "is_offline",
+          "is_complex_device",
+          "is_readonly_device",
+          "entry_behavior"
+        ],
+        "title": "HomeOverviewHotspotResponse",
+        "type": "object"
+      },
+      "HomeOverviewImageSizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "title": "HomeOverviewImageSizeResponse",
+        "type": "object"
+      },
+      "HomeOverviewMusicCardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "availability_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Status"
+          },
+          "binding_status": {
+            "title": "Binding Status",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "entry_behavior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Behavior"
+          },
+          "play_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play State"
+          },
+          "track_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Track Title"
+          }
+        },
+        "required": [
+          "binding_status"
+        ],
+        "title": "HomeOverviewMusicCardResponse",
+        "type": "object"
+      },
+      "HomeOverviewPositionDeviceSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "closed_count": {
+            "title": "Closed Count",
+            "type": "integer"
+          },
+          "opened_count": {
+            "title": "Opened Count",
+            "type": "integer"
+          },
+          "partial_count": {
+            "title": "Partial Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "opened_count",
+          "closed_count",
+          "partial_count"
+        ],
+        "title": "HomeOverviewPositionDeviceSummaryResponse",
+        "type": "object"
+      },
+      "HomeOverviewQuickEntryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "badge_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Badge Count"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "HomeOverviewQuickEntryResponse",
+        "type": "object"
+      },
+      "HomeOverviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_mode": {
+            "title": "Cache Mode",
+            "type": "boolean"
+          },
+          "energy_bar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HomeOverviewEnergyBarResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "home_info": {
+            "$ref": "#/components/schemas/HomeOverviewHomeInfoResponse"
+          },
+          "layout_version": {
+            "title": "Layout Version",
+            "type": "string"
+          },
+          "quick_entries": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HomeOverviewQuickEntryResponse"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Quick Entries"
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
+          },
+          "sidebar": {
+            "$ref": "#/components/schemas/HomeOverviewSidebarResponse"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/HomeOverviewStageResponse"
+          },
+          "system_state": {
+            "$ref": "#/components/schemas/HomeOverviewSystemStateResponse"
+          },
+          "ui_policy": {
+            "$ref": "#/components/schemas/HomeOverviewUiPolicyResponse"
+          }
+        },
+        "required": [
+          "home_info",
+          "layout_version",
+          "stage",
+          "sidebar",
+          "quick_entries",
+          "system_state",
+          "cache_mode",
+          "ui_policy"
+        ],
+        "title": "HomeOverviewResponse",
+        "type": "object"
+      },
+      "HomeOverviewSidebarResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "datetime": {
+            "$ref": "#/components/schemas/HomeOverviewDateTimeResponse"
+          },
+          "music_card": {
+            "$ref": "#/components/schemas/HomeOverviewMusicCardResponse"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/HomeOverviewSummaryResponse"
+          },
+          "weather": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HomeOverviewWeatherResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "datetime",
+          "music_card",
+          "summary"
+        ],
+        "title": "HomeOverviewSidebarResponse",
+        "type": "object"
+      },
+      "HomeOverviewStageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "background_image_size": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HomeOverviewImageSizeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "background_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Background Image Url"
+          },
+          "hotspots": {
+            "items": {
+              "$ref": "#/components/schemas/HomeOverviewHotspotResponse"
+            },
+            "title": "Hotspots",
+            "type": "array"
+          }
+        },
+        "title": "HomeOverviewStageResponse",
+        "type": "object"
+      },
+      "HomeOverviewSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lights_on_count": {
+            "title": "Lights On Count",
+            "type": "integer"
+          },
+          "low_battery_count": {
+            "title": "Low Battery Count",
+            "type": "integer"
+          },
+          "offline_count": {
+            "title": "Offline Count",
+            "type": "integer"
+          },
+          "online_count": {
+            "title": "Online Count",
+            "type": "integer"
+          },
+          "position_device_summary": {
+            "$ref": "#/components/schemas/HomeOverviewPositionDeviceSummaryResponse"
+          },
+          "running_device_count": {
+            "title": "Running Device Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "online_count",
+          "offline_count",
+          "lights_on_count",
+          "running_device_count",
+          "position_device_summary",
+          "low_battery_count"
+        ],
+        "title": "HomeOverviewSummaryResponse",
+        "type": "object"
+      },
+      "HomeOverviewSystemConnectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "auth_configured": {
+            "title": "Auth Configured",
+            "type": "boolean"
+          },
+          "connection_status": {
+            "title": "Connection Status",
+            "type": "string"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "last_test_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Test At"
+          },
+          "system_type": {
+            "title": "System Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "system_type",
+          "connection_status",
+          "auth_configured"
+        ],
+        "title": "HomeOverviewSystemConnectionResponse",
+        "type": "object"
+      },
+      "HomeOverviewSystemStateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default_media": {
+            "$ref": "#/components/schemas/HomeOverviewDefaultMediaStateResponse"
+          },
+          "home_assistant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HomeOverviewSystemConnectionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "default_media"
+        ],
+        "title": "HomeOverviewSystemStateResponse",
+        "type": "object"
+      },
+      "HomeOverviewUiPolicyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_home_timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Home Timeout Seconds"
+          },
+          "favorite_limit": {
+            "title": "Favorite Limit",
+            "type": "integer"
+          },
+          "homepage_display_policy": {
+            "additionalProperties": true,
+            "title": "Homepage Display Policy",
+            "type": "object"
+          },
+          "icon_policy": {
+            "additionalProperties": true,
+            "title": "Icon Policy",
+            "type": "object"
+          },
+          "layout_preference": {
+            "additionalProperties": true,
+            "title": "Layout Preference",
+            "type": "object"
+          },
+          "position_device_thresholds": {
+            "additionalProperties": true,
+            "title": "Position Device Thresholds",
+            "type": "object"
+          },
+          "room_label_mode": {
+            "title": "Room Label Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_label_mode",
+          "favorite_limit"
+        ],
+        "title": "HomeOverviewUiPolicyResponse",
+        "type": "object"
+      },
+      "HomeOverviewWeatherResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_mode": {
+            "title": "Cache Mode",
+            "type": "boolean"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "fetched_at": {
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "humidity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Humidity"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          }
+        },
+        "required": [
+          "fetched_at",
+          "cache_mode"
+        ],
+        "title": "HomeOverviewWeatherResponse",
+        "type": "object"
+      },
+      "HomePanelAlertBadgeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "level",
+          "text"
+        ],
+        "title": "HomePanelAlertBadgeResponse",
+        "type": "object"
+      },
+      "HomePanelItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_badges": {
+            "items": {
+              "$ref": "#/components/schemas/HomePanelAlertBadgeResponse"
+            },
+            "title": "Alert Badges",
+            "type": "array"
+          },
+          "confirmation_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Type"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_type": {
+            "title": "Device Type",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "entry_behavior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Behavior"
+          },
+          "exclude_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Reason"
+          },
+          "favorite_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Order"
+          },
+          "is_complex_device": {
+            "title": "Is Complex Device",
+            "type": "boolean"
+          },
+          "is_offline": {
+            "title": "Is Offline",
+            "type": "boolean"
+          },
+          "is_readonly_device": {
+            "title": "Is Readonly Device",
+            "type": "boolean"
+          },
+          "is_selectable": {
+            "title": "Is Selectable",
+            "type": "boolean"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "display_name",
+          "device_type",
+          "status",
+          "is_offline",
+          "is_complex_device",
+          "is_readonly_device",
+          "is_selectable"
+        ],
+        "title": "HomePanelItemResponse",
+        "type": "object"
+      },
+      "HomePanelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_mode": {
+            "title": "Cache Mode",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HomePanelItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "panel_type": {
+            "title": "Panel Type",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/HomePanelSummaryResponse"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "panel_type",
+          "title",
+          "summary",
+          "cache_mode"
+        ],
+        "title": "HomePanelResponse",
+        "type": "object"
+      },
+      "HomePanelSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "HomePanelSummaryResponse",
+        "type": "object"
+      },
+      "MediaBindingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "availability_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Status"
+          },
+          "binding_status": {
+            "title": "Binding Status",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saved",
+          "binding_status",
+          "updated_at"
+        ],
+        "title": "MediaBindingResponse",
+        "type": "object"
+      },
+      "MediaControlSchemaItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action_type": {
+            "title": "Action Type",
+            "type": "string"
+          },
+          "allowed_values": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Values"
+          },
+          "is_quick_action": {
+            "title": "Is Quick Action",
+            "type": "boolean"
+          },
+          "requires_detail_entry": {
+            "title": "Requires Detail Entry",
+            "type": "boolean"
+          },
+          "target_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Key"
+          },
+          "target_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Scope"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_range": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Range"
+          },
+          "value_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Type"
+          }
+        },
+        "required": [
+          "action_type",
+          "is_quick_action",
+          "requires_detail_entry"
+        ],
+        "title": "MediaControlSchemaItemResponse",
         "type": "object"
       },
       "PinSessionResponse": {
@@ -1485,6 +4294,197 @@
         "title": "ResponseMeta",
         "type": "object"
       },
+      "RoomListItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "device_count": {
+            "title": "Device Count",
+            "type": "integer"
+          },
+          "homepage_device_count": {
+            "title": "Homepage Device Count",
+            "type": "integer"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "integer"
+          },
+          "room_id": {
+            "title": "Room Id",
+            "type": "string"
+          },
+          "room_name": {
+            "title": "Room Name",
+            "type": "string"
+          },
+          "visible_in_editor": {
+            "title": "Visible In Editor",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "room_id",
+          "room_name",
+          "priority",
+          "device_count",
+          "homepage_device_count",
+          "visible_in_editor"
+        ],
+        "title": "RoomListItemResponse",
+        "type": "object"
+      },
+      "RoomListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/RoomListItemResponse"
+            },
+            "title": "Rooms",
+            "type": "array"
+          }
+        },
+        "title": "RoomListResponse",
+        "type": "object"
+      },
+      "SettingsFavoriteItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "favorite_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Order"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "device_id",
+          "selected"
+        ],
+        "title": "SettingsFavoriteItemResponse",
+        "type": "object"
+      },
+      "SettingsFunctionSettingsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_home_timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Home Timeout Seconds"
+          },
+          "favorite_limit": {
+            "title": "Favorite Limit",
+            "type": "integer"
+          },
+          "low_battery_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Low Battery Threshold"
+          },
+          "music_enabled": {
+            "title": "Music Enabled",
+            "type": "boolean"
+          },
+          "offline_threshold_seconds": {
+            "title": "Offline Threshold Seconds",
+            "type": "integer"
+          },
+          "position_device_thresholds": {
+            "additionalProperties": true,
+            "title": "Position Device Thresholds",
+            "type": "object"
+          },
+          "quick_entry_policy": {
+            "additionalProperties": true,
+            "title": "Quick Entry Policy",
+            "type": "object"
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
+          }
+        },
+        "required": [
+          "low_battery_threshold",
+          "offline_threshold_seconds",
+          "music_enabled",
+          "favorite_limit"
+        ],
+        "title": "SettingsFunctionSettingsResponse",
+        "type": "object"
+      },
+      "SettingsPageSettingsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "homepage_display_policy": {
+            "additionalProperties": true,
+            "title": "Homepage Display Policy",
+            "type": "object"
+          },
+          "icon_policy": {
+            "additionalProperties": true,
+            "title": "Icon Policy",
+            "type": "object"
+          },
+          "layout_preference": {
+            "additionalProperties": true,
+            "title": "Layout Preference",
+            "type": "object"
+          },
+          "room_label_mode": {
+            "title": "Room Label Mode",
+            "type": "string"
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
+          }
+        },
+        "required": [
+          "room_label_mode"
+        ],
+        "title": "SettingsPageSettingsResponse",
+        "type": "object"
+      },
       "SettingsSaveRequestBody": {
         "additionalProperties": false,
         "properties": {
@@ -1510,6 +4510,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -1549,6 +4550,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Terminal Id"
           }
@@ -1588,6 +4590,86 @@
         "title": "SettingsSaveResponse",
         "type": "object"
       },
+      "SettingsSnapshotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "favorites": {
+            "items": {
+              "$ref": "#/components/schemas/SettingsFavoriteItemResponse"
+            },
+            "title": "Favorites",
+            "type": "array"
+          },
+          "function_settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingsFunctionSettingsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "page_settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettingsPageSettingsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pin_session_required": {
+            "title": "Pin Session Required",
+            "type": "boolean"
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
+          },
+          "system_settings_summary": {
+            "$ref": "#/components/schemas/SettingsSystemSummaryResponse"
+          }
+        },
+        "required": [
+          "system_settings_summary",
+          "pin_session_required"
+        ],
+        "title": "SettingsSnapshotResponse",
+        "type": "object"
+      },
+      "SettingsSystemSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default_media_binding_status": {
+            "title": "Default Media Binding Status",
+            "type": "string"
+          },
+          "energy_binding_status": {
+            "title": "Energy Binding Status",
+            "type": "string"
+          },
+          "system_connections_configured": {
+            "title": "System Connections Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "system_connections_configured",
+          "energy_binding_status",
+          "default_media_binding_status"
+        ],
+        "title": "SettingsSystemSummaryResponse",
+        "type": "object"
+      },
       "SuccessEnvelope_AuthSessionResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -1612,6 +4694,110 @@
           "meta"
         ],
         "title": "SuccessEnvelope[AuthSessionResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_BackupCreateResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/BackupCreateResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[BackupCreateResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_BackupListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/BackupListResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[BackupListResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_BackupRestoreResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/BackupRestoreResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[BackupRestoreResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_DefaultMediaResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DefaultMediaResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[DefaultMediaResponse]",
         "type": "object"
       },
       "SuccessEnvelope_DeviceControlAcceptedResponse_": {
@@ -1692,6 +4878,474 @@
         "title": "SuccessEnvelope[DeviceDetailResponse]",
         "type": "object"
       },
+      "SuccessEnvelope_DeviceListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DeviceListResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[DeviceListResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_DeviceMappingSaveResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DeviceMappingSaveResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[DeviceMappingSaveResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_DeviceReloadResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DeviceReloadResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[DeviceReloadResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EditorDraftDiscardResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EditorDraftDiscardResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EditorDraftDiscardResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EditorDraftResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EditorDraftResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EditorDraftResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EditorDraftSaveResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EditorDraftSaveResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EditorDraftSaveResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EditorHeartbeatResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EditorHeartbeatResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EditorHeartbeatResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EditorPublishResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EditorPublishResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EditorPublishResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EditorSessionResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EditorSessionResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EditorSessionResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EditorTakeoverResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EditorTakeoverResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EditorTakeoverResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EnergyBindingResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnergyBindingResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EnergyBindingResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EnergyRefreshResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnergyRefreshResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EnergyRefreshResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_EnergyResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnergyResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[EnergyResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_FavoritesResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/FavoritesResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[FavoritesResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_FloorplanAssetResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/FloorplanAssetResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[FloorplanAssetResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_HomeOverviewResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/HomeOverviewResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[HomeOverviewResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_HomePanelResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/HomePanelResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[HomePanelResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_MediaBindingResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MediaBindingResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[MediaBindingResponse]",
+        "type": "object"
+      },
       "SuccessEnvelope_PinSessionResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -1744,6 +5398,84 @@
         "title": "SuccessEnvelope[PinVerifyResponse]",
         "type": "object"
       },
+      "SuccessEnvelope_RoomListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RoomListResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[RoomListResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_SettingsFunctionSettingsResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SettingsFunctionSettingsResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[SettingsFunctionSettingsResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_SettingsPageSettingsResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SettingsPageSettingsResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[SettingsPageSettingsResponse]",
+        "type": "object"
+      },
       "SuccessEnvelope_SettingsSaveResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -1770,13 +5502,11 @@
         "title": "SuccessEnvelope[SettingsSaveResponse]",
         "type": "object"
       },
-      "SuccessEnvelope_dict_str__Any__": {
+      "SuccessEnvelope_SettingsSnapshotResponse_": {
         "additionalProperties": false,
         "properties": {
           "data": {
-            "additionalProperties": true,
-            "title": "Data",
-            "type": "object"
+            "$ref": "#/components/schemas/SettingsSnapshotResponse"
           },
           "error": {
             "title": "Error",
@@ -1795,22 +5525,14 @@
           "data",
           "meta"
         ],
-        "title": "SuccessEnvelope[dict[str, Any]]",
+        "title": "SuccessEnvelope[SettingsSnapshotResponse]",
         "type": "object"
       },
-      "SuccessEnvelope_dict_str__list_dict_str__Any____": {
+      "SuccessEnvelope_SystemConnectionSaveResponse_": {
         "additionalProperties": false,
         "properties": {
           "data": {
-            "additionalProperties": {
-              "items": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "type": "array"
-            },
-            "title": "Data",
-            "type": "object"
+            "$ref": "#/components/schemas/SystemConnectionSaveResponse"
           },
           "error": {
             "title": "Error",
@@ -1829,7 +5551,59 @@
           "data",
           "meta"
         ],
-        "title": "SuccessEnvelope[dict[str, list[dict[str, Any]]]]",
+        "title": "SuccessEnvelope[SystemConnectionSaveResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_SystemConnectionTestResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SystemConnectionTestResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[SystemConnectionTestResponse]",
+        "type": "object"
+      },
+      "SuccessEnvelope_SystemConnectionsEnvelopeResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SystemConnectionsEnvelopeResponse"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SuccessEnvelope[SystemConnectionsEnvelopeResponse]",
         "type": "object"
       },
       "SuccessEnvelope_dict_str__str__": {
@@ -1862,35 +5636,203 @@
         "title": "SuccessEnvelope[dict[str, str]]",
         "type": "object"
       },
-      "SuccessEnvelope_list_dict_str__Any___": {
+      "SystemConnectionResponse": {
         "additionalProperties": false,
         "properties": {
-          "data": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Data",
-            "type": "array"
-          },
-          "error": {
-            "title": "Error",
-            "type": "null"
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ResponseMeta"
-          },
-          "success": {
-            "default": true,
-            "title": "Success",
+          "auth_configured": {
+            "title": "Auth Configured",
             "type": "boolean"
+          },
+          "base_url_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url Masked"
+          },
+          "connection_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Mode"
+          },
+          "connection_status": {
+            "title": "Connection Status",
+            "type": "string"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "last_sync_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync Result"
+          },
+          "last_test_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Test At"
+          },
+          "last_test_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Test Result"
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
           }
         },
         "required": [
-          "data",
-          "meta"
+          "connection_status",
+          "auth_configured"
         ],
-        "title": "SuccessEnvelope[list[dict[str, Any]]]",
+        "title": "SystemConnectionResponse",
+        "type": "object"
+      },
+      "SystemConnectionSaveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_status": {
+            "title": "Connection Status",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saved",
+          "connection_status",
+          "updated_at",
+          "message"
+        ],
+        "title": "SystemConnectionSaveResponse",
+        "type": "object"
+      },
+      "SystemConnectionTestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_status": {
+            "title": "Connection Status",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "tested": {
+            "title": "Tested",
+            "type": "boolean"
+          },
+          "tested_at": {
+            "title": "Tested At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tested",
+          "connection_status",
+          "tested_at"
+        ],
+        "title": "SystemConnectionTestResponse",
+        "type": "object"
+      },
+      "SystemConnectionsEnvelopeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "home_assistant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemConnectionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
+          }
+        },
+        "title": "SystemConnectionsEnvelopeResponse",
         "type": "object"
       },
       "UnbindMediaBody": {
@@ -1905,6 +5847,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Home Id"
           },
@@ -1928,6 +5871,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "description": "Legacy compatibility context field.",
             "title": "Terminal Id"
           }
@@ -2000,11 +5944,19 @@
             "description": "Legacy compatibility context field. Legacy compatibility field. Bearer access token claim is authoritative.",
             "in": "query",
             "name": "home_id",
-            "required": true,
+            "required": false,
             "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "deprecated": true,
               "description": "Legacy compatibility context field.",
-              "title": "Home Id",
-              "type": "string"
+              "title": "Home Id"
             }
           },
           {
@@ -2012,11 +5964,19 @@
             "description": "Legacy compatibility context field. Legacy compatibility field. Bearer access token claim is authoritative.",
             "in": "query",
             "name": "terminal_id",
-            "required": true,
+            "required": false,
             "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "deprecated": true,
               "description": "Legacy compatibility context field.",
-              "title": "Terminal Id",
-              "type": "string"
+              "title": "Terminal Id"
             }
           }
         ],
@@ -4382,7 +8342,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_DeviceMappingSaveResponse_"
                 }
               }
             },
@@ -4951,7 +8911,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_DeviceListResponse_"
                 }
               }
             },
@@ -5424,7 +9384,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_DeviceReloadResponse_"
                 }
               }
             },
@@ -6391,7 +10351,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EditorDraftDiscardResponse_"
                 }
               }
             },
@@ -6870,7 +10830,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EditorDraftResponse_"
                 }
               }
             },
@@ -7341,7 +11301,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EditorDraftSaveResponse_"
                 }
               }
             },
@@ -7814,7 +11774,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EditorPublishResponse_"
                 }
               }
             },
@@ -8287,7 +12247,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EditorSessionResponse_"
                 }
               }
             },
@@ -8771,7 +12731,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EditorHeartbeatResponse_"
                 }
               }
             },
@@ -9255,7 +13215,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EditorTakeoverResponse_"
                 }
               }
             },
@@ -9718,7 +13678,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EnergyResponse_"
                 }
               }
             },
@@ -10181,7 +14141,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EnergyBindingResponse_"
                 }
               }
             },
@@ -10652,7 +14612,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EnergyBindingResponse_"
                 }
               }
             },
@@ -11125,7 +15085,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_EnergyRefreshResponse_"
                 }
               }
             },
@@ -11588,7 +15548,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_list_dict_str__Any___"
+                  "$ref": "#/components/schemas/SuccessEnvelope_FavoritesResponse_"
                 }
               }
             },
@@ -12041,7 +16001,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_SettingsFunctionSettingsResponse_"
                 }
               }
             },
@@ -12544,7 +16504,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_HomeOverviewResponse_"
                 }
               }
             },
@@ -13066,7 +17026,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_HomePanelResponse_"
                 }
               }
             },
@@ -13529,7 +17489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_DefaultMediaResponse_"
                 }
               }
             },
@@ -13992,7 +17952,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_MediaBindingResponse_"
                 }
               }
             },
@@ -14463,7 +18423,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_MediaBindingResponse_"
                 }
               }
             },
@@ -14936,7 +18896,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_FloorplanAssetResponse_"
                 }
               }
             },
@@ -15399,7 +19359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_SettingsPageSettingsResponse_"
                 }
               }
             },
@@ -15864,7 +19824,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__list_dict_str__Any____"
+                  "$ref": "#/components/schemas/SuccessEnvelope_RoomListResponse_"
                 }
               }
             },
@@ -16327,7 +20287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_SettingsSnapshotResponse_"
                 }
               }
             },
@@ -17251,7 +21211,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_SystemConnectionsEnvelopeResponse_"
                 }
               }
             },
@@ -17714,7 +21674,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_SystemConnectionSaveResponse_"
                 }
               }
             },
@@ -18187,7 +22147,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_SystemConnectionTestResponse_"
                 }
               }
             },
@@ -18650,7 +22610,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_list_dict_str__Any___"
+                  "$ref": "#/components/schemas/SuccessEnvelope_BackupListResponse_"
                 }
               }
             },
@@ -19111,7 +23071,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_BackupCreateResponse_"
                 }
               }
             },
@@ -19595,7 +23555,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope_dict_str__Any__"
+                  "$ref": "#/components/schemas/SuccessEnvelope_BackupRestoreResponse_"
                 }
               }
             },

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import { SessionModel, WsEvent } from "../api/types";
+import { SessionModel } from "../api/types";
+import { WsEvent } from "../ws/types";
 
 export type AsyncStatus = "idle" | "loading" | "success" | "error";
 

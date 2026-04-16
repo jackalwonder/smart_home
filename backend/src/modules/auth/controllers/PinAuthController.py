@@ -5,13 +5,14 @@ from dataclasses import asdict
 from fastapi import APIRouter, Body, Depends, Query, Request
 from pydantic import Field
 
-from src.app.container import get_pin_verification_service
+from src.app.container import get_pin_verification_service, get_request_context_service
 from src.modules.auth.services.command.PinVerificationService import (
     PinVerificationInput,
     PinSessionStatusView,
     PinVerificationService,
     PinVerificationView,
 )
+from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.shared.http.ApiSchema import ApiSchema
 from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
@@ -91,9 +92,28 @@ async def verify_pin(
 )
 async def get_pin_session(
     request: Request,
-    home_id: str = Query(..., description="Legacy compatibility context field."),
-    terminal_id: str = Query(..., description="Legacy compatibility context field."),
+    home_id: str | None = Query(
+        default=None,
+        description="Legacy compatibility context field.",
+        deprecated=True,
+    ),
+    terminal_id: str | None = Query(
+        default=None,
+        description="Legacy compatibility context field.",
+        deprecated=True,
+    ),
     service: PinVerificationService = Depends(get_pin_verification_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    view: PinSessionStatusView = await service.get_session_status(home_id, terminal_id)
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=home_id,
+        explicit_terminal_id=terminal_id,
+        require_home=True,
+        require_terminal=True,
+    )
+    view: PinSessionStatusView = await service.get_session_status(
+        context.home_id,
+        context.terminal_id,
+    )
     return success_response(request, PinSessionResponse.model_validate(asdict(view)))

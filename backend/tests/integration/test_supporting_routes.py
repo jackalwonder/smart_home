@@ -208,13 +208,14 @@ def test_auth_system_energy_and_media_routes(app, client):
     app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
     auth_response = client.get("/api/v1/auth/session")
+    access_token = auth_response.json()["data"]["access_token"]
     pin_verify_response = client.post(
         "/api/v1/auth/pin/verify",
         json={"home_id": "home-1", "terminal_id": "terminal-1", "pin": "1234"},
     )
     pin_session_response = client.get(
         "/api/v1/auth/pin/session",
-        params={"home_id": "home-1", "terminal_id": "terminal-1"},
+        headers={"authorization": f"Bearer {access_token}"},
     )
     system_get_response = client.get("/api/v1/system-connections")
     system_save_response = client.put(
@@ -241,7 +242,7 @@ def test_auth_system_energy_and_media_routes(app, client):
     energy_get_response = client.get("/api/v1/energy")
     energy_refresh_response = client.post(
         "/api/v1/energy/refresh",
-        json={"terminal_id": "terminal-1", "payload": {}},
+        json={"payload": {}},
     )
     media_get_response = client.get("/api/v1/media/default")
 
@@ -249,7 +250,7 @@ def test_auth_system_energy_and_media_routes(app, client):
     assert auth_response.json()["data"]["pin_session_expires_at"] == "2026-04-14T10:30:00Z"
     assert auth_response.json()["data"]["token_type"] == "Bearer"
     assert set(auth_response.json()["data"]["scope"]) == {"api", "ws"}
-    assert auth_response.json()["data"]["access_token"]
+    assert access_token
 
     assert pin_verify_response.json()["data"]["pin_session_active"] is True
     assert pin_verify_response.json()["data"]["remaining_attempts"] == 5

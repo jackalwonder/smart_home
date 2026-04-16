@@ -4,7 +4,9 @@ from src.app.container import (
     get_backup_restore_service,
     get_backup_service,
     get_floorplan_asset_service,
+    get_request_context_service,
 )
+from src.modules.auth.services.query.RequestContextService import RequestContext
 from src.modules.backups.services.BackupRestoreService import BackupRestoreView
 from src.modules.backups.services.BackupService import BackupCreateView
 from src.modules.page_assets.services.FloorplanAssetService import FloorplanAssetView
@@ -54,16 +56,20 @@ class FakeBackupRestoreService:
         )
 
 
+class FakeRequestContextService:
+    async def resolve_http_request(self, *_args, **_kwargs):
+        return RequestContext(home_id="home-1", terminal_id="terminal-1", operator_id="member-1")
+
+
 def test_assets_and_backup_routes_are_wrapped(app, client):
     app.dependency_overrides[get_floorplan_asset_service] = lambda: FakeFloorplanAssetService()
     app.dependency_overrides[get_backup_service] = lambda: FakeBackupService()
     app.dependency_overrides[get_backup_restore_service] = lambda: FakeBackupRestoreService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
     asset_response = client.post(
         "/api/v1/page-assets/floorplan",
         data={
-            "home_id": "home-1",
-            "terminal_id": "terminal-1",
             "operator_id": "member-1",
             "replace_current": "true",
         },
@@ -71,15 +77,12 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
     )
     create_response = client.post(
         "/api/v1/system/backups",
-        json={"home_id": "home-1", "terminal_id": "terminal-1", "operator_id": "member-1"},
+        json={"operator_id": "member-1"},
     )
-    list_response = client.get(
-        "/api/v1/system/backups",
-        params={"home_id": "home-1", "terminal_id": "terminal-1"},
-    )
+    list_response = client.get("/api/v1/system/backups")
     restore_response = client.post(
         "/api/v1/system/backups/bk_1/restore",
-        json={"home_id": "home-1", "terminal_id": "terminal-1", "operator_id": "member-1"},
+        json={"operator_id": "member-1"},
     )
 
     assert asset_response.status_code == 200

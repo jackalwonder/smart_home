@@ -1,8 +1,8 @@
 import { API_BASE_URL } from "../api/httpClient";
-import { SessionModel, WsEvent } from "../api/types";
+import { SessionModel } from "../api/types";
 import { getAccessToken } from "../auth/accessToken";
-import { getRequestContext } from "../config/requestContext";
 import { appStore } from "../store/useAppStore";
+import { WsClientMessage, WsEvent } from "./types";
 
 interface ConnectOptions {
   session: SessionModel;
@@ -14,23 +14,23 @@ class WsClient {
   private socket: WebSocket | null = null;
   private lastEventId: string | null = null;
 
+  private send(message: WsClientMessage) {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify(message));
+  }
+
   connect(options: ConnectOptions) {
     this.close();
     options.onConnectionChange?.("connecting");
 
     const wsBaseUrl = API_BASE_URL.replace(/^http/, "ws");
     const url = new URL(wsBaseUrl);
-    const fallbackContext = getRequestContext();
     const accessToken = options.session.accessToken || getAccessToken();
     url.pathname = "/ws";
     if (accessToken) {
       url.searchParams.set("access_token", accessToken);
-    } else {
-      url.searchParams.set("home_id", options.session.homeId || fallbackContext.homeId);
-      url.searchParams.set(
-        "terminal_id",
-        options.session.terminalId || fallbackContext.terminalId,
-      );
     }
     if (this.lastEventId) {
       url.searchParams.set("last_event_id", this.lastEventId);
@@ -47,6 +47,7 @@ class WsClient {
         const event = JSON.parse(message.data) as WsEvent;
         this.lastEventId = event.event_id;
         appStore.pushWsEvent(event);
+        this.send({ type: "ack", event_id: event.event_id });
         options.onEvent?.(event);
       } catch {
         // Ignore malformed events in the initial scaffold.

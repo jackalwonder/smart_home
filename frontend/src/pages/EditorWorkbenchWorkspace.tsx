@@ -85,7 +85,7 @@ export function EditorWorkbenchWorkspace() {
 
       try {
         if (pinSessionActive) {
-          const lease = await createEditorSession(terminalId);
+          const lease = await createEditorSession();
           if (!active) {
             return;
           }
@@ -383,14 +383,13 @@ export function EditorWorkbenchWorkspace() {
   }
 
   async function persistDraft(options?: { silent?: boolean }) {
-    if (!terminalId || !editor.leaseId || !editor.draftVersion || !editor.baseLayoutVersion || !canEdit) {
+    if (!editor.leaseId || !editor.draftVersion || !editor.baseLayoutVersion || !canEdit) {
       return null;
     }
 
     try {
       const layoutMeta = JSON.parse(draftState.layoutMetaText || "{}");
       await saveEditorDraft({
-        terminal_id: terminalId,
         lease_id: editor.leaseId,
         draft_version: editor.draftVersion,
         base_layout_version: editor.baseLayoutVersion,
@@ -429,7 +428,7 @@ export function EditorWorkbenchWorkspace() {
   }
 
   async function handlePublishDraft() {
-    if (!terminalId || !editor.leaseId || !canEdit) {
+    if (!editor.leaseId || !canEdit) {
       return;
     }
 
@@ -442,7 +441,6 @@ export function EditorWorkbenchWorkspace() {
       }
 
       const published = await publishEditorDraft({
-        terminal_id: terminalId,
         lease_id: editor.leaseId,
         draft_version: refreshed.draft_version,
         base_layout_version: refreshed.base_layout_version,

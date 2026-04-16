@@ -22,7 +22,11 @@ class _FakeOutboxRepo:
                 event_type="settings_updated",
                 change_domain="SETTINGS",
                 snapshot_required=True,
-                payload_json={"settings_version": "sv_1"},
+                payload_json={
+                    "settings_version": "sv_1",
+                    "updated_domains": ["FAVORITES", "PAGE_SETTINGS", "FUNCTION_SETTINGS"],
+                    "effective_at": "2026-04-14T10:00:00+00:00",
+                },
                 delivery_status="PENDING",
                 occurred_at="2026-04-14T10:00:00+00:00",
                 created_at="2026-04-14T10:00:00+00:00",
@@ -34,7 +38,12 @@ class _FakeOutboxRepo:
                 event_type="summary_updated",
                 change_domain="SUMMARY",
                 snapshot_required=False,
-                payload_json={"home_id": "home-1"},
+                payload_json={
+                    "room_count": 1,
+                    "entity_count": 4,
+                    "device_count": 2,
+                    "linked_entity_count": 4,
+                },
                 delivery_status="PENDING",
                 occurred_at="2026-04-14T10:00:01+00:00",
                 created_at="2026-04-14T10:00:01+00:00",
@@ -65,16 +74,22 @@ class _StrictFakeRequestContextService:
     async def resolve_websocket_request(self, websocket, **kwargs):
         token = (
             kwargs.get("explicit_token")
+            or websocket.query_params.get("access_token")
             or websocket.query_params.get("token")
             or websocket.cookies.get("pin_session_token")
         )
         if kwargs.get("require_session_auth") and not token:
             raise AppError(ErrorCode.UNAUTHORIZED, "session authentication is required")
-        home_id = kwargs.get("explicit_home_id") or websocket.query_params.get("home_id")
-        terminal_id = kwargs.get("explicit_terminal_id") or websocket.query_params.get("terminal_id")
-        if home_id != "home-1" or terminal_id != "terminal-1":
+        if websocket.query_params.get("home_id") not in {None, "home-1"}:
             raise AppError(ErrorCode.UNAUTHORIZED, "context mismatch")
-        return RequestContext(home_id="home-1", terminal_id="terminal-1", session_token=token)
+        if websocket.query_params.get("terminal_id") not in {None, "terminal-1"}:
+            raise AppError(ErrorCode.UNAUTHORIZED, "context mismatch")
+        return RequestContext(
+            home_id="home-1",
+            terminal_id="terminal-1",
+            session_token=None if websocket.query_params.get("access_token") else token,
+            auth_mode="bearer" if websocket.query_params.get("access_token") else "legacy_pin_session",
+        )
 
 
 def test_websocket_pushes_sequence_and_ack_dispatches(app, client):
@@ -82,7 +97,7 @@ def test_websocket_pushes_sequence_and_ack_dispatches(app, client):
     app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
 
-    with client.websocket_connect("/ws?home_id=home-1&terminal_id=terminal-1&token=pin-session-1") as websocket:
+    with client.websocket_connect("/ws?access_token=test-access-token") as websocket:
         first = websocket.receive_json()
         second = websocket.receive_json()
         websocket.send_json({"type": "ack", "event_id": "evt-1"})
@@ -104,7 +119,7 @@ def test_websocket_resume_gap_requests_snapshot(app, client):
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
 
     with client.websocket_connect(
-        "/ws?home_id=home-1&terminal_id=terminal-1&token=pin-session-1&last_event_id=evt-missing"
+        "/ws?access_token=test-access-token&last_event_id=evt-missing"
     ) as websocket:
         event = websocket.receive_json()
 
@@ -119,7 +134,7 @@ def test_websocket_resume_replays_events_after_last_event_id(app, client):
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
 
     with client.websocket_connect(
-        "/ws?home_id=home-1&terminal_id=terminal-1&token=pin-session-1&last_event_id=evt-1"
+        "/ws?access_token=test-access-token&last_event_id=evt-1"
     ) as websocket:
         event = websocket.receive_json()
 
@@ -134,7 +149,7 @@ def test_websocket_rejects_connection_without_token_or_session_state(app, client
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
 
     with pytest.raises(WebSocketDisconnect) as exc_info:
-        with client.websocket_connect("/ws?home_id=home-1&terminal_id=terminal-1"):
+        with client.websocket_connect("/ws"):
             pass
 
     assert exc_info.value.code == 4401
@@ -146,7 +161,7 @@ def test_websocket_accepts_cookie_backed_session_state(app, client):
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
     client.cookies.set("pin_session_token", "pin-session-cookie")
 
-    with client.websocket_connect("/ws?home_id=home-1&terminal_id=terminal-1") as websocket:
+    with client.websocket_connect("/ws") as websocket:
         first = websocket.receive_json()
 
     assert first["event_id"] == "evt-1"

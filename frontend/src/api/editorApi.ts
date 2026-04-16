@@ -8,11 +8,10 @@ import {
   EditorSessionDto,
 } from "./types";
 
-export function createEditorSession(terminalId: string) {
+export function createEditorSession() {
   return apiRequest<EditorSessionDto>("/api/v1/editor/sessions", {
     method: "POST",
     body: JSON.stringify({
-      terminal_id: terminalId,
       takeover_if_locked: false,
     }),
   });
