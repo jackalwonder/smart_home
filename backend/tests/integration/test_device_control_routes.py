@@ -49,6 +49,25 @@ class FakeDeviceControlResultQueryService:
         )
 
 
+class FakeTimeoutDeviceControlResultQueryService:
+    async def get_result(self, _input):
+        return DeviceControlResultReadModel(
+            request_id="req-timeout",
+            device_id="device-1",
+            action_type="SET_VALUE",
+            payload={"target_scope": "PRIMARY", "target_key": "entity.number_1", "value": 10, "unit": "%"},
+            acceptance_status="ACCEPTED",
+            confirmation_type="ACK_DRIVEN",
+            execution_status="TIMEOUT",
+            retry_count=0,
+            final_runtime_state=None,
+            error_code="CONTROL_TIMEOUT",
+            error_message="control request timed out",
+            accepted_at="2026-04-14T10:00:00+00:00",
+            completed_at="2026-04-14T10:00:35+00:00",
+        )
+
+
 class FakeMissingDeviceControlResultQueryService:
     async def get_result(self, _input):
         raise AppError(
@@ -125,3 +144,37 @@ def test_request_validation_errors_are_wrapped(client):
     assert body["data"] is None
     assert body["error"]["code"] == "INVALID_PARAMS"
     assert body["meta"]["trace_id"]
+    assert body["meta"]["server_time"]
+
+
+def test_blank_request_id_is_rejected_with_wrapped_validation_error(client):
+    response = client.post(
+        "/api/v1/device-controls",
+        json={
+            "request_id": "   ",
+            "device_id": "device-1",
+            "action_type": "SET_POWER_STATE",
+            "payload": {"value": True},
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INVALID_PARAMS"
+    assert body["error"]["details"]["fields"][0]["field"] == "request_id"
+
+
+def test_timeout_control_result_keeps_success_true(app, client):
+    app.dependency_overrides[get_device_control_result_query_service] = (
+        lambda: FakeTimeoutDeviceControlResultQueryService()
+    )
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
+
+    response = client.get("/api/v1/device-controls/req-timeout")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["execution_status"] == "TIMEOUT"
+    assert body["data"]["error_code"] == "CONTROL_TIMEOUT"

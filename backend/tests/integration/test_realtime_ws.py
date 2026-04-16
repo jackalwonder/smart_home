@@ -113,6 +113,21 @@ def test_websocket_resume_gap_requests_snapshot(app, client):
     assert event["payload"]["reason"] == "EVENT_GAP"
 
 
+def test_websocket_resume_replays_events_after_last_event_id(app, client):
+    repo = _FakeOutboxRepo()
+    app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)
+    app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
+
+    with client.websocket_connect(
+        "/ws?home_id=home-1&terminal_id=terminal-1&token=pin-session-1&last_event_id=evt-1"
+    ) as websocket:
+        event = websocket.receive_json()
+
+    assert event["event_id"] == "evt-2"
+    assert event["sequence"] == 1
+    assert event["snapshot_required"] is False
+
+
 def test_websocket_rejects_connection_without_token_or_session_state(app, client):
     repo = _FakeOutboxRepo()
     app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)

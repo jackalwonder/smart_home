@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.app.container import (
+    get_device_catalog_service,
     get_energy_service,
     get_media_service,
     get_pin_verification_service,
@@ -8,6 +9,7 @@ from src.app.container import (
     get_session_query_service,
     get_system_connection_service,
 )
+from fastapi.testclient import TestClient
 from src.modules.auth.services.query.RequestContextService import RequestContext
 from src.modules.auth.services.command.PinVerificationService import (
     PinSessionStatusView,
@@ -192,6 +194,11 @@ class FakeRequestContextService:
         )
 
 
+class FailingDeviceCatalogService:
+    async def list_devices(self, *_args, **_kwargs):
+        raise RuntimeError("boom")
+
+
 def test_auth_system_energy_and_media_routes(app, client):
     app.dependency_overrides[get_session_query_service] = lambda: FakeSessionQueryService()
     app.dependency_overrides[get_pin_verification_service] = lambda: FakePinVerificationService()
@@ -254,3 +261,24 @@ def test_auth_system_energy_and_media_routes(app, client):
     assert energy_get_response.json()["data"]["balance"] == 88.8
     assert energy_refresh_response.json()["data"]["accepted"] is True
     assert media_get_response.json()["data"]["confirmation_type"] == "PLAYBACK_STATE_DRIVEN"
+
+
+def test_http_404_and_unhandled_errors_are_wrapped(app, client):
+    app.dependency_overrides[get_device_catalog_service] = lambda: FailingDeviceCatalogService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
+
+    not_found_response = client.get("/api/v1/route-does-not-exist")
+    non_raising_client = TestClient(app, raise_server_exceptions=False)
+    failure_response = non_raising_client.get("/api/v1/devices")
+
+    assert not_found_response.status_code == 404
+    not_found_body = not_found_response.json()
+    assert not_found_body["success"] is False
+    assert not_found_body["error"]["code"] == "NOT_FOUND"
+    assert not_found_body["meta"]["trace_id"]
+
+    assert failure_response.status_code == 500
+    failure_body = failure_response.json()
+    assert failure_body["success"] is False
+    assert failure_body["error"]["code"] == "INTERNAL_SERVER_ERROR"
+    assert failure_body["error"]["details"]["exception_type"] == "RuntimeError"

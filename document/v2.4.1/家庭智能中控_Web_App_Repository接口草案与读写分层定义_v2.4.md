@@ -1,5 +1,7 @@
 # 《家庭智能中控 Web App Repository 接口与读写分层定义 v2.4》
 
+> 版本说明：本文件保留 v2.4 业务边界定义；v2.4.1 起所有接口骨架示例统一按 Python/FastAPI 实施口径解释。
+
 ## 一、文档信息
 
 - 文档名称：家庭智能中控 Web App Repository 接口与读写分层定义 v2.4
@@ -173,7 +175,7 @@ src/
 
 所有 Repository 方法统一接收如下上下文：
 
-```ts
+```python
 interface RepoContext {
   tx?: DbTx;
   now?: Date;
@@ -208,7 +210,7 @@ interface RepoContext {
 
 ### 7.1 当前版本读模型
 
-```ts
+```python
 interface CurrentLayoutVersion {
   id: string;
   homeId: string;
@@ -227,7 +229,7 @@ interface CurrentSettingsVersion {
 
 ### 7.2 首页读模型
 
-```ts
+```python
 interface HomeOverviewReadModel {
   layout: CurrentLayoutVersion;
   hotspots: HotspotReadModel[];
@@ -243,7 +245,7 @@ interface HomeOverviewReadModel {
 
 ### 7.3 编辑态读模型
 
-```ts
+```python
 interface EditorDraftReadModel {
   draftId: string;
   homeId: string;
@@ -267,7 +269,7 @@ interface DraftLeaseReadModel {
 
 ### 7.4 控制结果读模型
 
-```ts
+```python
 interface DeviceControlResultReadModel {
   requestId: string;
   deviceId: string;
@@ -285,11 +287,11 @@ interface DeviceControlResultReadModel {
 
 ## 八、Base Repository 接口
 
-以下接口使用 TypeScript 风格伪代码表达；Java / Kotlin / Python 实现时保留同样边界即可。
+以下接口使用 Python `Protocol` 风格伪代码表达，其他语言实现保持同样边界即可。
 
 ## 8.1 身份与终端域
 
-```ts
+```python
 interface HomeRepository {
   findById(homeId: string, ctx?: RepoContext): Promise<HomeRow | null>;
 }
@@ -324,7 +326,7 @@ interface PinLockRepository {
 
 ## 8.2 设备域
 
-```ts
+```python
 interface RoomRepository {
   listByHome(homeId: string, ctx?: RepoContext): Promise<RoomRow[]>;
 }
@@ -356,7 +358,7 @@ interface DeviceControlSchemaRepository {
 
 ## 8.3 版本与设置域
 
-```ts
+```python
 interface LayoutVersionRepository {
   findCurrentByHome(homeId: string, ctx?: RepoContext): Promise<CurrentLayoutVersion | null>;
   insert(input: NewLayoutVersionRow, ctx?: RepoContext): Promise<LayoutVersionRow>;
@@ -390,7 +392,7 @@ interface FunctionSettingRepository {
 
 ## 8.4 系统连接 / 电量 / 媒体 / 资源域
 
-```ts
+```python
 interface SystemConnectionRepository {
   findByHomeAndType(homeId: string, systemType: string, ctx?: RepoContext): Promise<SystemConnectionRow | null>;
   upsertHomeAssistant(input: HomeAssistantConnectionUpsert, ctx?: RepoContext): Promise<SystemConnectionRow>;
@@ -421,7 +423,7 @@ interface PageAssetRepository {
 
 ## 8.5 编辑态 / 控制 / 审计 / 出站事件域
 
-```ts
+```python
 interface DraftLayoutRepository {
   findByHomeId(homeId: string, ctx?: RepoContext): Promise<DraftLayoutRow | null>;
   upsertCurrentDraft(input: DraftLayoutUpsert, ctx?: RepoContext): Promise<DraftLayoutRow>;
@@ -484,7 +486,7 @@ interface HaSyncStatusRepository {
 
 ## 9.1 认证与会话查询
 
-```ts
+```python
 interface AuthSessionQueryRepository {
   getAuthSessionContext(homeId: string, terminalId: string, now: Date, ctx?: RepoContext): Promise<{
     home: HomeRow;
@@ -504,7 +506,7 @@ interface AuthSessionQueryRepository {
 
 ## 9.2 首页与设备读取
 
-```ts
+```python
 interface HomeOverviewQueryRepository {
   getOverviewContext(homeId: string, ctx?: RepoContext): Promise<HomeOverviewReadModel>;
 }
@@ -530,7 +532,7 @@ interface RoomsQueryRepository {
 
 ## 9.3 设置中心读取
 
-```ts
+```python
 interface SettingsSnapshotQueryRepository {
   getCurrentSettingsSnapshot(homeId: string, ctx?: RepoContext): Promise<{
     currentSettingsVersion: CurrentSettingsVersion | null;
@@ -552,7 +554,7 @@ interface SettingsPageQueryRepository {
 
 ## 9.4 编辑态读取
 
-```ts
+```python
 interface EditorDraftQueryRepository {
   getDraftContext(homeId: string, ctx?: RepoContext): Promise<EditorDraftReadModel | null>;
 }
@@ -576,7 +578,7 @@ interface EditorLeaseQueryRepository {
 
 ## 9.5 控制与备份读取
 
-```ts
+```python
 interface DeviceControlQueryRepository {
   getControlResult(homeId: string, requestId: string, ctx?: RepoContext): Promise<DeviceControlResultReadModel | null>;
 }
@@ -703,7 +705,7 @@ interface BackupQueryRepository {
 
 为避免 Service 手动传递过多 `tx`，统一使用如下事务协调器：
 
-```ts
+```python
 interface UnitOfWork {
   runInTransaction<T>(fn: (tx: DbTx) => Promise<T>): Promise<T>;
 }
@@ -711,7 +713,7 @@ interface UnitOfWork {
 
 注入方式：
 
-```ts
+```python
 interface Repositories {
   home: HomeRepository;
   terminals: TerminalRepository;
@@ -800,7 +802,7 @@ interface Repositories {
 推荐顺序：
 
 1. 先定模块目录、依赖方向、DTO 放置位置。
-2. 再按模块输出 TypeScript / Python / Java 的接口骨架。
+2. 再按模块输出 Python 接口骨架。
 3. 最后补 Repository 单测清单和事务用例清单。
 
 ---

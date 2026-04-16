@@ -140,6 +140,12 @@ class DeviceControlCommandService:
 
         value = payload.get("value")
         unit = payload.get("unit")
+        if unit is not None and matched_schema.unit is None:
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "payload unit is not supported by this action",
+                details={"fields": [{"field": "payload.unit", "reason": "unsupported"}]},
+            )
         if unit is not None and matched_schema.unit is not None and unit != matched_schema.unit:
             raise AppError(
                 ErrorCode.VALUE_OUT_OF_RANGE,

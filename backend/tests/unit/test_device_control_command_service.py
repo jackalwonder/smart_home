@@ -226,6 +226,66 @@ async def test_accept_rejects_number_out_of_range():
 
 
 @pytest.mark.asyncio
+async def test_accept_rejects_payload_unit_when_schema_has_no_unit():
+    service, _ = _build_service(
+        schemas=[
+            _Schema(
+                action_type="SET_POWER_STATE",
+                target_scope="PRIMARY",
+                target_key="entity.light_1",
+                value_type="BOOLEAN",
+                value_range_json=None,
+                allowed_values_json=None,
+                unit=None,
+            )
+        ]
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await service.accept(
+            DeviceControlCommandInput(
+                home_id="home-1",
+                request_id="req-1",
+                device_id="device-1",
+                action_type="SET_POWER_STATE",
+                payload={"value": True, "unit": "%"},
+            )
+        )
+
+    assert exc_info.value.code == ErrorCode.INVALID_PARAMS
+
+
+@pytest.mark.asyncio
+async def test_accept_rejects_enum_value_outside_allowed_values():
+    service, _ = _build_service(
+        schemas=[
+            _Schema(
+                action_type="SET_MODE",
+                target_scope="PRIMARY",
+                target_key="entity.climate_1",
+                value_type="ENUM",
+                value_range_json=None,
+                allowed_values_json=["cool", "heat"],
+                unit=None,
+            )
+        ]
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await service.accept(
+            DeviceControlCommandInput(
+                home_id="home-1",
+                request_id="req-1",
+                device_id="device-1",
+                action_type="SET_MODE",
+                payload={"value": "dry"},
+            )
+        )
+
+    assert exc_info.value.code == ErrorCode.VALUE_OUT_OF_RANGE
+
+
+@pytest.mark.asyncio
 async def test_accept_reuses_existing_request_with_normalized_payload():
     existing = DeviceControlRequestRow(
         id="row-1",

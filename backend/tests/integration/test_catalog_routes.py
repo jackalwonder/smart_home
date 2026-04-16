@@ -91,7 +91,19 @@ class FakeDeviceCatalogService:
             "alert_badges": [],
             "status_summary": {"state": "ON"},
             "runtime_state": {"aggregated_state": "ON"} if include_runtime_fields else None,
-            "control_schema": [],
+            "control_schema": [
+                {
+                    "action_type": "SET_VALUE",
+                    "target_scope": "PRIMARY",
+                    "target_key": "entity.light_1",
+                    "value_type": "NUMBER",
+                    "value_range": {"min": 0, "max": 100, "step": 1},
+                    "allowed_values": None,
+                    "unit": "%",
+                    "is_quick_action": True,
+                    "requires_detail_entry": False,
+                }
+            ],
             "editor_config": {"hotspots": []} if include_editor_fields else None,
             "source_info": {"ha_device_id": "ha-1"},
         }
@@ -293,7 +305,11 @@ def test_catalog_routes_are_wrapped(app, client):
     assert detail_response.status_code == 200
     assert detail_response.json()["success"] is True
     assert detail_response.json()["data"]["device_id"] == "device-1"
+    assert detail_response.json()["data"]["control_schema"][0]["target_scope"] == "PRIMARY"
+    assert detail_response.json()["data"]["control_schema"][0]["value_range"]["step"] == 1
     assert detail_response.json()["data"]["editor_config"] == {"hotspots": []}
+    assert detail_response.json()["meta"]["trace_id"]
+    assert detail_response.json()["meta"]["server_time"]
 
     assert panel_response.status_code == 200
     assert panel_response.json()["success"] is True

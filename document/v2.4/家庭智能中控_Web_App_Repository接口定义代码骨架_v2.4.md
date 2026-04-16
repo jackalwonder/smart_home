@@ -1,5 +1,8 @@
 # 《家庭智能中控 Web App Repository 接口定义代码骨架 v2.4》
 
+> 版本说明：本文件保留为 v2.4 历史归档，不再作为后端正式骨架基线。  
+> v2.4.1 正式基线请使用《家庭智能中控 Web App Repository 接口定义代码骨架 v2.4.1》，后端接口骨架统一为 Python Protocol 风格。
+
 ## 一、文档信息
 
 - 文档名称：家庭智能中控 Web App Repository 接口定义代码骨架 v2.4

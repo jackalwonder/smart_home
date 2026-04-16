@@ -4,7 +4,7 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.app.container import (
     get_device_control_command_service,
@@ -34,14 +34,42 @@ class DeviceControlPayload(BaseModel):
     value: Any = None
     unit: str | None = None
 
+    @field_validator("target_scope", "target_key", "unit", mode="before")
+    @classmethod
+    def normalize_optional_strings(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip()
+        return normalized or None
+
 
 class DeviceControlRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     home_id: str | None = Field(default=None)
     request_id: str = Field(...)
     device_id: str = Field(...)
     action_type: str = Field(...)
     payload: DeviceControlPayload = Field(default_factory=DeviceControlPayload)
     client_ts: str | None = None
+
+    @field_validator("home_id", "client_ts", mode="before")
+    @classmethod
+    def normalize_nullable_strings(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("request_id", "device_id", "action_type", mode="before")
+    @classmethod
+    def normalize_required_strings(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be blank")
+        return normalized
 
 
 class DeviceControlAcceptedResponse(BaseModel):

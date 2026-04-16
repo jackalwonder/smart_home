@@ -112,6 +112,7 @@ from src.modules.auth.services.command.PinVerificationService import (
 from src.modules.backups.services.BackupRestoreService import BackupRestoreService
 from src.modules.backups.services.BackupService import BackupService
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
+from src.modules.auth.services.query.AccessTokenResolver import NoopAccessTokenResolver
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.auth.services.query.SessionQueryService import SessionQueryService
 from src.modules.device_control.services.command.DeviceControlCommandService import (
@@ -391,8 +392,15 @@ def get_management_pin_guard() -> ManagementPinGuard:
 
 
 @lru_cache(maxsize=1)
+def get_access_token_resolver() -> NoopAccessTokenResolver:
+    return NoopAccessTokenResolver()
+
+
 def get_request_context_service() -> RequestContextService:
-    return RequestContextService(get_database())
+    return RequestContextService(
+        get_database(),
+        access_token_resolver=get_access_token_resolver(),
+    )
 
 
 @lru_cache(maxsize=1)

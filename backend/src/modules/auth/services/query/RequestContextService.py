@@ -9,6 +9,11 @@ from sqlalchemy import text
 
 from src.infrastructure.db.connection.Database import Database
 from src.infrastructure.db.repositories._support import session_scope
+from src.modules.auth.services.query.AccessTokenResolver import (
+    AccessTokenClaims,
+    AccessTokenResolver,
+    NoopAccessTokenResolver,
+)
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 
@@ -41,10 +46,27 @@ def _query(params: Mapping[str, str], name: str) -> str | None:
 
 
 class RequestContextService:
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self,
+        database: Database,
+        access_token_resolver: AccessTokenResolver | None = None,
+    ) -> None:
         self._database = database
+        self._access_token_resolver = access_token_resolver or NoopAccessTokenResolver()
 
-    def _resolve_token(
+    def _resolve_bearer_token(
+        self,
+        *,
+        query_params: Mapping[str, str],
+        headers: Mapping[str, str],
+        cookies: Mapping[str, str],
+    ) -> str | None:
+        authorization = _header(headers, "authorization")
+        if authorization is not None and authorization.lower().startswith("bearer "):
+            return _normalize(authorization[7:])
+        return _query(query_params, "access_token") or _cookie(cookies, "access_token")
+
+    def _resolve_legacy_session_token(
         self,
         *,
         query_params: Mapping[str, str],
@@ -64,6 +86,32 @@ class RequestContextService:
             or _cookie(cookies, "pin_session_token")
             or _cookie(cookies, "session_token")
         )
+
+    def _resolve_bearer_claims(
+        self,
+        *,
+        query_params: Mapping[str, str],
+        headers: Mapping[str, str],
+        cookies: Mapping[str, str],
+    ) -> AccessTokenClaims | None:
+        bearer_token = self._resolve_bearer_token(
+            query_params=query_params,
+            headers=headers,
+            cookies=cookies,
+        )
+        if bearer_token is None:
+            return None
+        claims = self._access_token_resolver.resolve(bearer_token)
+        if claims is None:
+            return None
+        if claims.raw_token is None:
+            return AccessTokenClaims(
+                home_id=claims.home_id,
+                terminal_id=claims.terminal_id,
+                operator_id=claims.operator_id,
+                raw_token=bearer_token,
+            )
+        return claims
 
     def _resolve_terminal_id(
         self,
@@ -196,20 +244,23 @@ class RequestContextService:
         require_terminal: bool = False,
         require_session_auth: bool = False,
     ) -> RequestContext:
-        session_token = self._resolve_token(
+        bearer_claims = self._resolve_bearer_claims(
+            query_params=query_params,
+            headers=headers,
+            cookies=cookies,
+        )
+        session_token = self._resolve_legacy_session_token(
             query_params=query_params,
             headers=headers,
             cookies=cookies,
             explicit_token=explicit_token,
         )
-        if require_session_auth and session_token is None:
+        if require_session_auth and bearer_claims is None and session_token is None:
             raise AppError(ErrorCode.UNAUTHORIZED, "session authentication is required")
-        session_context = (
-            await self._find_session_context(session_token)
-            if session_token is not None
-            else None
-        )
-        if session_token is not None and session_context is None:
+        session_context = None
+        if bearer_claims is None and session_token is not None:
+            session_context = await self._find_session_context(session_token)
+        if session_token is not None and session_context is None and bearer_claims is None:
             raise AppError(ErrorCode.UNAUTHORIZED, "invalid session token")
 
         resolved_home_id = self._resolve_home_id(
@@ -226,7 +277,14 @@ class RequestContextService:
             explicit_terminal_id=explicit_terminal_id,
         )
         terminal_context = None
-        if session_context is not None:
+        if bearer_claims is not None:
+            if resolved_terminal_id is not None and resolved_terminal_id != bearer_claims.terminal_id:
+                raise AppError(ErrorCode.UNAUTHORIZED, "terminal context does not match token")
+            if resolved_home_id is not None and resolved_home_id != bearer_claims.home_id:
+                raise AppError(ErrorCode.UNAUTHORIZED, "home context does not match token")
+            resolved_home_id = bearer_claims.home_id
+            resolved_terminal_id = bearer_claims.terminal_id
+        elif session_context is not None:
             terminal_context = session_context
             if (
                 resolved_terminal_id is not None
@@ -257,7 +315,9 @@ class RequestContextService:
             home_id=resolved_home_id,
             terminal_id=resolved_terminal_id,
             operator_id=(
-                session_context.operator_id
+                bearer_claims.operator_id
+                if bearer_claims is not None
+                else session_context.operator_id
                 if session_context is not None
                 else None
             ),

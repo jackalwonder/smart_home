@@ -23,7 +23,7 @@
 5. 移除 ==GET /api/v1/auth/session== 中与统一外壳重复的 ==server_time== 业务字段，统一以 ==meta.server_time== 为准。  
 6. 明确所有 HTTP / WebSocket 外层结构统一遵循《统一响应体与错误体规范 v2.4》，本清单只定义业务字段与业务语义。  
   
-⸻  
+---  
   
 ## 二、接口设计总原则  
   
@@ -79,7 +79,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 4. Save All 成功后必须通过 WebSocket 推送所有在线终端。  
 5. Publish 成功后必须通过 WebSocket 推送所有在线终端。  
 6. 备份恢复成功后必须通过 WebSocket 推送所有在线终端。  
-⸻  
+---  
 ## 三、冻结级枚举与通用字段  
   
 ### 3.1 通用动作模型  
@@ -180,7 +180,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==opened_count==  
 - ==closed_count==  
 - ==partial_count==  
-⸻  
+---  
 ****四、接口总表****  
 
 | 分类 | 接口名称 | Method | Path | 页面/模块 | 备注 |
@@ -225,7 +225,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 | 备份恢复 | 恢复备份 | POST | /api/v1/system/backups/{backup_id}/restore | 系统设置/后台 | 恢复并生成新正式版本 |
 | 实时推送 | WebSocket 连接 | WS | /ws | 全局 | 状态、版本、锁、电量、媒体 |
   
-⸻  
+---  
 ## 五、分接口详细定义  
   
 ### 5.1 认证与会话  
@@ -260,7 +260,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 **错误码**  
   
 - ==UNAUTHORIZED==  
-⸻  
+---  
 ### 2. PIN 验证  
   
 - **Method**：==POST==  
@@ -299,7 +299,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==UNAUTHORIZED==  
-⸻  
+---  
 ### 3. 获取 PIN 会话状态  
   
 - **Method**：==GET==  
@@ -314,7 +314,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 **错误码**  
   
 - ==UNAUTHORIZED==  
-⸻  
+---  
 ### 5.2 首页总览与浮层  
   
 ### 4. 获取首页总览数据  
@@ -408,7 +408,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 **错误码**  
   
 - ==UNAUTHORIZED==  
-⸻  
+---  
 ### 5. 获取首页浮层数据  
   
 - **Method**：==GET==  
@@ -466,7 +466,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - 当前阶段不提供复杂设备独立固定面板。  
 - 只读设备默认不进入 ==FAVORITES== 默认候选。  
 - 离线设备优先于低电量；离线设备不进入低电量集合。  
-⸻  
+---  
 ### 5.3 房间与设备  
   
 ### 6. 获取房间列表  
@@ -490,7 +490,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==device_count==  
 - ==homepage_device_count==  
 - ==visible_in_editor==  
-⸻  
+---  
 ### 7. 获取设备列表  
   
 - **Method**：==GET==  
@@ -541,7 +541,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 - 默认媒体设备不作为常用设备默认候选。  
 - 只读设备默认 ==is_favorite_candidate = false==。  
-⸻  
+---  
 ### 8. 获取单设备详情  
   
 - **Method**：==GET==  
@@ -600,7 +600,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 - 若 ==is_readonly_device = true==，则 ==control_schema = []==。  
 - 只读设备不得返回可执行控制区配置。  
-⸻  
+---  
 ### 5.4 控制  
   
 ### 9. 发起单设备控制  
@@ -666,7 +666,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - 幂等窗口 10 分钟。  
 - 相同 ==request_id== + 相同语义：返回原结果。  
 - 相同 ==request_id== + 不同语义：返回 ==REQUEST_ID_CONFLICT==。  
-⸻  
+---  
 ### 10. 查询控制结果  
   
 - **Method**：==GET==  
@@ -702,7 +702,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 - ==CONTROL_TIMEOUT== 仅出现在本接口结果或对应 WS 最终事件中。  
 - 不应出现在控制受理接口的同步错误体中。  
-⸻  
+---  
 ### 5.5 设置中心  
   
 ### 11. 获取设置中心配置  
@@ -718,7 +718,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==system_settings_summary==  
 - ==settings_version==  
 - ==pin_session_required==  
-⸻  
+---  
 ### 12. Save All 保存表单配置  
   
 - **Method**：==PUT==  
@@ -762,7 +762,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 - 保存成功后，后端必须广播 ==settings_updated== 事件。  
 - 其他在线终端收到事件后必须更新 ==settings_version== 并按需补拉快照。  
-⸻  
+---  
 ### 5.6 系统设置  
   
 ### 13. 获取系统连接配置  
@@ -788,7 +788,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==CONNECTED==  
 - ==DISCONNECTED==  
 - ==DEGRADED==  
-⸻  
+---  
 ### 14. 保存系统连接配置  
   
 - **Method**：==PUT==  
@@ -814,7 +814,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==INVALID_PARAMS==  
-⸻  
+---  
 ### 15. 测试系统连接  
   
 - **Method**：==POST==  
@@ -839,7 +839,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==INVALID_PARAMS==  
-⸻  
+---  
 ### 16. 重新拉取设备列表  
   
 - **Method**：==POST==  
@@ -867,7 +867,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==HA_UNAVAILABLE==  
-⸻  
+---  
 ### 5.7 功能设置 / 常用设备 / 页面设置  
   
 ### 17. 获取功能设置  
@@ -887,7 +887,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
     - ==closed_max==  
     - ==opened_min==  
 - ==settings_version==  
-⸻  
+---  
 ### 18. 获取常用设备配置  
   
 - **Method**：==GET==  
@@ -917,7 +917,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 - 默认媒体设备不作为默认候选。  
 - 只读设备不作为默认候选。  
-⸻  
+---  
 ### 19. 获取页面设置  
   
 - **Method**：==GET==  
@@ -930,7 +930,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==icon_policy==  
 - ==layout_preference==  
 - ==settings_version==  
-⸻  
+---  
 ### 5.8 编辑态  
   
 ### 20. 创建/获取编辑会话  
@@ -965,7 +965,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==UNAUTHORIZED==  
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
-⸻  
+---  
 ### 21. 查询当前草稿  
   
 - **Method**：==GET==  
@@ -1004,7 +1004,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 **错误码**  
   
 - ==UNAUTHORIZED==  
-⸻  
+---  
 ### 22. 续租编辑锁  
   
 - **Method**：==POST==  
@@ -1025,7 +1025,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==UNAUTHORIZED==  
 - ==DRAFT_LOCK_LOST==  
 - ==DRAFT_LOCK_TAKEN_OVER==  
-⸻  
+---  
 ### 23. 强制接管编辑锁  
   
 - **Method**：==POST==  
@@ -1050,7 +1050,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==DRAFT_LOCK_LOST==  
-⸻  
+---  
 ### 24. 更新草稿  
   
 - **Method**：==PUT==  
@@ -1081,7 +1081,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==VERSION_CONFLICT==  
 - ==DRAFT_LOCK_LOST==  
 - ==DRAFT_LOCK_TAKEN_OVER==  
-⸻  
+---  
 ### 25. 发布草稿  
   
 - **Method**：==POST==  
@@ -1114,7 +1114,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - Publish 必须校验版本号与锁有效性。  
 - 锁失效或被接管后不得继续发布。  
 - 发布成功后必须广播 ==publish_succeeded== 事件。  
-⸻  
+---  
 ### 26. 放弃草稿/退出编辑  
   
 - **Method**：==DELETE==  
@@ -1135,7 +1135,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==UNAUTHORIZED==  
 - ==DRAFT_LOCK_LOST==  
 - ==DRAFT_LOCK_TAKEN_OVER==  
-⸻  
+---  
 ### 5.9 电量  
   
 ### 27. 获取电量信息  
@@ -1168,7 +1168,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==SUCCESS==  
 - ==FAILED==  
 - ==CACHE_STALE==  
-⸻  
+---  
 ### 28. 保存电量绑定  
   
 - **Method**：==PUT==  
@@ -1194,7 +1194,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_LOCKED==  
 - ==INVALID_PARAMS==  
 - ==ENERGY_SOURCE_ERROR==  
-⸻  
+---  
 ### 29. 解绑电量绑定  
   
 - **Method**：==DELETE==  
@@ -1221,7 +1221,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==UNAUTHORIZED==  
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
-⸻  
+---  
 ### 30. 手动刷新电量  
   
 - **Method**：==POST==  
@@ -1242,7 +1242,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 - ==UNAUTHORIZED==  
 - ==ENERGY_SOURCE_ERROR==  
-⸻  
+---  
 ### 5.10 媒体  
   
 ### 31. 获取默认媒体卡片数据  
@@ -1291,7 +1291,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - 当 ==binding_status = MEDIA_SET== 时，必须返回 ==availability_status==，用于区分“已绑定但离线”和“已绑定且在线”。  
 - 默认媒体设备的实际控制仍统一走 ==POST /api/v1/device-controls==。  
 - 本期不再单独保留媒体专用动作枚举接口。  
-⸻  
+---  
 ### 32. 保存默认媒体设备绑定  
   
 - **Method**：==PUT==  
@@ -1328,7 +1328,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==INVALID_PARAMS==  
-⸻  
+---  
 ### 33. 解绑默认媒体设备绑定  
   
 - **Method**：==DELETE==  
@@ -1356,7 +1356,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==UNAUTHORIZED==  
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
-⸻  
+---  
 ### 5.11 页面资源与设备映射  
   
 ### 34. 上传或替换户型底图  
@@ -1385,7 +1385,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==INVALID_PARAMS==  
-⸻  
+---  
 ### 35. 保存设备映射修正  
   
 - **Method**：==PUT==  
@@ -1414,7 +1414,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
 - ==INVALID_PARAMS==  
-⸻  
+---  
 ### 5.12 备份恢复  
   
 ### 36. 触发手动备份  
@@ -1433,7 +1433,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==UNAUTHORIZED==  
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
-⸻  
+---  
 ### 37. 获取备份列表  
   
 - **Method**：==GET==  
@@ -1456,7 +1456,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - ==UNAUTHORIZED==  
 - ==PIN_REQUIRED==  
 - ==PIN_LOCKED==  
-⸻  
+---  
 ### 38. 恢复备份  
   
 - **Method**：==POST==  
@@ -1486,7 +1486,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 - 恢复成功后，后端必须广播 ==backup_restore_completed== 事件。  
 - 所有在线终端收到事件后，必须同时刷新 ==settings_version== 与 ==layout_version==，并补拉正式快照。  
-⸻  
+---  
 ## 六、WebSocket 事件规范  
   
 ### 6.1 连接信息  
@@ -1495,9 +1495,11 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
   
 **连接参数**  
   
-- ==token== 或会话态  
+- ==Authorization: Bearer <access_token>==（推荐）  
+- ==access_token==（仅用于受限终端兼容传输，语义等价于 Bearer）  
 - ==terminal_id==  
 - ==home_id==  
+- 详细规则见《家庭智能中控 Web App 鉴权方案说明 v2.4.1》  
   
 ### 6.2 顶层公共字段  
   
@@ -1650,7 +1652,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 - 编辑态：==GET /api/v1/editor/draft==  
 - 电量：==GET /api/v1/energy==  
 - 音乐：==GET /api/v1/media/default==  
-⸻  
+---  
 ## 七、不开放接口说明  
   
 ### 7.1 批量控制 / 全屋总控  
@@ -1680,7 +1682,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 当前版本不开放独立接口。  
   
 复杂设备当前阶段不形成首页固定快捷分类入口，因此不提供复杂设备专用快捷面板接口。  
-⸻  
+---  
 ## 八、冻结补充说明  
   
 ### 8.1 统计口径  
@@ -1710,7 +1712,7 @@ PRD 中的 camelCase 概念在接口 wire format 中统一使用 snake_case。
 3. 失锁后当前终端必须自动降级为只读态。  
 4. 被接管后不得继续 Publish。  
 5. Publish 必须同时校验 ==lease_id==、==draft_version==、==base_layout_version==。  
-⸻  
+---  
 ## 九、结论  
   
 《家庭智能中控 Web App 接口清单 v2.4》严格基于 PRD v2.4 修订完成。  

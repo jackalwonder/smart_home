@@ -48,7 +48,7 @@ v2.4 实施版技术栈冻结为：
 1. 团队当前为 Python-first。
 2. 后端未来会重度依赖 Python 生态。
 3. FastAPI 同时满足当前项目的 HTTP、WebSocket、Pydantic 校验、OpenAPI 生成需求。
-4. 虽然 NestJS 在 Node 生态下更偏重工程结构，但在当前团队条件下，FastAPI 的整体实施成本更低。
+4. FastAPI 在当前团队条件下的实施成本与生态匹配度更优。
 
 ### 3.3 数据访问层
 
@@ -116,15 +116,16 @@ backend/
 
 ---
 
-## 六、与冻结工程文档的关系
+## 六、与冻结工程文档的关系（v2.4.1 对齐）
 
 本文件冻结后，以下文档的实现方向统一解释为 Python/FastAPI：
 
-1. 《后端模块骨架与目录设计 v2.4》
+1. 《后端模块骨架与目录设计 v2.4.1》
 2. 《Repository 接口与读写分层定义 v2.4》
-3. 《Repository 接口定义代码骨架 v2.4》
+3. 《Repository 接口定义代码骨架 v2.4.1》
+4. 《鉴权方案说明 v2.4.1》
 
-若上述文档中仍存在 TypeScript 样例或 `.ts` 文件名，则以本文件的冻结选型为最终解释基准，后续代码与补充文档应向 Python/FastAPI 口径收口。
+上述文档已以 Python/FastAPI 口径收口，后续实现不再使用 `.ts` 作为后端正式骨架文件命名。
 
 ---
 
@@ -132,7 +133,7 @@ backend/
 
 本文件冻结后，后端下一步实施顺序固定为：
 
-1. 把现有 `backend/` TypeScript 骨架迁移为 Python/FastAPI 骨架。
+1. 按 v2.4.1 骨架直接创建 Python/FastAPI 目录与接口文件。
 2. 先落 `shared/kernel`、Repository 接口、首批模块 `auth / home_overview / device_control`。
 3. 再补 `UnitOfWork`、Repository Impl、DTO 与响应装配。
 4. 最后接 `settings / editor / realtime` 与数据库集成。
@@ -141,6 +142,4 @@ backend/
 
 ## 八、结论
 
-从本条文档开始，v2.4 实施版不再把 `NestJS` 作为默认后端方向。
-
-后端正式冻结为 `FastAPI + Python`。
+后端实施方向已统一为 `Python 3.12 + FastAPI + SQLAlchemy 2.0 + Pydantic v2`。

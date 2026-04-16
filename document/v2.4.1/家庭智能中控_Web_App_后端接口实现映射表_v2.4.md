@@ -526,4 +526,4 @@
 
 - PostgreSQL 首版 DDL
 - Repository 接口定义
-- FastAPI / NestJS / Spring 等具体后端骨架实现
+- FastAPI 具体后端骨架实现（Python 3.12 + SQLAlchemy 2.0 + Pydantic v2）
