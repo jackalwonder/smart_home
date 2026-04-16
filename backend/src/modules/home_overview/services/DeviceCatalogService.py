@@ -483,6 +483,35 @@ class DeviceCatalogService:
                     {"device_id": device_id},
                 )
             ).mappings().all()
+            entity_link_rows = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT
+                            he.id::text AS ha_entity_row_id,
+                            he.entity_id,
+                            he.platform,
+                            he.domain,
+                            he.raw_name,
+                            he.state,
+                            he.room_hint,
+                            he.is_available,
+                            he.last_synced_at::text AS last_synced_at,
+                            he.last_state_changed_at::text AS last_state_changed_at,
+                            del.entity_role::text AS entity_role,
+                            del.is_primary,
+                            del.sort_order
+                        FROM device_entity_links del
+                        JOIN ha_entities he
+                          ON he.id = del.ha_entity_id
+                        WHERE del.home_id = :home_id
+                          AND del.device_id = :device_id
+                        ORDER BY del.sort_order ASC, del.is_primary DESC, he.entity_id ASC
+                        """
+                    ),
+                    {"home_id": home_id, "device_id": device_id},
+                )
+            ).mappings().all()
 
             editor_config = None
             if include_editor_fields:
@@ -544,6 +573,26 @@ class DeviceCatalogService:
                 "alerts": alert_badges,
             }
 
+        source_info = as_dict(row["source_meta_json"])
+        source_info["entity_links"] = [
+            {
+                "ha_entity_row_id": entity["ha_entity_row_id"],
+                "entity_id": entity["entity_id"],
+                "platform": entity["platform"],
+                "domain": entity["domain"],
+                "raw_name": entity["raw_name"],
+                "state": entity["state"],
+                "room_hint": entity["room_hint"],
+                "is_available": entity["is_available"],
+                "last_synced_at": entity["last_synced_at"],
+                "last_state_changed_at": entity["last_state_changed_at"],
+                "entity_role": entity["entity_role"],
+                "is_primary": entity["is_primary"],
+                "sort_order": entity["sort_order"],
+            }
+            for entity in entity_link_rows
+        ]
+
         return {
             "device_id": row["device_id"],
             "display_name": row["display_name"],
@@ -583,7 +632,7 @@ class DeviceCatalogService:
                 for schema in schema_rows
             ],
             "editor_config": editor_config,
-            "source_info": as_dict(row["source_meta_json"]),
+            "source_info": source_info,
         }
 
     async def get_panel(

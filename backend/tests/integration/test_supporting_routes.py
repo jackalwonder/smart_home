@@ -247,6 +247,9 @@ def test_auth_system_energy_and_media_routes(app, client):
 
     assert auth_response.json()["data"]["operator_id"] == "member-1"
     assert auth_response.json()["data"]["pin_session_expires_at"] == "2026-04-14T10:30:00Z"
+    assert auth_response.json()["data"]["token_type"] == "Bearer"
+    assert set(auth_response.json()["data"]["scope"]) == {"api", "ws"}
+    assert auth_response.json()["data"]["access_token"]
 
     assert pin_verify_response.json()["data"]["pin_session_active"] is True
     assert pin_verify_response.json()["data"]["remaining_attempts"] == 5

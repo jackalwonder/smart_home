@@ -4,6 +4,21 @@
       "AuthSessionResponse": {
         "additionalProperties": false,
         "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "access_token_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token Expires At"
+          },
           "features": {
             "additionalProperties": {
               "type": "boolean"
@@ -45,12 +60,24 @@
             ],
             "title": "Pin Session Expires At"
           },
+          "scope": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scope",
+            "type": "array"
+          },
           "terminal_id": {
             "title": "Terminal Id",
             "type": "string"
           },
           "terminal_mode": {
             "title": "Terminal Mode",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "Bearer",
+            "title": "Token Type",
             "type": "string"
           }
         },
@@ -59,6 +86,8 @@
           "terminal_id",
           "terminal_mode",
           "login_mode",
+          "access_token",
+          "scope",
           "pin_session_active",
           "features"
         ],

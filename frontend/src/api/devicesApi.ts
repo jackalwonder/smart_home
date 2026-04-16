@@ -1,5 +1,5 @@
 import { apiRequest } from "./httpClient";
-import { DeviceListDto, RoomListDto } from "./types";
+import { DeviceDetailDto, DeviceListDto, RoomListDto } from "./types";
 
 interface FetchDevicesParams {
   room_id?: string;
@@ -28,6 +28,16 @@ function buildQuery(params: FetchDevicesParams): string {
 
 export function fetchDevices(params: FetchDevicesParams = {}) {
   return apiRequest<DeviceListDto>(`/api/v1/devices${buildQuery(params)}`);
+}
+
+export function fetchDeviceDetail(deviceId: string) {
+  const query = new URLSearchParams({
+    include_runtime_fields: "true",
+    include_editor_fields: "true",
+  });
+  return apiRequest<DeviceDetailDto>(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}?${query.toString()}`,
+  );
 }
 
 export function fetchRooms() {

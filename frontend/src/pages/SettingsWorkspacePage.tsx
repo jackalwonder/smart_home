@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchSettings, saveSettings } from "../api/settingsApi";
 import {
   fetchSystemConnections,
+  reloadHomeAssistantDevices,
   saveHomeAssistantConnection,
   testHomeAssistantConnection,
 } from "../api/systemConnectionsApi";
@@ -206,6 +207,7 @@ export function SettingsWorkspacePage() {
   const [systemMessage, setSystemMessage] = useState<string | null>(null);
   const [systemSaveBusy, setSystemSaveBusy] = useState(false);
   const [systemTestBusy, setSystemTestBusy] = useState(false);
+  const [systemSyncBusy, setSystemSyncBusy] = useState(false);
 
   async function loadSystemConnection() {
     const response = await fetchSystemConnections();
@@ -524,6 +526,25 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function handleSyncHomeAssistantDevices() {
+    if (!session.data?.pinSessionActive) {
+      setSystemMessage("同步 Home Assistant 设备前，请先验证管理 PIN。");
+      return;
+    }
+
+    setSystemMessage(null);
+    setSystemSyncBusy(true);
+    try {
+      const response = await reloadHomeAssistantDevices({ force_full_sync: true });
+      setSystemMessage(response.message);
+      await loadSystemConnection();
+    } catch (error) {
+      setSystemMessage(normalizeApiError(error).message);
+    } finally {
+      setSystemSyncBusy(false);
+    }
+  }
+
   let sectionPanel = (
     <FavoritesDevicePanel
       favorites={settingsDraft.favorites}
@@ -540,9 +561,11 @@ export function SettingsWorkspacePage() {
         message={systemMessage}
         onChange={updateSystemDraft}
         onSave={() => void handleSaveSystemConnection()}
+        onSyncDevices={() => void handleSyncHomeAssistantDevices()}
         onTestCandidate={() => void handleTestSystemConnection(false)}
         onTestSaved={() => void handleTestSystemConnection(true)}
         saveBusy={systemSaveBusy}
+        syncBusy={systemSyncBusy}
         testBusy={systemTestBusy}
       />
     );

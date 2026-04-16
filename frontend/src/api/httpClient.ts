@@ -1,5 +1,6 @@
 import { ApiEnvelope, ApiError, ApiErrorPayload } from "./types";
 import { getRequestContext } from "../config/requestContext";
+import { getAccessToken } from "../auth/accessToken";
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "";
 
@@ -19,11 +20,13 @@ export async function apiRequest<T>(
   if (!url.searchParams.has("terminal_id")) {
     url.searchParams.set("terminal_id", terminalId);
   }
+  const accessToken = getAccessToken();
 
   const response = await fetch(url.toString(), {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       "x-home-id": homeId,
       "x-terminal-id": terminalId,
       ...(init?.headers ?? {}),

@@ -3,7 +3,7 @@ import { appStore } from "../store/useAppStore";
 import { wsClient } from "../ws/wsClient";
 
 export function syncRealtimeSession(session: SessionModel) {
-  if (!session.pinSessionActive) {
+  if (!session.accessToken && !session.pinSessionActive) {
     wsClient.close();
     appStore.setRealtimeState({
       connectionStatus: "idle",

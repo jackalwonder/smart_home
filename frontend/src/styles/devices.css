@@ -81,6 +81,11 @@
   font-size: 12px;
 }
 
+.devices-table__action {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
 .devices-status-chip {
   display: inline-flex;
   align-items: center;
@@ -105,6 +110,82 @@
   border-color: rgba(255, 123, 141, 0.32);
 }
 
+.devices-detail-drawer {
+  position: fixed;
+  top: 84px;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  width: min(560px, calc(100vw - 48px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: rgba(13, 21, 38, 0.98);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.devices-detail-drawer__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.devices-detail-drawer__body {
+  display: grid;
+  gap: 16px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.devices-detail-section {
+  display: grid;
+  gap: 10px;
+}
+
+.devices-detail-section h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.devices-detail-section pre {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.devices-detail-list {
+  display: grid;
+  gap: 10px;
+}
+
+.devices-detail-list__item {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.devices-detail-list__item span {
+  color: var(--muted);
+  font-size: 12px;
+  word-break: break-word;
+}
+
 @media (max-width: 1280px) {
   .devices-header__controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -113,5 +194,12 @@
   .devices-header__actions {
     justify-content: flex-start;
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .devices-detail-drawer {
+    inset: 72px 12px 12px;
+    width: auto;
   }
 }

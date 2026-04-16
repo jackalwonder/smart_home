@@ -3,6 +3,7 @@ import { fetchCurrentSession, fetchPinSessionStatus } from "../api/authApi";
 import { appStore } from "../store/useAppStore";
 import { syncRealtimeSession } from "./realtime";
 import { wsClient } from "../ws/wsClient";
+import { clearAccessToken } from "../auth/accessToken";
 
 export function AppBootstrap({ children }: PropsWithChildren) {
   useEffect(() => {
@@ -36,6 +37,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
         if (!active) {
           return;
         }
+        clearAccessToken();
         const message = error instanceof Error ? error.message : "启动会话加载失败";
         appStore.setSessionError(message);
       }
@@ -44,6 +46,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
     return () => {
       active = false;
       wsClient.close();
+      clearAccessToken();
       appStore.setRealtimeState({
         connectionStatus: "idle",
         lastEventType: null,

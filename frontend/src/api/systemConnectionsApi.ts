@@ -1,4 +1,6 @@
 import {
+  DeviceReloadDto,
+  DeviceReloadInput,
   SystemConnectionSaveDto,
   SystemConnectionSaveInput,
   SystemConnectionTestDto,
@@ -20,6 +22,13 @@ export function saveHomeAssistantConnection(input: SystemConnectionSaveInput) {
 
 export function testHomeAssistantConnection(input: SystemConnectionTestInput) {
   return apiRequest<SystemConnectionTestDto>("/api/v1/system-connections/home-assistant/test", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function reloadHomeAssistantDevices(input: DeviceReloadInput) {
+  return apiRequest<DeviceReloadDto>("/api/v1/devices/reload", {
     method: "POST",
     body: JSON.stringify(input),
   });

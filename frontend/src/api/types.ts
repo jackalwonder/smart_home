@@ -30,6 +30,10 @@ export interface SessionDto {
   terminal_id: string;
   login_mode: "FIXED_HOME_ACCOUNT";
   terminal_mode: "KIOSK" | "DESKTOP";
+  access_token: string;
+  access_token_expires_at: string | null;
+  token_type: "Bearer";
+  scope: string[];
   pin_session_active: boolean;
   pin_session_expires_at: string | null;
   features: {
@@ -45,6 +49,8 @@ export interface SessionModel {
   terminalId: string;
   loginMode: SessionDto["login_mode"];
   terminalMode: SessionDto["terminal_mode"];
+  accessToken: string;
+  accessTokenExpiresAt: string | null;
   pinSessionActive: boolean;
   pinSessionExpiresAt: string | null;
   features: SessionDto["features"];
@@ -148,6 +154,79 @@ export interface DeviceListDto {
     total: number;
     has_next: boolean;
   };
+}
+
+export interface DeviceRuntimeStateDto {
+  last_state_update_at: string | null;
+  aggregated_state: string | null;
+  aggregated_mode: string | null;
+  aggregated_position: number | null;
+  telemetry: Record<string, unknown>;
+  alerts: Array<{ code: string; level: string; text: string }>;
+}
+
+export interface DeviceControlSchemaItemDto {
+  action_type: string;
+  target_scope: string | null;
+  target_key: string | null;
+  value_type: string | null;
+  value_range: Record<string, unknown> | null;
+  allowed_values: unknown[] | null;
+  unit: string | null;
+  is_quick_action: boolean;
+  requires_detail_entry: boolean;
+}
+
+export interface DeviceEntityLinkDto {
+  ha_entity_row_id?: string;
+  entity_id: string;
+  platform: string | null;
+  domain: string | null;
+  raw_name?: string | null;
+  state?: string | null;
+  room_hint?: string | null;
+  is_available?: boolean;
+  last_synced_at?: string | null;
+  last_state_changed_at?: string | null;
+  entity_role: string | null;
+  is_primary: boolean;
+  sort_order?: number;
+}
+
+export interface DeviceDetailDto {
+  device_id: string;
+  display_name: string;
+  raw_name: string | null;
+  device_type: string;
+  room_id: string | null;
+  room_name: string | null;
+  status: string;
+  is_offline: boolean;
+  is_complex_device: boolean;
+  is_readonly_device: boolean;
+  confirmation_type: string | null;
+  entry_behavior: string | null;
+  default_control_target: string | null;
+  capabilities: Record<string, unknown>;
+  alert_badges: Array<{ code: string; level: string; text: string }>;
+  status_summary: Record<string, unknown>;
+  runtime_state: DeviceRuntimeStateDto | null;
+  control_schema: DeviceControlSchemaItemDto[];
+  editor_config: Record<string, unknown> | null;
+  source_info: Record<string, unknown> & {
+    entity_links?: DeviceEntityLinkDto[];
+  };
+}
+
+export interface DeviceReloadInput {
+  force_full_sync: boolean;
+}
+
+export interface DeviceReloadDto {
+  accepted: boolean;
+  reload_status: string;
+  started_at: string;
+  message: string;
 }
 
 export interface RoomListItemDto {

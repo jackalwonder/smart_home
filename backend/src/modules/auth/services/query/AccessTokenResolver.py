@@ -62,6 +62,19 @@ def _as_scope(value: Any) -> tuple[str, ...]:
 
 
 class AccessTokenResolver:
+    def issue(
+        self,
+        *,
+        home_id: str,
+        terminal_id: str,
+        operator_id: str | None = None,
+        role: str = "HOME_OWNER",
+        scope: tuple[str, ...] = ("api", "ws"),
+        subject: str | None = None,
+        now: datetime | None = None,
+    ) -> str:
+        raise NotImplementedError
+
     def resolve(
         self,
         token: str,

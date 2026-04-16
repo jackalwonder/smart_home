@@ -105,7 +105,18 @@ class FakeDeviceCatalogService:
                 }
             ],
             "editor_config": {"hotspots": []} if include_editor_fields else None,
-            "source_info": {"ha_device_id": "ha-1"},
+            "source_info": {
+                "ha_device_id": "ha-1",
+                "entity_links": [
+                    {
+                        "entity_id": "light.living_room",
+                        "domain": "light",
+                        "platform": "xiaomi_home",
+                        "entity_role": "PRIMARY",
+                        "is_primary": True,
+                    }
+                ],
+            },
         }
 
     async def get_panel(self, _home_id, panel_type, *, room_id=None, page=None, page_size=None):
@@ -308,6 +319,7 @@ def test_catalog_routes_are_wrapped(app, client):
     assert detail_response.json()["data"]["control_schema"][0]["target_scope"] == "PRIMARY"
     assert detail_response.json()["data"]["control_schema"][0]["value_range"]["step"] == 1
     assert detail_response.json()["data"]["editor_config"] == {"hotspots": []}
+    assert detail_response.json()["data"]["source_info"]["entity_links"][0]["entity_id"] == "light.living_room"
     assert detail_response.json()["meta"]["trace_id"]
     assert detail_response.json()["meta"]["server_time"]
 

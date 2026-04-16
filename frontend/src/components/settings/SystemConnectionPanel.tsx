@@ -16,11 +16,13 @@ interface SystemConnectionPanelProps {
   canEdit: boolean;
   saveBusy: boolean;
   testBusy: boolean;
+  syncBusy: boolean;
   message: string | null;
   onChange: (field: "connectionMode" | "baseUrl" | "accessToken", value: string) => void;
   onSave: () => void;
   onTestCandidate: () => void;
   onTestSaved: () => void;
+  onSyncDevices: () => void;
 }
 
 export function SystemConnectionPanel({
@@ -28,11 +30,13 @@ export function SystemConnectionPanel({
   canEdit,
   saveBusy,
   testBusy,
+  syncBusy,
   message,
   onChange,
   onSave,
   onTestCandidate,
   onTestSaved,
+  onSyncDevices,
 }: SystemConnectionPanelProps) {
   return (
     <SettingsModuleCard
@@ -100,7 +104,7 @@ export function SystemConnectionPanel({
       <div className="settings-module-card__actions">
         <button
           className="button button--ghost"
-          disabled={!canEdit || testBusy}
+          disabled={!canEdit || testBusy || syncBusy}
           onClick={onTestSaved}
           type="button"
         >
@@ -108,15 +112,23 @@ export function SystemConnectionPanel({
         </button>
         <button
           className="button button--ghost"
-          disabled={!canEdit || testBusy}
+          disabled={!canEdit || testBusy || syncBusy}
           onClick={onTestCandidate}
           type="button"
         >
           {testBusy ? "测试中..." : "测试当前输入"}
         </button>
         <button
+          className="button button--ghost"
+          disabled={!canEdit || syncBusy}
+          onClick={onSyncDevices}
+          type="button"
+        >
+          {syncBusy ? "同步中..." : "同步 HA 设备"}
+        </button>
+        <button
           className="button button--primary"
-          disabled={!canEdit || saveBusy}
+          disabled={!canEdit || saveBusy || syncBusy}
           onClick={onSave}
           type="button"
         >
