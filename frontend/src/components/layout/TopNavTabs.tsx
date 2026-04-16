@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { to: "/", label: "总览", end: true },
+  { to: "/devices", label: "设备", end: false },
   { to: "/settings", label: "设置", end: false },
   { to: "/editor", label: "编辑", end: false },
 ];

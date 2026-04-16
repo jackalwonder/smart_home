@@ -1,0 +1,117 @@
+.page--devices {
+  gap: 18px;
+}
+
+.devices-header {
+  display: grid;
+  gap: 16px;
+}
+
+.devices-header__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.devices-header__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px 180px auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.devices-header__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.devices-table-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.devices-table-panel__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.devices-table-wrapper {
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.devices-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+.devices-table th,
+.devices-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.devices-table th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.devices-table__device-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.devices-table__device-cell small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.devices-table__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.devices-status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.devices-status-chip.is-online {
+  background: rgba(94, 209, 166, 0.14);
+  color: #b6f4de;
+  border-color: rgba(94, 209, 166, 0.28);
+}
+
+.devices-status-chip.is-offline {
+  background: rgba(255, 123, 141, 0.16);
+  color: #ffc7d1;
+  border-color: rgba(255, 123, 141, 0.32);
+}
+
+@media (max-width: 1280px) {
+  .devices-header__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .devices-header__actions {
+    justify-content: flex-start;
+    grid-column: 1 / -1;
+  }
+}

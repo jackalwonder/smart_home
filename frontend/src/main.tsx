@@ -7,6 +7,7 @@ import "./styles/layout.css";
 import "./styles/home.css";
 import "./styles/settings.css";
 import "./styles/editor.css";
+import "./styles/devices.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

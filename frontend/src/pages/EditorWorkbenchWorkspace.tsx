@@ -10,7 +10,9 @@ import {
   publishEditorDraft,
   saveEditorDraft,
 } from "../api/editorApi";
+import { fetchDevices } from "../api/devicesApi";
 import { normalizeApiError } from "../api/httpClient";
+import { DeviceListItemDto } from "../api/types";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { mapEditorViewModel } from "../view-models/editor";
 import { EditorHotspotViewModel } from "../view-models/editor";
@@ -36,6 +38,20 @@ function resequenceHotspots(hotspots: EditorHotspotViewModel[]) {
   }));
 }
 
+function buildDeviceHotspotId(deviceId: string) {
+  const normalized = deviceId.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 48);
+  return `draft-device-${normalized}-${Date.now()}`;
+}
+
+function getNextHotspotPosition(index: number) {
+  const column = index % 4;
+  const row = Math.floor(index / 4);
+  return {
+    x: Math.min(0.2 + column * 0.2, 0.8),
+    y: Math.min(0.25 + row * 0.16, 0.85),
+  };
+}
+
 export function EditorWorkbenchWorkspace() {
   const session = useAppStore((state) => state.session);
   const editor = useAppStore((state) => state.editor);
@@ -50,6 +66,8 @@ export function EditorWorkbenchWorkspace() {
     layoutMetaText: "{}",
     hotspots: [],
   });
+  const [deviceCatalog, setDeviceCatalog] = useState<DeviceListItemDto[]>([]);
+  const [deviceCatalogLoading, setDeviceCatalogLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishingDraft, setIsPublishingDraft] = useState(false);
@@ -118,6 +136,34 @@ export function EditorWorkbenchWorkspace() {
     };
   }, [pinSessionActive, terminalId]);
 
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      setDeviceCatalogLoading(true);
+      try {
+        const catalog = await fetchDevices({ page: 1, page_size: 200 });
+        if (!active) {
+          return;
+        }
+        setDeviceCatalog(catalog.items);
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        appStore.setEditorError(normalizeApiError(error).message);
+      } finally {
+        if (active) {
+          setDeviceCatalogLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const viewModel = mapEditorViewModel({
     lockStatus: editor.lockStatus,
     leaseId: editor.leaseId,
@@ -143,6 +189,12 @@ export function EditorWorkbenchWorkspace() {
       `${hotspot.label} ${hotspot.deviceId}`.toLowerCase().includes(searchValue.trim().toLowerCase()),
     ),
   );
+  const placedDeviceIds = new Set(
+    draftState.hotspots
+      .map((hotspot) => hotspot.deviceId.trim())
+      .filter((deviceId) => deviceId.length > 0),
+  );
+  const unplacedDevices = deviceCatalog.filter((device) => !placedDeviceIds.has(device.device_id));
   const selectedHotspot =
     visibleHotspots.find((hotspot) => hotspot.id === selectedHotspotId) ??
     draftState.hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ??
@@ -237,6 +289,40 @@ export function EditorWorkbenchWorkspace() {
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
     }));
     setSelectedHotspotId(newHotspot.id);
+  }
+
+  function addDeviceHotspot(device: DeviceListItemDto) {
+    if (!canEdit) {
+      return;
+    }
+
+    const existingHotspot = draftState.hotspots.find(
+      (hotspot) => hotspot.deviceId.trim() === device.device_id,
+    );
+    if (existingHotspot) {
+      setSelectedHotspotId(existingHotspot.id);
+      return;
+    }
+
+    const position = getNextHotspotPosition(draftState.hotspots.length);
+    const newHotspot: EditorHotspotViewModel = {
+      id: buildDeviceHotspotId(device.device_id),
+      label: device.display_name,
+      deviceId: device.device_id,
+      x: position.x,
+      y: position.y,
+      iconType: "device",
+      labelMode: "AUTO",
+      isVisible: true,
+      structureOrder: draftState.hotspots.length,
+    };
+
+    setDraftState((current) => ({
+      ...current,
+      hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
+    }));
+    setSelectedHotspotId(newHotspot.id);
+    setSaveMessage("设备已加入当前草稿。保存草稿后写入后端草稿，发布后进入首页布局。");
   }
 
   function deleteSelectedHotspot() {
@@ -401,7 +487,10 @@ export function EditorWorkbenchWorkspace() {
       <div className="editor-workbench">
         <EditorToolbox
           canEdit={canEdit}
+          devicesLoading={deviceCatalogLoading}
           hotspots={visibleHotspots}
+          unplacedDevices={unplacedDevices}
+          onAddDeviceHotspot={addDeviceHotspot}
           onSearchChange={setSearchValue}
           onSelectHotspot={setSelectedHotspotId}
           searchValue={searchValue}

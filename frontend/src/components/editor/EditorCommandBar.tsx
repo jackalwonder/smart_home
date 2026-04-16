@@ -35,7 +35,12 @@ export function EditorCommandBar({
       <div className="badge-row">
         <span className="state-chip">{modeLabel}</span>
         <span className="state-chip">{hotspotCount} 个热点</span>
-        <button className="button button--ghost" onClick={onAddHotspot} type="button">
+        <button
+          className="button button--ghost"
+          disabled={!canSave}
+          onClick={onAddHotspot}
+          type="button"
+        >
           新增热点
         </button>
         <button

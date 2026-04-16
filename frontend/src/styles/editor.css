@@ -58,6 +58,18 @@
   display: block;
 }
 
+.editor-toolbox__section {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.editor-toolbox__section h4 {
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+
 .editor-canvas-workspace__surface {
   position: relative;
   overflow: hidden;

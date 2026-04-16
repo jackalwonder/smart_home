@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
+import { DevicesCatalogPage } from "./pages/DevicesCatalogPage";
 import { EditorWorkbenchWorkspace } from "./pages/EditorWorkbenchWorkspace";
 import { HomeDashboardPage } from "./pages/HomeDashboardPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -17,6 +18,10 @@ export const router = createBrowserRouter([
       {
         path: "settings",
         element: <SettingsWorkspacePage />,
+      },
+      {
+        path: "devices",
+        element: <DevicesCatalogPage />,
       },
       {
         path: "editor",

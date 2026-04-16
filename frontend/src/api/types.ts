@@ -115,6 +115,54 @@ export interface HomeOverviewDto {
   } | null;
 }
 
+export interface DeviceListItemDto {
+  device_id: string;
+  display_name: string;
+  raw_name: string | null;
+  device_type: string;
+  room_id: string | null;
+  room_name: string | null;
+  status: string;
+  is_offline: boolean;
+  is_complex_device: boolean;
+  is_readonly_device: boolean;
+  confirmation_type: string | null;
+  entry_behavior: string;
+  default_control_target: string | null;
+  is_homepage_visible: boolean;
+  is_primary_device: boolean;
+  is_favorite: boolean;
+  favorite_order: number | null;
+  is_favorite_candidate: boolean;
+  favorite_exclude_reason: string | null;
+  capabilities: Record<string, unknown>;
+  alert_badges: Array<{ code: string; level: string; text: string }>;
+  status_summary: Record<string, unknown>;
+}
+
+export interface DeviceListDto {
+  items: DeviceListItemDto[];
+  page_info: {
+    page: number;
+    page_size: number;
+    total: number;
+    has_next: boolean;
+  };
+}
+
+export interface RoomListItemDto {
+  room_id: string;
+  room_name: string;
+  priority: number;
+  device_count: number;
+  homepage_device_count: number;
+  visible_in_editor: boolean;
+}
+
+export interface RoomListDto {
+  rooms: RoomListItemDto[];
+}
+
 export interface SettingsDto {
   favorites?: Array<Record<string, unknown>>;
   page_settings?: Record<string, unknown>;
