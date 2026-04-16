@@ -218,6 +218,50 @@ export interface DeviceDetailDto {
   };
 }
 
+export interface DeviceControlPayloadInput {
+  target_scope?: string | null;
+  target_key?: string | null;
+  value?: unknown;
+  unit?: string | null;
+}
+
+export interface DeviceControlRequestInput {
+  request_id: string;
+  device_id: string;
+  action_type: string;
+  payload: DeviceControlPayloadInput;
+  client_ts?: string;
+}
+
+export interface DeviceControlAcceptedDto {
+  request_id: string;
+  device_id: string;
+  accepted: boolean;
+  acceptance_status: "ACCEPTED";
+  confirmation_type: "ACK_DRIVEN" | "STATE_DRIVEN" | "PLAYBACK_STATE_DRIVEN";
+  accepted_at: string | null;
+  timeout_seconds: number;
+  retry_scheduled: boolean;
+  message: string;
+  result_query_path: string;
+}
+
+export interface DeviceControlResultDto {
+  request_id: string;
+  device_id: string;
+  action_type: string;
+  payload: Record<string, unknown>;
+  acceptance_status: "ACCEPTED";
+  confirmation_type: "ACK_DRIVEN" | "STATE_DRIVEN" | "PLAYBACK_STATE_DRIVEN";
+  execution_status: "PENDING" | "SUCCESS" | "FAILED" | "TIMEOUT" | "STATE_MISMATCH";
+  retry_count: number;
+  final_runtime_state: Record<string, unknown> | null;
+  error_code: string | null;
+  error_message: string | null;
+  accepted_at: string | null;
+  completed_at: string | null;
+}
+
 export interface DeviceReloadInput {
   force_full_sync: boolean;
 }

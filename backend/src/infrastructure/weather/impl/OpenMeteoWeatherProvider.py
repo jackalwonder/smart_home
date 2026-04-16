@@ -19,11 +19,21 @@ class OpenMeteoWeatherProvider:
             "current": "temperature_2m,relative_humidity_2m,weather_code",
             "timezone": "auto",
         }
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(self._settings.weather_base_url, params=params)
-            response.raise_for_status()
-            payload = response.json()
-        current = payload.get("current", {})
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(self._settings.weather_base_url, params=params)
+                response.raise_for_status()
+                payload = response.json()
+            current = payload.get("current", {})
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
+            return WeatherSnapshot(
+                fetched_at=self._clock.now().isoformat(),
+                cache_mode=True,
+                temperature=None,
+                condition=None,
+                humidity=None,
+            )
+
         return WeatherSnapshot(
             fetched_at=self._clock.now().isoformat(),
             cache_mode=False,

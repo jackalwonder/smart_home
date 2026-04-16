@@ -3,7 +3,7 @@ import { HomeHotspotViewModel } from "../../view-models/home";
 interface HomeHotspotOverlayProps {
   hotspots: HomeHotspotViewModel[];
   selectedHotspotId: string | null;
-  onSelectHotspot: (hotspotId: string) => void;
+  onSelectHotspot: (hotspotId: string | null) => void;
 }
 
 export function HomeHotspotOverlay({

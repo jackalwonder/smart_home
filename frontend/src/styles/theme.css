@@ -3,29 +3,28 @@
   font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  --bg: #070b15;
-  --bg-elevated: #0d1526;
-  --surface: rgba(13, 21, 38, 0.84);
-  --surface-strong: rgba(19, 28, 49, 0.96);
-  --surface-soft: rgba(35, 48, 80, 0.42);
-  --border: rgba(140, 167, 255, 0.16);
-  --border-strong: rgba(135, 167, 255, 0.28);
-  --text: #eef4ff;
-  --muted: #8e9ab7;
-  --accent: #5d7cff;
-  --accent-strong: #7aa7ff;
-  --accent-soft: rgba(93, 124, 255, 0.14);
-  --accent-warm: #ffb357;
-  --success: #5ed1a6;
-  --danger: #ff7b8d;
-  --shadow: 0 24px 80px rgba(3, 7, 18, 0.56);
-  --radius-xl: 28px;
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --bg: #050813;
+  --bg-elevated: #0a1020;
+  --surface: rgba(10, 17, 34, 0.88);
+  --surface-strong: rgba(13, 22, 42, 0.96);
+  --surface-soft: rgba(26, 42, 72, 0.42);
+  --border: rgba(105, 156, 255, 0.18);
+  --border-strong: rgba(110, 174, 255, 0.34);
+  --text: #eff7ff;
+  --muted: #91a5c7;
+  --accent: #2f8cff;
+  --accent-strong: #68dbff;
+  --accent-soft: rgba(47, 140, 255, 0.16);
+  --accent-warm: #ffc66a;
+  --success: #58e0aa;
+  --danger: #ff6f86;
+  --shadow: 0 22px 64px rgba(0, 0, 0, 0.48);
+  --radius-xl: 8px;
+  --radius-lg: 8px;
+  --radius-md: 8px;
   background:
-    radial-gradient(circle at top left, rgba(63, 88, 194, 0.34), transparent 26%),
-    radial-gradient(circle at top right, rgba(35, 170, 211, 0.18), transparent 28%),
-    linear-gradient(180deg, #0a1222 0%, #060910 100%);
+    linear-gradient(120deg, rgba(12, 33, 66, 0.92) 0%, rgba(6, 10, 23, 0.98) 42%, #030610 100%),
+    #050813;
   color: var(--text);
 }
 
@@ -43,7 +42,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: transparent;
+  background:
+    linear-gradient(90deg, rgba(7, 20, 42, 0.94), rgba(3, 6, 14, 0.98)),
+    var(--bg);
   color: var(--text);
 }
 
@@ -53,10 +54,10 @@ body::before {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 36px 36px;
-  opacity: 0.45;
+    linear-gradient(rgba(125, 188, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 188, 255, 0.028) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.52;
 }
 
 button,

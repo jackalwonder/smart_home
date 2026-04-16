@@ -2,6 +2,7 @@ import { asArray, asBoolean, asNumber, asOptionalString, asRecord, asString, for
 
 export interface HomeHotspotViewModel {
   id: string;
+  deviceId: string;
   label: string;
   deviceType: string;
   deviceTypeLabel: string;
@@ -225,6 +226,7 @@ export function mapHomeOverviewViewModel(value: Record<string, unknown> | null):
 
   const hotspots = asArray<Record<string, unknown>>(stage?.hotspots).map((hotspot, index) => ({
     id: asString(hotspot.hotspot_id ?? `hotspot-${index}`),
+    deviceId: asString(hotspot.device_id ?? ""),
     label: asString(hotspot.display_name ?? hotspot.device_id ?? `设备 ${index + 1}`),
     deviceType: asString(hotspot.device_type ?? "device"),
     deviceTypeLabel: translateDeviceType(asString(hotspot.device_type ?? "device")),

@@ -38,13 +38,20 @@ export function ControlTopBar() {
   return (
     <header className="control-top-bar">
       <div className="control-top-bar__brand">
-        <div className="control-top-bar__logo">中控</div>
-        <div className="control-top-bar__brand-copy">
-          <strong>家庭智能中控</strong>
-          <span>
-            {realtimeConnected ? "HA 已连接" : "实时链路等待中"}
-          </span>
+        <div className="control-top-bar__mini-clock">
+          <strong>{now.time.slice(0, 5)}</strong>
+          <span>{now.date}</span>
         </div>
+        <div className="control-top-bar__logo">S</div>
+        <div className="control-top-bar__brand-copy">
+          <strong>Shadow</strong>
+          <span>家庭智能中控</span>
+        </div>
+        <span
+          className={realtimeConnected ? "control-top-bar__ha-pill is-online" : "control-top-bar__ha-pill"}
+        >
+          {realtimeConnected ? "HA Connected" : "HA Waiting"}
+        </span>
       </div>
 
       <TopNavTabs />
@@ -59,6 +66,10 @@ export function ControlTopBar() {
           ]}
           pinVerified={pin.active}
         />
+        <div className="control-top-bar__quick-status" aria-hidden="true">
+          <span>Wi-Fi</span>
+          <span>98%</span>
+        </div>
         <div className="control-top-bar__clock">
           <strong>{now.time}</strong>
           <span>{now.date}</span>

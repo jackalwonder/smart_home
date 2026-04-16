@@ -16,6 +16,7 @@ import { PageSettingsPanel } from "../components/settings/PageSettingsPanel";
 import { SettingsActionDock } from "../components/settings/SettingsActionDock";
 import { SettingsHeaderBar } from "../components/settings/SettingsHeaderBar";
 import { SettingsOverviewCard } from "../components/settings/SettingsOverviewCard";
+import { SettingsShowcaseGrid } from "../components/settings/SettingsShowcaseGrid";
 import { SettingsSideNav } from "../components/settings/SettingsSideNav";
 import {
   PolicyEntryDraft,
@@ -611,13 +612,22 @@ export function SettingsWorkspacePage() {
         asidePosition="left"
         className="page-frame--settings"
       >
-        <SettingsHeaderBar
-          description={activeSectionConfig.description}
-          status={settings.status}
-          title={activeSectionConfig.label}
-          version={viewModel.version}
-        />
-        <SettingsOverviewCard rows={overviewRows} />
+        <div
+          className={
+            activeSection === "favorites"
+              ? "settings-showcase-shell is-favorites"
+              : "settings-showcase-shell"
+          }
+        >
+          <SettingsHeaderBar
+            description={activeSectionConfig.description}
+            status={settings.status}
+            title={activeSectionConfig.label}
+            version={viewModel.version}
+          />
+          {activeSection === "favorites" ? <SettingsShowcaseGrid /> : null}
+          <SettingsOverviewCard rows={overviewRows} />
+        </div>
         {sectionPanel}
       </PageFrame>
     </section>

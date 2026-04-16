@@ -34,8 +34,15 @@ export function EditorCanvasWorkspace({
             src={backgroundImageUrl}
           />
         ) : (
-          <div className="editor-canvas-workspace__placeholder">
-            当前草稿还没有绑定背景图。
+          <div className="floorplan-fallback editor-canvas-workspace__placeholder" aria-hidden="true">
+            <span className="floorplan-fallback__room floorplan-fallback__room--living" />
+            <span className="floorplan-fallback__room floorplan-fallback__room--kitchen" />
+            <span className="floorplan-fallback__room floorplan-fallback__room--bedroom" />
+            <span className="floorplan-fallback__room floorplan-fallback__room--study" />
+            <span className="floorplan-fallback__room floorplan-fallback__room--bath" />
+            <span className="floorplan-fallback__wall floorplan-fallback__wall--one" />
+            <span className="floorplan-fallback__wall floorplan-fallback__wall--two" />
+            <span className="floorplan-fallback__wall floorplan-fallback__wall--three" />
           </div>
         )}
         <EditorSelectionLayer
