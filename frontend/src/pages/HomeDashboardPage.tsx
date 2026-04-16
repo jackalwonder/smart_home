@@ -7,27 +7,8 @@ import { HomeInsightRail } from "../components/home/HomeInsightRail";
 import { PageFrame } from "../components/layout/PageFrame";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { mapHomeOverviewViewModel } from "../view-models/home";
-import { labelize } from "../view-models/utils";
+import { formatRealtimeEvent } from "../ws/eventPresentation";
 
-function translateEventLabel(value: string) {
-  const normalized = value.toLowerCase();
-  if (normalized === "publish_succeeded") {
-    return "发布成功";
-  }
-  if (normalized === "draft_saved") {
-    return "草稿已保存";
-  }
-  if (normalized === "settings_saved") {
-    return "设置已保存";
-  }
-  if (normalized === "layout") {
-    return "布局";
-  }
-  if (normalized === "settings") {
-    return "设置";
-  }
-  return labelize(value);
-}
 
 export function HomeDashboardPage() {
   const home = useAppStore((state) => state.home);
@@ -81,10 +62,7 @@ export function HomeDashboardPage() {
         footer={
           <BottomStatsStrip
             connectionStatus={realtime.connectionStatus}
-            events={events.slice(0, 4).map((event) => ({
-              title: translateEventLabel(event.event_type),
-              subtitle: `${translateEventLabel(event.change_domain)} · #${event.sequence}`,
-            }))}
+            events={events.slice(0, 4).map(formatRealtimeEvent)}
             stats={viewModel.bottomStats}
           />
         }

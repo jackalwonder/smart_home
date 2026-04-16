@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { SessionModel } from "../api/types";
-import { WsEvent } from "../ws/types";
+import { WsEvent, WsEventType } from "../ws/types";
 
 export type AsyncStatus = "idle" | "loading" | "success" | "error";
 
@@ -21,7 +21,7 @@ interface PinState {
 interface RealtimeState {
   connectionStatus: "idle" | "connecting" | "connected" | "disconnected";
   lastSequence: number | null;
-  lastEventType: string | null;
+  lastEventType: WsEventType | null;
 }
 
 interface HomeState {

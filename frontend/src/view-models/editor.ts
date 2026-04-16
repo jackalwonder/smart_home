@@ -1,5 +1,6 @@
+import { formatRealtimeEvent } from "../ws/eventPresentation";
 import { WsEvent } from "../ws/types";
-import { asArray, asNumber, asOptionalString, asRecord, asString, labelize } from "./utils";
+import { asArray, asNumber, asOptionalString, asRecord, asString } from "./utils";
 
 export interface EditorHotspotViewModel {
   id: string;
@@ -34,34 +35,6 @@ function translateLockStatus(value: string | null) {
     return "只读";
   }
   return value ?? "-";
-}
-
-function translateDomain(value: string) {
-  const normalized = value.toLowerCase();
-  if (normalized === "layout") {
-    return "布局";
-  }
-  if (normalized === "settings") {
-    return "设置";
-  }
-  if (normalized === "system") {
-    return "系统";
-  }
-  return labelize(value);
-}
-
-function translateEventType(value: string) {
-  const normalized = value.toLowerCase();
-  if (normalized === "publish_succeeded") {
-    return "发布成功";
-  }
-  if (normalized === "draft_saved") {
-    return "草稿已保存";
-  }
-  if (normalized === "settings_saved") {
-    return "设置已保存";
-  }
-  return labelize(value);
 }
 
 export function mapEditorViewModel(input: {
@@ -117,10 +90,13 @@ export function mapEditorViewModel(input: {
     layoutMeta: asRecord(draft?.layout_meta) ?? {},
     modeLabel,
     helperText,
-    eventRows: input.events.slice(0, 8).map((event) => ({
-      id: event.event_id,
-      title: translateEventType(event.event_type),
-      subtitle: `${translateDomain(event.change_domain)} · #${event.sequence}`,
-    })),
+    eventRows: input.events.slice(0, 8).map((event) => {
+      const presentation = formatRealtimeEvent(event);
+      return {
+        id: event.event_id,
+        title: presentation.title,
+        subtitle: presentation.subtitle,
+      };
+    }),
   };
 }
