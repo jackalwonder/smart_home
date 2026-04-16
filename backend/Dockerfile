@@ -16,8 +16,8 @@ COPY 家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql /app/家庭智能�
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN pip install --upgrade pip && pip install .
-RUN chmod +x ./docker-entrypoint.sh
+RUN sed -i 's/\r$//' ./docker-entrypoint.sh && chmod +x ./docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["./docker-entrypoint.sh"]
+CMD ["sh", "./docker-entrypoint.sh"]
