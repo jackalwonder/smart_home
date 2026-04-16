@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Body, Depends, Request
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from src.app.container import (
     get_device_control_command_service,
@@ -21,12 +21,13 @@ from src.modules.device_control.services.query.DeviceControlResultQueryService i
     DeviceControlResultQueryInput,
     DeviceControlResultQueryService,
 )
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/device-controls", tags=["device_control"])
 
 
-class DeviceControlPayload(BaseModel):
+class DeviceControlPayload(ApiSchema):
     model_config = ConfigDict(extra="forbid")
 
     target_scope: str | None = None
@@ -43,10 +44,10 @@ class DeviceControlPayload(BaseModel):
         return normalized or None
 
 
-class DeviceControlRequestBody(BaseModel):
+class DeviceControlRequestBody(ApiSchema):
     model_config = ConfigDict(extra="forbid")
 
-    home_id: str | None = Field(default=None)
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     request_id: str = Field(...)
     device_id: str = Field(...)
     action_type: str = Field(...)
@@ -72,12 +73,12 @@ class DeviceControlRequestBody(BaseModel):
         return normalized
 
 
-class DeviceControlAcceptedResponse(BaseModel):
+class DeviceControlAcceptedResponse(ApiSchema):
     request_id: str
     device_id: str
     accepted: bool
-    acceptance_status: str
-    confirmation_type: str
+    acceptance_status: Literal["ACCEPTED"]
+    confirmation_type: Literal["ACK_DRIVEN", "STATE_DRIVEN", "PLAYBACK_STATE_DRIVEN"]
     accepted_at: str | None = None
     timeout_seconds: int
     retry_scheduled: bool
@@ -85,14 +86,14 @@ class DeviceControlAcceptedResponse(BaseModel):
     result_query_path: str
 
 
-class DeviceControlResultResponse(BaseModel):
+class DeviceControlResultResponse(ApiSchema):
     request_id: str
     device_id: str
     action_type: str
     payload: dict
-    acceptance_status: str
-    confirmation_type: str
-    execution_status: str
+    acceptance_status: Literal["ACCEPTED"]
+    confirmation_type: Literal["ACK_DRIVEN", "STATE_DRIVEN", "PLAYBACK_STATE_DRIVEN"]
+    execution_status: Literal["PENDING", "SUCCESS", "FAILED", "TIMEOUT", "STATE_MISMATCH"]
     retry_count: int
     final_runtime_state: dict | None = None
     error_code: str | None = None
@@ -101,7 +102,11 @@ class DeviceControlResultResponse(BaseModel):
     completed_at: str | None = None
 
 
-@router.post("", status_code=202)
+@router.post(
+    "",
+    status_code=202,
+    response_model=SuccessEnvelope[DeviceControlAcceptedResponse],
+)
 async def accept_device_control(
     request: Request,
     body: DeviceControlRequestBody = Body(...),
@@ -139,7 +144,10 @@ async def accept_device_control(
     )
 
 
-@router.get("/{request_id}")
+@router.get(
+    "/{request_id}",
+    response_model=SuccessEnvelope[DeviceControlResultResponse],
+)
 async def get_device_control_result(
     request: Request,
     request_id: str,

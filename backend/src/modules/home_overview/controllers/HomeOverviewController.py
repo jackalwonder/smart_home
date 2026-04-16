@@ -17,7 +17,7 @@ from src.modules.home_overview.services.query.HomeOverviewQueryService import (
     HomeOverviewQueryInput,
     HomeOverviewQueryService,
 )
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/home", tags=["home_overview"])
 
@@ -62,7 +62,7 @@ def _build_summary(devices: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-@router.get("/overview")
+@router.get("/overview", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_home_overview(
     request: Request,
     layout_version: str | None = Query(default=None),
@@ -127,7 +127,7 @@ async def get_home_overview(
     )
 
 
-@router.get("/panels/{panel_type}")
+@router.get("/panels/{panel_type}", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_home_panel(
     request: Request,
     panel_type: str,

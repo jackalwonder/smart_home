@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     capability_energy_enabled: bool = True
     capability_editor_enabled: bool = True
     capability_music_enabled: bool = True
+    access_token_secret: str = "smart-home-local-access-token-secret"
+    access_token_issuer: str = "smart-home-backend"
+    access_token_audience: str = "smart-home-web-app"
+    access_token_ttl_seconds: int = 86400
+    access_token_leeway_seconds: int = 0
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_latitude: float = 31.2304
     weather_longitude: float = 121.4737

@@ -4,7 +4,7 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.app.container import (
     get_editor_draft_service,
@@ -32,25 +32,26 @@ from src.modules.editor.services.EditorSessionService import (
     EditorSessionService,
     EditorSessionView,
 )
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/editor", tags=["editor"])
 
 
-class EditorSessionRequestBody(BaseModel):
-    home_id: str | None = None
+class EditorSessionRequestBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     terminal_id: str
     takeover_if_locked: bool = False
     member_id: str | None = None
 
 
-class EditorHeartbeatRequestBody(BaseModel):
-    home_id: str | None = None
+class EditorHeartbeatRequestBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     terminal_id: str
 
 
-class EditorDraftSaveRequestBody(BaseModel):
-    home_id: str | None = None
+class EditorDraftSaveRequestBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     terminal_id: str
     lease_id: str
     draft_version: str
@@ -61,8 +62,8 @@ class EditorDraftSaveRequestBody(BaseModel):
     member_id: str | None = None
 
 
-class EditorPublishRequestBody(BaseModel):
-    home_id: str | None = None
+class EditorPublishRequestBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     terminal_id: str
     lease_id: str
     draft_version: str
@@ -70,14 +71,14 @@ class EditorPublishRequestBody(BaseModel):
     member_id: str | None = None
 
 
-class EditorDraftDeleteRequestBody(BaseModel):
-    home_id: str | None = None
+class EditorDraftDeleteRequestBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     terminal_id: str
     lease_id: str
     draft_version: str | None = None
 
 
-@router.post("/sessions")
+@router.post("/sessions", response_model=SuccessEnvelope[dict[str, Any]])
 async def open_editor_session(
     request: Request,
     body: EditorSessionRequestBody = Body(...),
@@ -102,7 +103,7 @@ async def open_editor_session(
     return success_response(request, asdict(view))
 
 
-@router.get("/draft")
+@router.get("/draft", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_editor_draft(
     request: Request,
     lease_id: str | None = Query(default=None),
@@ -124,7 +125,7 @@ async def get_editor_draft(
     return success_response(request, asdict(view))
 
 
-@router.post("/sessions/{lease_id}/heartbeat")
+@router.post("/sessions/{lease_id}/heartbeat", response_model=SuccessEnvelope[dict[str, Any]])
 async def editor_heartbeat(
     request: Request,
     lease_id: str,
@@ -149,7 +150,7 @@ async def editor_heartbeat(
     return success_response(request, asdict(view))
 
 
-@router.post("/sessions/{lease_id}/takeover")
+@router.post("/sessions/{lease_id}/takeover", response_model=SuccessEnvelope[dict[str, Any]])
 async def editor_takeover(
     request: Request,
     lease_id: str,
@@ -185,7 +186,7 @@ async def editor_takeover(
     )
 
 
-@router.put("/draft")
+@router.put("/draft", response_model=SuccessEnvelope[dict[str, Any]])
 async def save_editor_draft(
     request: Request,
     body: EditorDraftSaveRequestBody = Body(...),
@@ -215,7 +216,7 @@ async def save_editor_draft(
     return success_response(request, asdict(view))
 
 
-@router.post("/publish")
+@router.post("/publish", response_model=SuccessEnvelope[dict[str, Any]])
 async def publish_editor_draft(
     request: Request,
     body: EditorPublishRequestBody = Body(...),
@@ -242,7 +243,7 @@ async def publish_editor_draft(
     return success_response(request, asdict(view))
 
 
-@router.delete("/draft")
+@router.delete("/draft", response_model=SuccessEnvelope[dict[str, Any]])
 async def discard_editor_draft(
     request: Request,
     body: EditorDraftDeleteRequestBody = Body(...),

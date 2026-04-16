@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:api-types": "sh scripts/generate_api_types.sh"
   },
   "dependencies": {
     "react": "^19.1.0",

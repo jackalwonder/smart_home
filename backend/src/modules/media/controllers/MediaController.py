@@ -1,30 +1,33 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.app.container import get_media_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.media.services.MediaService import MediaService
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/media/default", tags=["media"])
 
 
-class BindMediaBody(BaseModel):
-    home_id: str | None = None
-    terminal_id: str | None = None
+class BindMediaBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     device_id: str = Field(...)
     member_id: str | None = None
 
 
-class UnbindMediaBody(BaseModel):
-    home_id: str | None = None
-    terminal_id: str | None = None
+class UnbindMediaBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     member_id: str | None = None
 
 
-@router.get("")
+@router.get("", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_default_media(
     request: Request,
     service: MediaService = Depends(get_media_service),
@@ -34,7 +37,7 @@ async def get_default_media(
     return success_response(request, await service.get_default_media(context.home_id))
 
 
-@router.put("/binding")
+@router.put("/binding", response_model=SuccessEnvelope[dict[str, Any]])
 async def bind_default_media(
     request: Request,
     body: BindMediaBody = Body(...),
@@ -59,7 +62,7 @@ async def bind_default_media(
     )
 
 
-@router.delete("/binding")
+@router.delete("/binding", response_model=SuccessEnvelope[dict[str, Any]])
 async def unbind_default_media(
     request: Request,
     body: UnbindMediaBody = Body(...),

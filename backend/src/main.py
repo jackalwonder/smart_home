@@ -5,6 +5,8 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
+from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.app.container import get_database, get_ha_realtime_sync_service
@@ -35,7 +37,19 @@ from src.modules.system_connections.controllers.SystemConnectionsController impo
 from src.shared.config.Settings import get_settings
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
-from src.shared.http.ResponseEnvelope import error_response, success_response
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, error_response, success_response
+
+HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
+STANDARD_ERROR_RESPONSES: dict[str, str] = {
+    "400": "Invalid request parameters",
+    "401": "Unauthorized",
+    "403": "PIN required or permission denied",
+    "404": "Resource not found",
+    "405": "Method not allowed",
+    "409": "Business conflict",
+    "500": "Internal server error",
+}
+LEGACY_CONTEXT_PARAM_NAMES = {"home_id", "terminal_id", "token", "access_token"}
 
 
 def _status_code_for_error(code: ErrorCode) -> int:
@@ -61,6 +75,107 @@ def _status_code_for_error(code: ErrorCode) -> int:
     if code == ErrorCode.HA_UNAVAILABLE:
         return 503
     return 400
+
+
+def _build_operation_id(route: APIRoute) -> str:
+    methods = sorted(method.lower() for method in route.methods if method in {"GET", "POST", "PUT", "PATCH", "DELETE"})
+    method_token = "_".join(methods) if methods else "http"
+    path_token = (
+        route.path_format.strip("/")
+        .replace("/", "_")
+        .replace("-", "_")
+        .replace("{", "")
+        .replace("}", "")
+    )
+    if not path_token:
+        path_token = "root"
+    return f"{method_token}_{path_token}"
+
+
+def _error_envelope_schema() -> dict:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["success", "data", "error", "meta"],
+        "properties": {
+            "success": {"type": "boolean"},
+            "data": {"type": "null"},
+            "error": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["code", "message"],
+                "properties": {
+                    "code": {"type": "string"},
+                    "message": {"type": "string"},
+                    "details": {"type": "object", "additionalProperties": True},
+                },
+            },
+            "meta": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["trace_id", "server_time"],
+                "properties": {
+                    "trace_id": {"type": "string"},
+                    "server_time": {"type": "string"},
+                },
+            },
+        },
+    }
+
+
+def _attach_openapi_contract(app: FastAPI) -> None:
+    def custom_openapi() -> dict:
+        if app.openapi_schema is not None:
+            return app.openapi_schema
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+        )
+        components = schema.setdefault("components", {})
+        security_schemes = components.setdefault("securitySchemes", {})
+        security_schemes["BearerAuth"] = {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Primary auth path. home_id/terminal_id from token claim are authoritative.",
+        }
+
+        for path, operations in schema.get("paths", {}).items():
+            for method, operation in operations.items():
+                if method not in HTTP_METHODS:
+                    continue
+                if path.startswith("/api/v1/"):
+                    operation.setdefault("security", [{"BearerAuth": []}])
+                responses = operation.setdefault("responses", {})
+                for code, description in STANDARD_ERROR_RESPONSES.items():
+                    responses.setdefault(
+                        code,
+                        {
+                            "description": description,
+                            "content": {
+                                "application/json": {
+                                    "schema": _error_envelope_schema(),
+                                }
+                            },
+                        },
+                    )
+                for parameter in operation.get("parameters", []):
+                    if (
+                        parameter.get("name") in LEGACY_CONTEXT_PARAM_NAMES
+                        and parameter.get("in") in {"query", "header", "cookie"}
+                    ):
+                        parameter["deprecated"] = True
+                        note = "Legacy compatibility field. Bearer access token claim is authoritative."
+                        description = parameter.get("description")
+                        if description is None or note not in description:
+                            parameter["description"] = (
+                                f"{description} {note}".strip() if description else note
+                            )
+        app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
 
 
 @asynccontextmanager
@@ -94,6 +209,10 @@ def create_app() -> FastAPI:
     app.include_router(page_assets_router)
     app.include_router(backups_router)
     app.include_router(realtime_router)
+    for route in app.routes:
+        if isinstance(route, APIRoute) and route.path.startswith("/api/v1/"):
+            route.operation_id = _build_operation_id(route)
+    _attach_openapi_contract(app)
 
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):
@@ -152,7 +271,7 @@ def create_app() -> FastAPI:
             status_code=500,
         )
 
-    @app.get("/healthz")
+    @app.get("/healthz", response_model=SuccessEnvelope[dict[str, str]])
     async def healthz(request: Request):
         return success_response(
             request,

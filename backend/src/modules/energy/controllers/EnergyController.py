@@ -1,26 +1,28 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.app.container import get_energy_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.energy.services.EnergyService import EnergyService
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/energy", tags=["energy"])
 
 
-class EnergyBindingBody(BaseModel):
-    home_id: str | None = None
-    terminal_id: str | None = None
+class EnergyBindingBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     payload: dict = Field(default_factory=dict)
     member_id: str | None = None
 
 
-@router.get("")
+@router.get("", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_energy(
     request: Request,
     service: EnergyService = Depends(get_energy_service),
@@ -30,7 +32,7 @@ async def get_energy(
     return success_response(request, asdict(await service.get_energy(context.home_id)))
 
 
-@router.put("/binding")
+@router.put("/binding", response_model=SuccessEnvelope[dict[str, Any]])
 async def put_energy_binding(
     request: Request,
     body: EnergyBindingBody = Body(...),
@@ -57,7 +59,7 @@ async def put_energy_binding(
     )
 
 
-@router.delete("/binding")
+@router.delete("/binding", response_model=SuccessEnvelope[dict[str, Any]])
 async def delete_energy_binding(
     request: Request,
     body: EnergyBindingBody = Body(...),
@@ -83,7 +85,7 @@ async def delete_energy_binding(
     )
 
 
-@router.post("/refresh")
+@router.post("/refresh", response_model=SuccessEnvelope[dict[str, Any]])
 async def post_energy_refresh(
     request: Request,
     body: EnergyBindingBody = Body(...),

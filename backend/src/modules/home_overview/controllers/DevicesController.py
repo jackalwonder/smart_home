@@ -1,24 +1,77 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel
+from pydantic import Field
 
 from src.app.container import get_device_catalog_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.home_overview.services.DeviceCatalogService import DeviceCatalogService
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(tags=["devices"])
 
 
-class DeviceMappingBody(BaseModel):
+class DeviceMappingBody(ApiSchema):
     room_id: str | None = None
     device_type: str | None = None
     is_primary_device: bool | None = None
     default_control_target: str | None = None
 
 
-@router.get("/api/v1/devices")
+class DeviceAlertBadge(ApiSchema):
+    code: str
+    level: str
+    text: str
+
+
+class DeviceRuntimeState(ApiSchema):
+    last_state_update_at: str | None = None
+    aggregated_state: str | None = None
+    aggregated_mode: str | None = None
+    aggregated_position: float | None = None
+    telemetry: dict[str, Any] = Field(default_factory=dict)
+    alerts: list[DeviceAlertBadge] = Field(default_factory=list)
+
+
+class DeviceControlSchemaItem(ApiSchema):
+    action_type: str
+    target_scope: str | None = None
+    target_key: str | None = None
+    value_type: str | None = None
+    value_range: dict[str, Any] | None = None
+    allowed_values: list[Any] | None = None
+    unit: str | None = None
+    is_quick_action: bool
+    requires_detail_entry: bool
+
+
+class DeviceDetailResponse(ApiSchema):
+    device_id: str
+    display_name: str
+    raw_name: str | None = None
+    device_type: str
+    room_id: str | None = None
+    room_name: str | None = None
+    status: str
+    is_offline: bool
+    is_complex_device: bool
+    is_readonly_device: bool
+    confirmation_type: str | None = None
+    entry_behavior: str | None = None
+    default_control_target: str | None = None
+    capabilities: dict[str, Any] = Field(default_factory=dict)
+    alert_badges: list[DeviceAlertBadge] = Field(default_factory=list)
+    status_summary: dict[str, Any] = Field(default_factory=dict)
+    runtime_state: DeviceRuntimeState | None = None
+    control_schema: list[DeviceControlSchemaItem] = Field(default_factory=list)
+    editor_config: dict[str, Any] | None = None
+    source_info: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.get("/api/v1/devices", response_model=SuccessEnvelope[dict[str, Any]])
 async def list_devices(
     request: Request,
     room_id: str | None = Query(default=None),
@@ -52,7 +105,7 @@ async def list_devices(
     )
 
 
-@router.get("/api/v1/devices/{device_id}")
+@router.get("/api/v1/devices/{device_id}", response_model=SuccessEnvelope[DeviceDetailResponse])
 async def get_device_detail(
     request: Request,
     device_id: str,
@@ -76,7 +129,7 @@ async def get_device_detail(
     )
 
 
-@router.get("/api/v1/rooms")
+@router.get("/api/v1/rooms", response_model=SuccessEnvelope[dict[str, list[dict[str, Any]]]])
 async def list_rooms(
     request: Request,
     include_counts: bool = Query(default=True),
@@ -95,7 +148,7 @@ async def list_rooms(
     )
 
 
-@router.put("/api/v1/device-mappings/{device_id}")
+@router.put("/api/v1/device-mappings/{device_id}", response_model=SuccessEnvelope[dict[str, Any]])
 async def update_device_mapping(
     request: Request,
     device_id: str,

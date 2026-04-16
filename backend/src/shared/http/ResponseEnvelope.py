@@ -1,12 +1,44 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Generic, TypeVar
 from uuid import uuid4
 
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
+
+from src.shared.http.ApiSchema import ApiSchema
+
+T = TypeVar("T")
+
+
+class ResponseMeta(ApiSchema):
+    trace_id: str
+    server_time: str
+
+
+class ErrorBody(ApiSchema):
+    code: str
+    message: str
+    details: dict[str, Any] | None = None
+
+
+class SuccessEnvelope(BaseModel, Generic[T]):
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool = Field(default=True)
+    data: T
+    error: None = None
+    meta: ResponseMeta
+
+
+class ErrorEnvelope(ApiSchema):
+    success: bool = Field(default=False)
+    data: None = None
+    error: ErrorBody
+    meta: ResponseMeta
 
 
 def _server_time() -> str:

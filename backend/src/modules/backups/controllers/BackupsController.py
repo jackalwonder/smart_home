@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.app.container import (
     get_backup_restore_service,
@@ -13,25 +14,26 @@ from src.app.container import (
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.backups.services.BackupRestoreService import BackupRestoreService
 from src.modules.backups.services.BackupService import BackupService
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/system/backups", tags=["backups"])
 
 
-class BackupCreateBody(BaseModel):
-    home_id: str | None = Field(default=None)
-    terminal_id: str | None = Field(default=None)
+class BackupCreateBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     operator_id: str | None = None
     note: str | None = None
 
 
-class BackupRestoreBody(BaseModel):
-    home_id: str | None = Field(default=None)
-    terminal_id: str | None = Field(default=None)
+class BackupRestoreBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
+    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     operator_id: str | None = None
 
 
-@router.post("")
+@router.post("", response_model=SuccessEnvelope[dict[str, Any]])
 async def create_backup(
     request: Request,
     body: BackupCreateBody = Body(...),
@@ -54,7 +56,7 @@ async def create_backup(
     return success_response(request, asdict(view))
 
 
-@router.get("")
+@router.get("", response_model=SuccessEnvelope[list[dict[str, Any]]])
 async def list_backups(
     request: Request,
     service: BackupService = Depends(get_backup_service),
@@ -74,7 +76,7 @@ async def list_backups(
     )
 
 
-@router.post("/{backup_id}/restore")
+@router.post("/{backup_id}/restore", response_model=SuccessEnvelope[dict[str, Any]])
 async def restore_backup(
     request: Request,
     backup_id: str,

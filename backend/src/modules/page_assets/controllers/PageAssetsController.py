@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
 from src.app.container import get_floorplan_asset_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.page_assets.services.FloorplanAssetService import FloorplanAssetService
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/page-assets", tags=["page_assets"])
 
 
-@router.post("/floorplan")
+@router.post("/floorplan", response_model=SuccessEnvelope[dict[str, Any]])
 async def upload_floorplan(
     request: Request,
-    home_id: str | None = Form(default=None),
+    home_id: str | None = Form(default=None, description="Legacy compatibility context field."),
     terminal_id: str = Form(...),
     operator_id: str | None = Form(default=None),
     replace_current: bool = Form(default=False),

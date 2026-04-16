@@ -4,7 +4,7 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.app.container import (
     get_favorites_query_service,
@@ -25,29 +25,30 @@ from src.modules.settings.services.query.SettingsQueryService import (
     SettingsQueryInput,
     SettingsQueryService,
 )
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(tags=["settings"])
 
 
-class SettingsSaveRequestBody(BaseModel):
-    home_id: str | None = Field(default=None)
+class SettingsSaveRequestBody(ApiSchema):
+    home_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     settings_version: str | None = None
     page_settings: dict[str, Any] = Field(default_factory=dict)
     function_settings: dict[str, Any] = Field(default_factory=dict)
     favorites: list[dict[str, Any]] = Field(default_factory=list)
-    terminal_id: str | None = None
+    terminal_id: str | None = Field(default=None, description="Legacy compatibility context field.")
     member_id: str | None = None
 
 
-class SettingsSaveResponse(BaseModel):
+class SettingsSaveResponse(ApiSchema):
     saved: bool
     settings_version: str
     updated_domains: list[str]
     effective_at: str
 
 
-@router.get("/api/v1/settings")
+@router.get("/api/v1/settings", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_settings(
     request: Request,
     service: SettingsQueryService = Depends(get_settings_query_service),
@@ -58,7 +59,7 @@ async def get_settings(
     return success_response(request, asdict(view))
 
 
-@router.get("/api/v1/function-settings")
+@router.get("/api/v1/function-settings", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_function_settings(
     request: Request,
     service: SettingsQueryService = Depends(get_settings_query_service),
@@ -71,7 +72,7 @@ async def get_function_settings(
     )
 
 
-@router.get("/api/v1/page-settings")
+@router.get("/api/v1/page-settings", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_page_settings(
     request: Request,
     service: SettingsQueryService = Depends(get_settings_query_service),
@@ -84,7 +85,7 @@ async def get_page_settings(
     )
 
 
-@router.get("/api/v1/favorites")
+@router.get("/api/v1/favorites", response_model=SuccessEnvelope[list[dict[str, Any]]])
 async def get_favorites(
     request: Request,
     service: FavoritesQueryService = Depends(get_favorites_query_service),
@@ -97,7 +98,7 @@ async def get_favorites(
     )
 
 
-@router.put("/api/v1/settings")
+@router.put("/api/v1/settings", response_model=SuccessEnvelope[SettingsSaveResponse])
 async def save_settings(
     request: Request,
     body: SettingsSaveRequestBody = Body(...),

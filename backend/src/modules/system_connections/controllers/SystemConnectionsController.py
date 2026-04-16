@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.app.container import get_request_context_service, get_system_connection_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
@@ -11,30 +12,31 @@ from src.modules.system_connections.services.SystemConnectionService import (
     HomeAssistantCandidateConfig,
     SystemConnectionService,
 )
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/system-connections", tags=["system_connections"])
 
 
-class HomeAssistantSaveBody(BaseModel):
+class HomeAssistantSaveBody(ApiSchema):
     connection_mode: str = Field(default="TOKEN")
     base_url: str
     auth_payload: dict = Field(default_factory=dict)
     member_id: str | None = None
 
 
-class HomeAssistantCandidateConfigBody(BaseModel):
+class HomeAssistantCandidateConfigBody(ApiSchema):
     connection_mode: str = Field(default="TOKEN")
     base_url: str
     auth_payload: dict = Field(default_factory=dict)
 
 
-class HomeAssistantTestBody(BaseModel):
+class HomeAssistantTestBody(ApiSchema):
     use_saved_config: bool = False
     candidate_config: HomeAssistantCandidateConfigBody | None = None
 
 
-@router.get("")
+@router.get("", response_model=SuccessEnvelope[dict[str, Any]])
 async def get_system_connections(
     request: Request,
     service: SystemConnectionService = Depends(get_system_connection_service),
@@ -55,7 +57,7 @@ async def get_system_connections(
     )
 
 
-@router.put("/home-assistant")
+@router.put("/home-assistant", response_model=SuccessEnvelope[dict[str, Any]])
 async def save_home_assistant(
     request: Request,
     body: HomeAssistantSaveBody = Body(...),
@@ -82,7 +84,7 @@ async def save_home_assistant(
     )
 
 
-@router.post("/home-assistant/test")
+@router.post("/home-assistant/test", response_model=SuccessEnvelope[dict[str, Any]])
 async def test_home_assistant(
     request: Request,
     body: HomeAssistantTestBody = Body(...),

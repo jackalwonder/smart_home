@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
 
 from src.app.container import get_request_context_service, get_session_query_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
@@ -12,12 +11,13 @@ from src.modules.auth.services.query.SessionQueryService import (
     SessionQueryInput,
     SessionQueryService,
 )
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
-class AuthSessionResponse(BaseModel):
+class AuthSessionResponse(ApiSchema):
     home_id: str
     operator_id: str | None = None
     terminal_id: str
@@ -28,7 +28,10 @@ class AuthSessionResponse(BaseModel):
     features: dict[str, bool]
 
 
-@router.get("/session")
+@router.get(
+    "/session",
+    response_model=SuccessEnvelope[AuthSessionResponse],
+)
 async def get_auth_session(
     request: Request,
     service: SessionQueryService = Depends(get_session_query_service),

@@ -1,23 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Request
-from pydantic import BaseModel
 
 from src.app.container import get_request_context_service, get_system_connection_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.system_connections.services.SystemConnectionService import SystemConnectionService
-from src.shared.http.ResponseEnvelope import success_response
+from src.shared.http.ApiSchema import ApiSchema
+from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/devices", tags=["system_connections"])
 
 
-class DeviceReloadBody(BaseModel):
+class DeviceReloadBody(ApiSchema):
     force_full_sync: bool = False
 
 
-@router.post("/reload")
+@router.post("/reload", response_model=SuccessEnvelope[dict[str, Any]])
 async def reload_devices(
     request: Request,
     body: DeviceReloadBody = Body(...),
