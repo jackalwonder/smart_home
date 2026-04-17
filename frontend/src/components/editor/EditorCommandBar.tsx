@@ -4,14 +4,17 @@ interface EditorCommandBarProps {
   helperText: string;
   canSave: boolean;
   canPublish: boolean;
+  canAcquire: boolean;
   canTakeover: boolean;
   canDiscard: boolean;
+  acquireBusy: boolean;
   saveBusy: boolean;
   publishBusy: boolean;
   takeoverBusy: boolean;
   discardBusy: boolean;
   hotspotCount: number;
   onAddHotspot: () => void;
+  onAcquire: () => void;
   onSaveDraft: () => void;
   onPublishDraft: () => void;
   onTakeover: () => void;
@@ -24,14 +27,17 @@ export function EditorCommandBar({
   helperText,
   canSave,
   canPublish,
+  canAcquire,
   canTakeover,
   canDiscard,
+  acquireBusy,
   saveBusy,
   publishBusy,
   takeoverBusy,
   discardBusy,
   hotspotCount,
   onAddHotspot,
+  onAcquire,
   onSaveDraft,
   onPublishDraft,
   onTakeover,
@@ -54,6 +60,14 @@ export function EditorCommandBar({
           type="button"
         >
           新增热点
+        </button>
+        <button
+          className="button button--ghost"
+          disabled={!canAcquire || acquireBusy}
+          onClick={onAcquire}
+          type="button"
+        >
+          {acquireBusy ? "申请中..." : "申请编辑"}
         </button>
         <button
           className="button button--primary"

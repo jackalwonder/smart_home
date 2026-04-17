@@ -105,6 +105,28 @@ class EditorSessionService:
             return False
         return lease.lease_expires_at is not None and now < datetime.fromisoformat(lease.lease_expires_at)
 
+    async def _append_editor_lock_event(
+        self,
+        *,
+        home_id: str,
+        event_type: str,
+        payload: dict[str, object | None],
+        occurred_at: str,
+        ctx: RepoContext,
+    ) -> None:
+        await self._ws_event_outbox_repository.insert(
+            NewWsEventOutboxRow(
+                home_id=home_id,
+                event_id=self._event_id_generator.next_event_id(),
+                event_type=event_type,
+                change_domain="EDITOR_LOCK",
+                snapshot_required=False,
+                payload_json={key: value for key, value in payload.items() if value is not None},
+                occurred_at=occurred_at,
+            ),
+            ctx=ctx,
+        )
+
     async def open_session(self, input: EditorSessionInput) -> EditorSessionView:
         await self._management_pin_guard.require_active_session(input.home_id, input.terminal_id)
         now = self._clock.now()
@@ -165,13 +187,24 @@ class EditorSessionService:
             ctx = RepoContext(tx=tx)
             takeover_from = None
             previous_terminal_id = None
+            lost_reason = None
+            next_lease_status = "RELEASED"
+            deactivate_reason = None
             if active_lease is not None:
                 takeover_from = active_lease.lease_id
                 previous_terminal_id = active_lease.terminal_id
+                if active_lease_is_valid and active_lease.terminal_id != input.terminal_id:
+                    lost_reason = "TAKEN_OVER"
+                    next_lease_status = "TAKEN_OVER"
+                    deactivate_reason = "TAKEN_OVER"
+                elif not active_lease_is_valid:
+                    lost_reason = "LEASE_EXPIRED"
+                    next_lease_status = "LOST"
+                    deactivate_reason = "LEASE_EXPIRED"
                 await self._draft_lease_repository.deactivate_lease(
                     active_lease.lease_id,
-                    "TAKEN_OVER" if active_lease.terminal_id != input.terminal_id else "RELEASED",
-                    "TAKEN_OVER" if active_lease.terminal_id != input.terminal_id else None,
+                    next_lease_status,
+                    deactivate_reason,
                     ctx=ctx,
                 )
             lease_id = self._id_generator.next_id()
@@ -231,25 +264,56 @@ class EditorSessionService:
                                 label_mode=hotspot.label_mode,
                                 is_visible=hotspot.is_visible,
                                 structure_order=hotspot.structure_order,
-                            )
+                    )
                             for hotspot in current_hotspots
                         ],
                         ctx=ctx,
                     )
-            await self._ws_event_outbox_repository.insert(
-                NewWsEventOutboxRow(
+            if (
+                active_lease is not None
+                and lost_reason is not None
+                and previous_terminal_id is not None
+                and previous_terminal_id != input.terminal_id
+            ):
+                await self._append_editor_lock_event(
                     home_id=input.home_id,
-                    event_id=self._event_id_generator.next_event_id(),
-                    event_type="draft_lock_acquired",
-                    change_domain="EDITOR_LOCK",
-                    snapshot_required=False,
-                    payload_json={
-                        "lease_id": inserted_lease.lease_id,
-                        "terminal_id": input.terminal_id,
-                        "lease_expires_at": inserted_lease.lease_expires_at,
+                    event_type="draft_lock_lost",
+                    payload={
+                        "lease_id": active_lease.lease_id,
+                        "terminal_id": previous_terminal_id,
+                        "lost_reason": lost_reason,
                     },
                     occurred_at=now.isoformat(),
-                ),
+                    ctx=ctx,
+                )
+            if (
+                active_lease is not None
+                and active_lease_is_valid
+                and previous_terminal_id is not None
+                and previous_terminal_id != input.terminal_id
+            ):
+                await self._append_editor_lock_event(
+                    home_id=input.home_id,
+                    event_type="draft_taken_over",
+                    payload={
+                        "previous_terminal_id": previous_terminal_id,
+                        "new_terminal_id": input.terminal_id,
+                        "new_operator_id": input.member_id,
+                        "new_lease_id": inserted_lease.lease_id,
+                        "draft_version": draft.draft_version,
+                    },
+                    occurred_at=now.isoformat(),
+                    ctx=ctx,
+                )
+            await self._append_editor_lock_event(
+                home_id=input.home_id,
+                event_type="draft_lock_acquired",
+                payload={
+                    "lease_id": inserted_lease.lease_id,
+                    "terminal_id": input.terminal_id,
+                    "lease_expires_at": inserted_lease.lease_expires_at,
+                },
+                occurred_at=now.isoformat(),
                 ctx=ctx,
             )
             return EditorSessionView(

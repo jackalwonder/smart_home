@@ -43,7 +43,12 @@ class _NoopLayoutHotspotRepository:
 
 
 class _NoopWsEventOutboxRepository:
+    def __init__(self):
+        self.events = []
+
     async def insert(self, *_args, **_kwargs):
+        if _args:
+            self.events.append(_args[0])
         return None
 
 
@@ -145,6 +150,7 @@ def _build_draft_service(draft):
 
 def _build_session_service(active_lease):
     draft_repo = _DraftLeaseRepository()
+    outbox_repo = _NoopWsEventOutboxRepository()
     draft_layout = _DraftLayoutRepository(
         SimpleNamespace(
             draft_version="dv-1",
@@ -160,14 +166,14 @@ def _build_session_service(active_lease):
         draft_hotspot_repository=_NoopDraftHotspotRepository(),
         layout_version_repository=_CurrentLayoutRepository(),
         layout_hotspot_repository=_NoopLayoutHotspotRepository(),
-        ws_event_outbox_repository=_NoopWsEventOutboxRepository(),
+        ws_event_outbox_repository=outbox_repo,
         management_pin_guard=_NoopPinGuard(),
         id_generator=_IdGenerator(),
         version_token_generator=_VersionTokenGenerator(),
         event_id_generator=_EventIdGenerator(),
         clock=_Clock(),
     )
-    return service, draft_repo
+    return service, draft_repo, outbox_repo
 
 
 @pytest.mark.asyncio
@@ -222,7 +228,7 @@ async def test_open_session_reuses_valid_lease_with_20_second_heartbeat():
         lease_expires_at="2026-04-14T10:01:00+00:00",
         last_heartbeat_at="2026-04-14T09:59:40+00:00",
     )
-    service, _draft_repo = _build_session_service(active_lease)
+    service, _draft_repo, _outbox_repo = _build_session_service(active_lease)
 
     view = await service.open_session(
         EditorSessionInput(home_id="home-1", terminal_id="terminal-1")
@@ -245,16 +251,61 @@ async def test_open_session_replaces_expired_lease_with_60_second_ttl():
         lease_expires_at="2026-04-14T09:59:00+00:00",
         last_heartbeat_at="2026-04-14T09:58:40+00:00",
     )
-    service, draft_repo = _build_session_service(expired_lease)
+    service, draft_repo, outbox_repo = _build_session_service(expired_lease)
 
     view = await service.open_session(
         EditorSessionInput(home_id="home-1", terminal_id="terminal-1")
     )
 
-    assert draft_repo.deactivated == [("lease-old", "TAKEN_OVER", "TAKEN_OVER")]
+    assert draft_repo.deactivated == [("lease-old", "LOST", "LEASE_EXPIRED")]
     assert draft_repo.inserted is not None
     assert draft_repo.inserted.heartbeat_interval_seconds == HEARTBEAT_INTERVAL_SECONDS
     assert draft_repo.inserted.lease_expires_at == "2026-04-14T10:01:00+00:00"
     assert view.lease_id == "lease-new"
     assert view.lease_expires_at == "2026-04-14T10:01:00+00:00"
     assert LEASE_TTL_SECONDS == 60
+    assert [event.event_type for event in outbox_repo.events] == ["draft_lock_lost", "draft_lock_acquired"]
+
+
+@pytest.mark.asyncio
+async def test_takeover_emits_lost_taken_over_and_acquired_events():
+    active_lease = DraftLeaseReadModel(
+        lease_id="lease-held",
+        terminal_id="terminal-2",
+        member_id="member-2",
+        lease_status="ACTIVE",
+        is_active=True,
+        lease_expires_at="2026-04-14T10:01:00+00:00",
+        last_heartbeat_at="2026-04-14T09:59:40+00:00",
+    )
+    service, draft_repo, outbox_repo = _build_session_service(active_lease)
+
+    view = await service.open_session(
+        EditorSessionInput(
+            home_id="home-1",
+            terminal_id="terminal-1",
+            takeover_if_locked=True,
+            member_id="member-1",
+            expected_lease_id="lease-held",
+        )
+    )
+
+    assert draft_repo.deactivated == [("lease-held", "TAKEN_OVER", "TAKEN_OVER")]
+    assert view.previous_terminal_id == "terminal-2"
+    assert [event.event_type for event in outbox_repo.events] == [
+        "draft_lock_lost",
+        "draft_taken_over",
+        "draft_lock_acquired",
+    ]
+    assert outbox_repo.events[0].payload_json == {
+        "lease_id": "lease-held",
+        "terminal_id": "terminal-2",
+        "lost_reason": "TAKEN_OVER",
+    }
+    assert outbox_repo.events[1].payload_json == {
+        "previous_terminal_id": "terminal-2",
+        "new_terminal_id": "terminal-1",
+        "new_operator_id": "member-1",
+        "new_lease_id": "lease-new",
+        "draft_version": "dv-1",
+    }

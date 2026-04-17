@@ -16,6 +16,8 @@ export type ServerEvent =
   | EnergyRefreshCompletedEvent
   | EnergyRefreshFailedEvent
   | DraftLockAcquiredEvent
+  | DraftLockLostEvent
+  | DraftTakenOverEvent
   | PublishSucceededEvent
   | BackupRestoreCompletedEvent
   | VersionConflictDetectedEvent;
@@ -108,38 +110,60 @@ export type LeaseId = string;
 export type TerminalId = string;
 export type Sequence8 = number;
 export type SnapshotRequired8 = false;
-export type ChangeDomain9 = "LAYOUT";
+export type ChangeDomain9 = "EDITOR_LOCK";
 export type EventId10 = string;
-export type EventType9 = "publish_succeeded";
+export type EventType9 = "draft_lock_lost";
 export type HomeId11 = string;
 export type OccurredAt9 = string;
+export type LeaseId1 = string;
+export type LostReason = "TAKEN_OVER" | "LEASE_EXPIRED";
+export type TerminalId1 = string;
+export type Sequence9 = number;
+export type SnapshotRequired9 = false;
+export type ChangeDomain10 = "EDITOR_LOCK";
+export type EventId11 = string;
+export type EventType10 = "draft_taken_over";
+export type HomeId12 = string;
+export type OccurredAt10 = string;
+export type DraftVersion = string | null;
+export type NewLeaseId = string;
+export type NewOperatorId = string | null;
+export type NewTerminalId = string;
+export type PreviousTerminalId = string;
+export type Sequence10 = number;
+export type SnapshotRequired10 = false;
+export type ChangeDomain11 = "LAYOUT";
+export type EventId12 = string;
+export type EventType11 = "publish_succeeded";
+export type HomeId13 = string;
+export type OccurredAt11 = string;
 export type EffectiveAt1 = string;
 export type LayoutVersion = string;
 export type PublishedByTerminalId = string;
-export type Sequence9 = number;
-export type SnapshotRequired9 = true;
-export type ChangeDomain10 = "BACKUP";
-export type EventId11 = string;
-export type EventType10 = "backup_restore_completed";
-export type HomeId12 = string;
-export type OccurredAt10 = string;
+export type Sequence11 = number;
+export type SnapshotRequired11 = true;
+export type ChangeDomain12 = "BACKUP";
+export type EventId13 = string;
+export type EventType12 = "backup_restore_completed";
+export type HomeId14 = string;
+export type OccurredAt12 = string;
 export type AuditId = string;
 export type BackupId = string;
 export type EffectiveAt2 = string;
 export type LayoutVersion1 = string;
 export type RestoredByTerminalId = string;
 export type SettingsVersion1 = string;
-export type Sequence10 = number;
-export type SnapshotRequired10 = true;
-export type ChangeDomain11 = "SUMMARY";
-export type EventId12 = string;
-export type EventType11 = "version_conflict_detected";
-export type HomeId13 = string;
-export type OccurredAt11 = string;
+export type Sequence12 = number;
+export type SnapshotRequired12 = true;
+export type ChangeDomain13 = "SUMMARY";
+export type EventId14 = string;
+export type EventType13 = "version_conflict_detected";
+export type HomeId15 = string;
+export type OccurredAt13 = string;
 export type LastEventId1 = string;
 export type Reason = "EVENT_GAP";
-export type Sequence11 = number;
-export type SnapshotRequired11 = true;
+export type Sequence13 = number;
+export type SnapshotRequired13 = true;
 
 export interface RealtimeContractBundle {
   client_message: ClientMessage;
@@ -282,15 +306,47 @@ export interface DraftLockAcquiredPayload {
   lease_id: LeaseId;
   terminal_id: TerminalId;
 }
-export interface PublishSucceededEvent {
+export interface DraftLockLostEvent {
   change_domain: ChangeDomain9;
   event_id: EventId10;
   event_type: EventType9;
   home_id: HomeId11;
   occurred_at: OccurredAt9;
-  payload: PublishSucceededPayload;
+  payload: DraftLockLostPayload;
   sequence: Sequence9;
   snapshot_required: SnapshotRequired9;
+}
+export interface DraftLockLostPayload {
+  lease_id: LeaseId1;
+  lost_reason: LostReason;
+  terminal_id: TerminalId1;
+}
+export interface DraftTakenOverEvent {
+  change_domain: ChangeDomain10;
+  event_id: EventId11;
+  event_type: EventType10;
+  home_id: HomeId12;
+  occurred_at: OccurredAt10;
+  payload: DraftTakenOverPayload;
+  sequence: Sequence10;
+  snapshot_required: SnapshotRequired10;
+}
+export interface DraftTakenOverPayload {
+  draft_version?: DraftVersion;
+  new_lease_id: NewLeaseId;
+  new_operator_id?: NewOperatorId;
+  new_terminal_id: NewTerminalId;
+  previous_terminal_id: PreviousTerminalId;
+}
+export interface PublishSucceededEvent {
+  change_domain: ChangeDomain11;
+  event_id: EventId12;
+  event_type: EventType11;
+  home_id: HomeId13;
+  occurred_at: OccurredAt11;
+  payload: PublishSucceededPayload;
+  sequence: Sequence11;
+  snapshot_required: SnapshotRequired11;
 }
 export interface PublishSucceededPayload {
   effective_at: EffectiveAt1;
@@ -298,14 +354,14 @@ export interface PublishSucceededPayload {
   published_by_terminal_id: PublishedByTerminalId;
 }
 export interface BackupRestoreCompletedEvent {
-  change_domain: ChangeDomain10;
-  event_id: EventId11;
-  event_type: EventType10;
-  home_id: HomeId12;
-  occurred_at: OccurredAt10;
+  change_domain: ChangeDomain12;
+  event_id: EventId13;
+  event_type: EventType12;
+  home_id: HomeId14;
+  occurred_at: OccurredAt12;
   payload: BackupRestoreCompletedPayload;
-  sequence: Sequence10;
-  snapshot_required: SnapshotRequired10;
+  sequence: Sequence12;
+  snapshot_required: SnapshotRequired12;
 }
 export interface BackupRestoreCompletedPayload {
   audit_id: AuditId;
@@ -316,14 +372,14 @@ export interface BackupRestoreCompletedPayload {
   settings_version: SettingsVersion1;
 }
 export interface VersionConflictDetectedEvent {
-  change_domain: ChangeDomain11;
-  event_id: EventId12;
-  event_type: EventType11;
-  home_id: HomeId13;
-  occurred_at: OccurredAt11;
+  change_domain: ChangeDomain13;
+  event_id: EventId14;
+  event_type: EventType13;
+  home_id: HomeId15;
+  occurred_at: OccurredAt13;
   payload: VersionConflictDetectedPayload;
-  sequence: Sequence11;
-  snapshot_required: SnapshotRequired11;
+  sequence: Sequence13;
+  snapshot_required: SnapshotRequired13;
 }
 export interface VersionConflictDetectedPayload {
   last_event_id: LastEventId1;
