@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
+from redis.asyncio import Redis
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.app.container import get_database, get_ha_realtime_sync_service
@@ -178,6 +182,29 @@ def _attach_openapi_contract(app: FastAPI) -> None:
     app.openapi = custom_openapi
 
 
+async def _run_readiness_check(check: Callable[[], Awaitable[None]]) -> dict[str, str]:
+    try:
+        await check()
+    except Exception as exc:
+        return {
+            "status": "unavailable",
+            "error_type": exc.__class__.__name__,
+        }
+    return {"status": "ok"}
+
+
+async def _check_redis(redis_url: str, timeout_seconds: float) -> None:
+    client = Redis.from_url(
+        redis_url,
+        socket_connect_timeout=timeout_seconds,
+        socket_timeout=timeout_seconds,
+    )
+    try:
+        await client.ping()
+    finally:
+        await client.aclose()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await get_ha_realtime_sync_service().start()
@@ -278,6 +305,41 @@ def create_app() -> FastAPI:
             {
                 "status": "ok",
                 "app_env": settings.app_env,
+            },
+        )
+
+    @app.get("/readyz", response_model=SuccessEnvelope[dict[str, Any]])
+    async def readyz(request: Request):
+        timeout_seconds = settings.readiness_check_timeout_seconds
+        database_check, redis_check = await asyncio.gather(
+            _run_readiness_check(
+                lambda: asyncio.wait_for(get_database().check(), timeout=timeout_seconds),
+            ),
+            _run_readiness_check(
+                lambda: asyncio.wait_for(
+                    _check_redis(settings.redis_url, timeout_seconds),
+                    timeout=timeout_seconds,
+                ),
+            ),
+        )
+        checks = {
+            "database": database_check,
+            "redis": redis_check,
+        }
+        if any(check["status"] != "ok" for check in checks.values()):
+            return error_response(
+                request,
+                str(ErrorCode.INTERNAL_SERVER_ERROR),
+                "服务未就绪",
+                details={"checks": checks},
+                status_code=503,
+            )
+        return success_response(
+            request,
+            {
+                "status": "ready",
+                "app_env": settings.app_env,
+                "checks": checks,
             },
         )
 

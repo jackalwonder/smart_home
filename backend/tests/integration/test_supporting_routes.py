@@ -30,6 +30,7 @@ from src.modules.system_connections.services.SystemConnectionService import (
     SystemConnectionTestView,
     SystemConnectionView,
 )
+import src.main as main_module
 
 
 class FakeSessionQueryService:
@@ -286,3 +287,38 @@ def test_http_404_and_unhandled_errors_are_wrapped(app, client):
     assert failure_body["success"] is False
     assert failure_body["error"]["code"] == "INTERNAL_SERVER_ERROR"
     assert failure_body["error"]["details"]["exception_type"] == "RuntimeError"
+
+
+def test_healthz_and_readyz_routes(monkeypatch, client):
+    async def fake_check_redis(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(main_module, "_check_redis", fake_check_redis)
+
+    health_response = client.get("/healthz")
+    ready_response = client.get("/readyz")
+
+    assert health_response.status_code == 200
+    assert health_response.json()["data"]["status"] == "ok"
+    assert ready_response.status_code == 200
+    ready_body = ready_response.json()
+    assert ready_body["data"]["status"] == "ready"
+    assert ready_body["data"]["checks"]["database"]["status"] == "ok"
+    assert ready_body["data"]["checks"]["redis"]["status"] == "ok"
+
+
+def test_readyz_returns_503_when_dependency_is_unavailable(monkeypatch, client):
+    async def fake_check_redis(*_args, **_kwargs):
+        raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr(main_module, "_check_redis", fake_check_redis)
+
+    response = client.get("/readyz")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_SERVER_ERROR"
+    assert body["error"]["details"]["checks"]["database"]["status"] == "ok"
+    assert body["error"]["details"]["checks"]["redis"]["status"] == "unavailable"
+    assert body["error"]["details"]["checks"]["redis"]["error_type"] == "RuntimeError"

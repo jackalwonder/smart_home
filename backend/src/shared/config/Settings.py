@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     access_token_audience: str = "smart-home-web-app"
     access_token_ttl_seconds: int = 86400
     access_token_leeway_seconds: int = 0
+    readiness_check_timeout_seconds: float = 3.0
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_latitude: float = 31.2304
     weather_longitude: float = 121.4737
