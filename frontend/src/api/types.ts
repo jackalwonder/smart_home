@@ -158,6 +158,8 @@ export type BackupCreateInput = Omit<
 
 export type BackupCreateDto = Schema<"BackupCreateResponse">;
 
+export type BackupListItemDto = Schema<"BackupListItemResponse">;
+
 export type BackupListDto = RequireFields<Schema<"BackupListResponse">, "items">;
 
 export type BackupRestoreInput = Omit<
