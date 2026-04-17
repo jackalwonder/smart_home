@@ -55,6 +55,24 @@ class BackupCreateResponse(ApiSchema):
     status: str
 
 
+class BackupSnapshotSummaryResponse(ApiSchema):
+    snapshot_status: str
+    settings_version: str | None = None
+    layout_version: str | None = None
+    favorite_count: int
+    hotspot_count: int
+    has_page_settings: bool
+    has_function_settings: bool
+    has_background_asset: bool
+
+
+class BackupSnapshotComparisonResponse(ApiSchema):
+    current_settings_version: str | None = None
+    current_layout_version: str | None = None
+    settings_matches_current: bool
+    layout_matches_current: bool
+
+
 class BackupListItemResponse(ApiSchema):
     backup_id: str
     created_at: str
@@ -62,6 +80,8 @@ class BackupListItemResponse(ApiSchema):
     created_by: str | None = None
     status: str
     note: str | None = None
+    summary: BackupSnapshotSummaryResponse
+    comparison: BackupSnapshotComparisonResponse
 
 
 class BackupListResponse(ApiSchema):

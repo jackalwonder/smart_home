@@ -19,6 +19,88 @@ class BackupCreateView:
     status: str
 
 
+def _decode_snapshot_for_preview(snapshot_blob: Any) -> dict[str, Any] | None:
+    try:
+        raw_snapshot = (
+            snapshot_blob
+            if isinstance(snapshot_blob, str)
+            else bytes(snapshot_blob).decode("utf-8")
+        )
+        snapshot = json.loads(raw_snapshot)
+    except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return snapshot if isinstance(snapshot, dict) else None
+
+
+def _as_preview_mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_preview_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _as_preview_string(value: Any) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def build_snapshot_preview(
+    snapshot_blob: Any,
+    *,
+    current_settings_version: str | None,
+    current_layout_version: str | None,
+) -> dict[str, Any]:
+    snapshot = _decode_snapshot_for_preview(snapshot_blob)
+    if snapshot is None:
+        return {
+            "summary": {
+                "snapshot_status": "INVALID",
+                "settings_version": None,
+                "layout_version": None,
+                "favorite_count": 0,
+                "hotspot_count": 0,
+                "has_page_settings": False,
+                "has_function_settings": False,
+                "has_background_asset": False,
+            },
+            "comparison": {
+                "current_settings_version": current_settings_version,
+                "current_layout_version": current_layout_version,
+                "settings_matches_current": False,
+                "layout_matches_current": False,
+            },
+        }
+
+    settings = _as_preview_mapping(snapshot.get("settings"))
+    layout = _as_preview_mapping(snapshot.get("layout"))
+    settings_version = _as_preview_string(settings.get("settings_version"))
+    layout_version = _as_preview_string(layout.get("layout_version"))
+    background_asset_id = _as_preview_string(layout.get("background_asset_id"))
+
+    return {
+        "summary": {
+            "snapshot_status": "READY",
+            "settings_version": settings_version,
+            "layout_version": layout_version,
+            "favorite_count": len(_as_preview_list(settings.get("favorites"))),
+            "hotspot_count": len(_as_preview_list(layout.get("hotspots"))),
+            "has_page_settings": isinstance(settings.get("page_settings"), dict),
+            "has_function_settings": isinstance(settings.get("function_settings"), dict),
+            "has_background_asset": background_asset_id is not None,
+        },
+        "comparison": {
+            "current_settings_version": current_settings_version,
+            "current_layout_version": current_layout_version,
+            "settings_matches_current": (
+                settings_version is not None and settings_version == current_settings_version
+            ),
+            "layout_matches_current": (
+                layout_version is not None and layout_version == current_layout_version
+            ),
+        },
+    }
+
+
 class BackupService:
     def __init__(
         self,
@@ -260,7 +342,20 @@ class BackupService:
                 sb.restored_at::text AS restored_at,
                 sb.status,
                 sb.note,
-                m.display_name AS created_by
+                sb.snapshot_blob,
+                m.display_name AS created_by,
+                (
+                    SELECT settings_version
+                    FROM v_current_settings_versions
+                    WHERE home_id = :home_id
+                    LIMIT 1
+                ) AS current_settings_version,
+                (
+                    SELECT layout_version
+                    FROM v_current_layout_versions
+                    WHERE home_id = :home_id
+                    LIMIT 1
+                ) AS current_layout_version
             FROM system_backups sb
             LEFT JOIN members m
               ON m.id = sb.created_by_member_id
@@ -279,6 +374,11 @@ class BackupService:
                     "created_by": row["created_by"],
                     "status": row["status"],
                     "note": row["note"],
+                    **build_snapshot_preview(
+                        row["snapshot_blob"],
+                        current_settings_version=row["current_settings_version"],
+                        current_layout_version=row["current_layout_version"],
+                    ),
                 }
                 for row in rows
             ]

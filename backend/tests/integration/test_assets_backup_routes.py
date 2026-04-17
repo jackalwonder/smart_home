@@ -44,6 +44,22 @@ class FakeBackupService:
                     "created_by": "Operator",
                     "status": "READY",
                     "note": "nightly",
+                    "summary": {
+                        "snapshot_status": "READY",
+                        "settings_version": "sv_1",
+                        "layout_version": "lv_1",
+                        "favorite_count": 2,
+                        "hotspot_count": 1,
+                        "has_page_settings": True,
+                        "has_function_settings": True,
+                        "has_background_asset": False,
+                    },
+                    "comparison": {
+                        "current_settings_version": "sv_2",
+                        "current_layout_version": "lv_2",
+                        "settings_matches_current": False,
+                        "layout_matches_current": False,
+                    },
                 }
             ]
         }
@@ -120,6 +136,8 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
     assert list_response.status_code == 200
     assert list_response.json()["data"]["items"][0]["backup_id"] == "bk_1"
     assert list_response.json()["data"]["items"][0]["restored_at"] == "2026-04-14T10:05:00Z"
+    assert list_response.json()["data"]["items"][0]["summary"]["favorite_count"] == 2
+    assert list_response.json()["data"]["items"][0]["comparison"]["settings_matches_current"] is False
 
     assert audit_response.status_code == 200
     assert audit_response.json()["data"]["items"][0]["audit_id"] == "audit-1"

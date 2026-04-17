@@ -656,19 +656,28 @@ export function SettingsWorkspacePage() {
     }
   }
 
-  async function handleRestoreBackup(backupId: string) {
+  async function handleRestoreBackup(backup: BackupListItemDto) {
     if (!pin.active) {
       setBackupMessage("恢复备份前，请先验证管理 PIN。");
       return;
     }
-    if (!window.confirm(`恢复备份 ${backupId} 会生成新的设置和布局版本，是否继续？`)) {
+    const summary = backup.summary;
+    const comparison = backup.comparison;
+    const confirmCopy = [
+      `恢复备份 ${backup.backup_id} 会生成新的设置和布局版本。`,
+      `快照设置版本 ${summary.settings_version ?? "-"}，当前 ${comparison.current_settings_version ?? "-"}。`,
+      `快照布局版本 ${summary.layout_version ?? "-"}，当前 ${comparison.current_layout_version ?? "-"}。`,
+      `包含收藏 ${summary.favorite_count} 个，热点 ${summary.hotspot_count} 个。`,
+      "是否继续？",
+    ].join("\n");
+    if (!window.confirm(confirmCopy)) {
       return;
     }
 
     setBackupMessage(null);
-    setBackupRestoreBusyId(backupId);
+    setBackupRestoreBusyId(backup.backup_id);
     try {
-      const response = await restoreBackup(backupId);
+      const response = await restoreBackup(backup.backup_id);
       setBackupMessage(
         `恢复完成，audit_id ${response.audit_id}，settings_version ${response.settings_version}。`,
       );
@@ -734,7 +743,7 @@ export function SettingsWorkspacePage() {
         onCreateBackup={() => void handleCreateBackup()}
         onRefreshAudits={() => void loadBackupRestoreAudits()}
         onRefresh={() => void loadBackups()}
-        onRestoreBackup={(backupId) => void handleRestoreBackup(backupId)}
+        onRestoreBackup={(backup) => void handleRestoreBackup(backup)}
         restoreAudits={backupRestoreAudits}
         restoreBusyId={backupRestoreBusyId}
       />
