@@ -221,6 +221,51 @@
   position: relative;
 }
 
+.bootstrap-token-reveal {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bootstrap-token-reveal__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.bootstrap-token-reveal__header h4 {
+  margin: 0 0 6px;
+}
+
+.bootstrap-token-reveal__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.bootstrap-token-reveal__meta div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bootstrap-token-reveal__meta dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bootstrap-token-reveal__meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 13px;
+}
+
 .policy-editor,
 .policy-editor__list {
   display: grid;
@@ -500,6 +545,7 @@
   .backup-panel__toolbar,
   .backup-list__row,
   .backup-list__meta,
+  .bootstrap-token-reveal__meta,
   .backup-snapshot__grid,
   .backup-audit__meta {
     grid-template-columns: 1fr;
@@ -507,6 +553,7 @@
 
   .backup-snapshot__header,
   .backup-audit__header,
+  .bootstrap-token-reveal__header,
   .backup-audit__summary {
     flex-direction: column;
   }

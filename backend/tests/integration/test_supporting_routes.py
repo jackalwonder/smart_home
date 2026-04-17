@@ -22,8 +22,11 @@ from src.modules.auth.services.query.SessionQueryService import (
     AuthSessionView,
 )
 from src.modules.auth.services.command.BootstrapTokenService import (
+    BootstrapTokenAuditView,
     BootstrapSessionContext,
     BootstrapTokenCreateView,
+    BootstrapTokenTerminalView,
+    BootstrapTokenStatusView,
 )
 from src.modules.energy.services.EnergyService import (
     EnergyBindingView,
@@ -235,6 +238,54 @@ class FakeBootstrapTokenService:
             scope=["bootstrap:session"],
         )
 
+    async def get_status(self, _input):
+        return BootstrapTokenStatusView(
+            terminal_id="terminal-1",
+            terminal_mode="KIOSK",
+            token_configured=True,
+            issued_at="2026-04-18T00:00:00+00:00",
+            expires_at="2026-05-18T00:00:00+00:00",
+            last_used_at="2026-04-18T00:05:00+00:00",
+        )
+
+    async def list_terminals(self, *, home_id):
+        assert home_id == "home-1"
+        return [
+            BootstrapTokenTerminalView(
+                terminal_id="terminal-1",
+                terminal_code="main",
+                terminal_name="Main terminal",
+                terminal_mode="KIOSK",
+                token_configured=True,
+                issued_at="2026-04-18T00:00:00+00:00",
+                expires_at="2026-05-18T00:00:00+00:00",
+                last_used_at="2026-04-18T00:05:00+00:00",
+            )
+        ]
+
+    async def list_audits(self, *, home_id, limit):
+        assert home_id == "home-1"
+        assert limit == 20
+        return [
+            BootstrapTokenAuditView(
+                audit_id="audit-1",
+                terminal_id="terminal-1",
+                terminal_code="main",
+                terminal_name="Main terminal",
+                action_type="TERMINAL_BOOTSTRAP_TOKEN_RESET",
+                operator_id="member-1",
+                operator_name="Owner",
+                acting_terminal_id="terminal-1",
+                acting_terminal_name="Main terminal",
+                before_version="active_token",
+                after_version="bootstrap-jti-1",
+                result_status="SUCCESS",
+                expires_at="2026-05-18T00:00:00+00:00",
+                rotated=True,
+                created_at="2026-04-18T00:00:00+00:00",
+            )
+        ]
+
 
 class FakeManagementPinGuard:
     async def require_active_session(self, home_id, terminal_id):
@@ -264,6 +315,18 @@ def test_auth_system_energy_and_media_routes(app, client):
     )
     bootstrap_token_response = client.post(
         "/api/v1/terminals/terminal-1/bootstrap-token",
+        headers={"authorization": f"Bearer {auth_response.json()['data']['access_token']}"},
+    )
+    bootstrap_token_status_response = client.get(
+        "/api/v1/terminals/terminal-1/bootstrap-token",
+        headers={"authorization": f"Bearer {auth_response.json()['data']['access_token']}"},
+    )
+    bootstrap_token_directory_response = client.get(
+        "/api/v1/terminals/bootstrap-tokens",
+        headers={"authorization": f"Bearer {auth_response.json()['data']['access_token']}"},
+    )
+    bootstrap_token_audits_response = client.get(
+        "/api/v1/terminals/bootstrap-token-audits",
         headers={"authorization": f"Bearer {auth_response.json()['data']['access_token']}"},
     )
     access_token = auth_response.json()["data"]["access_token"]
@@ -314,6 +377,14 @@ def test_auth_system_energy_and_media_routes(app, client):
     assert bootstrap_token_response.json()["data"]["token_type"] == "Bootstrap"
     assert bootstrap_token_response.json()["data"]["bootstrap_token"] == "bootstrap-token-1"
     assert bootstrap_token_response.json()["data"]["rotated"] is True
+    assert bootstrap_token_status_response.json()["data"]["token_configured"] is True
+    assert bootstrap_token_status_response.json()["data"]["last_used_at"] == "2026-04-18T00:05:00+00:00"
+    assert bootstrap_token_directory_response.json()["data"]["items"][0]["terminal_code"] == "main"
+    assert (
+        bootstrap_token_audits_response.json()["data"]["items"][0]["action_type"]
+        == "TERMINAL_BOOTSTRAP_TOKEN_RESET"
+    )
+    assert bootstrap_token_audits_response.json()["data"]["items"][0]["rotated"] is True
 
     assert pin_verify_response.json()["data"]["pin_session_active"] is True
     assert pin_verify_response.json()["data"]["remaining_attempts"] == 5

@@ -43,6 +43,8 @@ def test_openapi_contains_bearer_scheme_and_key_paths(client):
     expected_paths = {
         "/api/v1/auth/session",
         "/api/v1/auth/session/bootstrap",
+        "/api/v1/terminals/bootstrap-tokens",
+        "/api/v1/terminals/bootstrap-token-audits",
         "/api/v1/terminals/{terminal_id}/bootstrap-token",
         "/api/v1/home/overview",
         "/api/v1/devices/{device_id}",

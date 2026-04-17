@@ -3,11 +3,14 @@ from __future__ import annotations
 from sqlalchemy import text
 
 from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import session_scope
+from src.infrastructure.db.repositories._support import session_scope, to_jsonb
 from src.repositories.base.auth.TerminalBootstrapTokenRepository import (
     NewTerminalBootstrapTokenRow,
+    NewTerminalBootstrapTokenAuditRow,
     RotatedTerminalBootstrapToken,
+    TerminalBootstrapTokenAuditRow,
     TerminalBootstrapTokenRow,
+    TerminalBootstrapTokenSummaryRow,
 )
 from src.repositories.rows.index import TerminalRow
 from src.shared.kernel.RepoContext import RepoContext
@@ -206,6 +209,49 @@ class TerminalBootstrapTokenRepositoryImpl:
             ).mappings().one_or_none()
         return _to_bootstrap_token_row(row) if row is not None else None
 
+    async def find_active_for_terminal(
+        self,
+        *,
+        home_id: str,
+        terminal_id: str,
+        now: str,
+        ctx: RepoContext | None = None,
+    ) -> TerminalBootstrapTokenRow | None:
+        stmt = text(
+            """
+            SELECT
+                tbt.id::text AS id,
+                t.home_id::text AS home_id,
+                tbt.terminal_id::text AS terminal_id,
+                t.terminal_mode::text AS terminal_mode,
+                tbt.token_jti,
+                tbt.issued_at::text AS issued_at,
+                tbt.expires_at::text AS expires_at,
+                tbt.last_used_at::text AS last_used_at,
+                tbt.revoked_at::text AS revoked_at
+            FROM terminal_bootstrap_tokens tbt
+            JOIN terminals t ON t.id = tbt.terminal_id
+            WHERE t.home_id = :home_id
+              AND tbt.terminal_id = :terminal_id
+              AND tbt.revoked_at IS NULL
+              AND tbt.expires_at > :now
+            ORDER BY tbt.issued_at DESC
+            LIMIT 1
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            row = (
+                await session.execute(
+                    stmt,
+                    {
+                        "home_id": home_id,
+                        "terminal_id": terminal_id,
+                        "now": now,
+                    },
+                )
+            ).mappings().one_or_none()
+        return _to_bootstrap_token_row(row) if row is not None else None
+
     async def mark_used(
         self,
         token_id: str,
@@ -223,3 +269,194 @@ class TerminalBootstrapTokenRepositoryImpl:
             await session.execute(stmt, {"token_id": token_id, "used_at": used_at})
             if owned:
                 await session.commit()
+
+    async def list_terminal_summaries(
+        self,
+        *,
+        home_id: str,
+        now: str,
+        ctx: RepoContext | None = None,
+    ) -> list[TerminalBootstrapTokenSummaryRow]:
+        stmt = text(
+            """
+            SELECT
+                t.id::text AS terminal_id,
+                t.terminal_code,
+                t.terminal_name,
+                t.terminal_mode::text AS terminal_mode,
+                active_token.id::text AS token_id,
+                active_token.issued_at::text AS issued_at,
+                active_token.expires_at::text AS expires_at,
+                active_token.last_used_at::text AS last_used_at
+            FROM terminals t
+            LEFT JOIN LATERAL (
+                SELECT
+                    tbt.id,
+                    tbt.issued_at,
+                    tbt.expires_at,
+                    tbt.last_used_at
+                FROM terminal_bootstrap_tokens tbt
+                WHERE tbt.terminal_id = t.id
+                  AND tbt.revoked_at IS NULL
+                  AND tbt.expires_at > :now
+                ORDER BY tbt.issued_at DESC
+                LIMIT 1
+            ) active_token ON TRUE
+            WHERE t.home_id = :home_id
+            ORDER BY t.terminal_name ASC, t.terminal_code ASC, t.id ASC
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            rows = (
+                await session.execute(
+                    stmt,
+                    {
+                        "home_id": home_id,
+                        "now": now,
+                    },
+                )
+            ).mappings().all()
+        return [
+            TerminalBootstrapTokenSummaryRow(
+                terminal_id=row["terminal_id"],
+                terminal_code=row["terminal_code"],
+                terminal_name=row["terminal_name"],
+                terminal_mode=row["terminal_mode"],
+                token_configured=row["token_id"] is not None,
+                issued_at=row["issued_at"],
+                expires_at=row["expires_at"],
+                last_used_at=row["last_used_at"],
+            )
+            for row in rows
+        ]
+
+    async def insert_audit(
+        self,
+        input: NewTerminalBootstrapTokenAuditRow,
+        ctx: RepoContext | None = None,
+    ) -> str:
+        stmt = text(
+            """
+            INSERT INTO audit_logs (
+                home_id,
+                operator_id,
+                terminal_id,
+                action_type,
+                target_type,
+                target_id,
+                before_version,
+                after_version,
+                result_status,
+                payload_json,
+                created_at
+            ) VALUES (
+                :home_id,
+                :operator_id,
+                :terminal_id,
+                :action_type,
+                :target_type,
+                :target_id,
+                :before_version,
+                :after_version,
+                :result_status,
+                :payload_json,
+                :created_at
+            )
+            RETURNING id::text AS audit_id
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, owned):
+            row = (
+                await session.execute(
+                    stmt,
+                    {
+                        "home_id": input.home_id,
+                        "operator_id": input.operator_id,
+                        "terminal_id": input.acting_terminal_id,
+                        "action_type": input.action_type,
+                        "target_type": "TERMINAL_BOOTSTRAP_TOKEN",
+                        "target_id": input.target_terminal_id,
+                        "before_version": input.before_version,
+                        "after_version": input.after_version,
+                        "result_status": input.result_status,
+                        "payload_json": to_jsonb(input.payload_json),
+                        "created_at": input.created_at,
+                    },
+                )
+            ).mappings().one()
+            if owned:
+                await session.commit()
+        return row["audit_id"]
+
+    async def list_audits(
+        self,
+        *,
+        home_id: str,
+        limit: int,
+        ctx: RepoContext | None = None,
+    ) -> list[TerminalBootstrapTokenAuditRow]:
+        stmt = text(
+            """
+            SELECT
+                al.id::text AS audit_id,
+                target_terminal.id::text AS target_terminal_id,
+                target_terminal.terminal_code AS target_terminal_code,
+                target_terminal.terminal_name AS target_terminal_name,
+                al.action_type,
+                al.operator_id::text AS operator_id,
+                m.display_name AS operator_name,
+                al.terminal_id::text AS acting_terminal_id,
+                acting_terminal.terminal_name AS acting_terminal_name,
+                al.before_version,
+                al.after_version,
+                al.result_status,
+                al.payload_json ->> 'expires_at' AS expires_at,
+                CASE
+                    WHEN jsonb_typeof(al.payload_json -> 'rotated') = 'boolean'
+                    THEN (al.payload_json ->> 'rotated')::boolean
+                    ELSE NULL
+                END AS rotated,
+                al.created_at::text AS created_at
+            FROM audit_logs al
+            LEFT JOIN terminals target_terminal
+              ON target_terminal.id::text = al.target_id
+            LEFT JOIN terminals acting_terminal
+              ON acting_terminal.id = al.terminal_id
+            LEFT JOIN members m
+              ON m.id = al.operator_id
+            WHERE al.home_id = :home_id
+              AND al.target_type = 'TERMINAL_BOOTSTRAP_TOKEN'
+            ORDER BY al.created_at DESC
+            LIMIT :limit
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            rows = (
+                await session.execute(
+                    stmt,
+                    {
+                        "home_id": home_id,
+                        "limit": limit,
+                    },
+                )
+            ).mappings().all()
+        return [
+            TerminalBootstrapTokenAuditRow(
+                audit_id=row["audit_id"],
+                terminal_id=row["target_terminal_id"],
+                terminal_code=row["target_terminal_code"],
+                terminal_name=row["target_terminal_name"],
+                action_type=row["action_type"],
+                operator_id=row["operator_id"],
+                operator_name=row["operator_name"],
+                acting_terminal_id=row["acting_terminal_id"],
+                acting_terminal_name=row["acting_terminal_name"],
+                before_version=row["before_version"],
+                after_version=row["after_version"],
+                result_status=row["result_status"],
+                expires_at=row["expires_at"],
+                rotated=row["rotated"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
