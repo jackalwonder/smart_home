@@ -77,6 +77,7 @@ class HomeOverviewHotspotResponse(ApiSchema):
     x: float
     y: float
     icon_type: str | None = None
+    label_mode: str | None = None
     status: str
     is_offline: bool
     is_complex_device: bool
@@ -258,7 +259,12 @@ async def get_home_overview(
         "layout_version": layout_version or overview.layout.layout_version,
         "settings_version": settings_version or overview.settings_version,
         "stage": {
-            "background_image_url": overview.layout.background_image_url,
+            "background_image_url": (
+                f"/api/v1/page-assets/floorplan/{overview.layout.background_asset_id}/file"
+                if overview.layout.background_asset_id is not None
+                and overview.layout.background_image_url is not None
+                else None
+            ),
             "background_image_size": {
                 "width": overview.layout.background_image_width,
                 "height": overview.layout.background_image_height,

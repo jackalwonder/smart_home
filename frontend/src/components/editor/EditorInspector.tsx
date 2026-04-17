@@ -1,15 +1,20 @@
 import { EditorHotspotViewModel } from "../../view-models/editor";
+import { DeviceListItemDto } from "../../api/types";
 
 interface EditorInspectorProps {
   hotspot: EditorHotspotViewModel | null;
   canEdit: boolean;
+  devices: DeviceListItemDto[];
+  backgroundAssetId: string | null;
   backgroundImageUrl: string | null;
   layoutMetaText: string;
   rows: Array<{ label: string; value: string }>;
+  isUploadingBackground: boolean;
   onChangeHotspot: (
     field: "deviceId" | "iconType" | "labelMode" | "x" | "y" | "structureOrder",
     value: string,
   ) => void;
+  onUploadBackground: (file: File) => void;
   onToggleVisibility: (visible: boolean) => void;
   onChangeLayoutMeta: (value: string) => void;
   onDeleteHotspot: () => void;
@@ -21,10 +26,14 @@ interface EditorInspectorProps {
 export function EditorInspector({
   hotspot,
   canEdit,
+  devices,
+  backgroundAssetId,
   backgroundImageUrl,
   layoutMetaText,
   rows,
+  isUploadingBackground,
   onChangeHotspot,
+  onUploadBackground,
   onToggleVisibility,
   onChangeLayoutMeta,
   onDeleteHotspot,
@@ -62,6 +71,25 @@ export function EditorInspector({
           <label className="form-field">
             <span>显示名称</span>
             <input className="control-input" readOnly value={hotspot.label} />
+          </label>
+          <label className="form-field">
+            <span>绑定设备</span>
+            <select
+              className="control-input"
+              disabled={!canEdit}
+              onChange={(event) => onChangeHotspot("deviceId", event.target.value)}
+              value={hotspot.deviceId}
+            >
+              <option value="">未绑定</option>
+              {devices.map((device) => (
+                <option key={device.device_id} value={device.device_id}>
+                  {`${device.display_name} · ${device.room_name || "未分配房间"}`}
+                </option>
+              ))}
+              {hotspot.deviceId && !devices.some((device) => device.device_id === hotspot.deviceId) ? (
+                <option value={hotspot.deviceId}>{hotspot.deviceId}</option>
+              ) : null}
+            </select>
           </label>
           <label className="form-field">
             <span>设备 ID</span>
@@ -166,8 +194,28 @@ export function EditorInspector({
         </div>
       ) : null}
       <div className="editor-inspector__meta">
+        <label className="form-field form-field--full">
+          <span>上传背景图</span>
+          <input
+            accept="image/*"
+            className="control-input"
+            disabled={!canEdit || isUploadingBackground}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                onUploadBackground(file);
+              }
+              event.currentTarget.value = "";
+            }}
+            type="file"
+          />
+        </label>
         <label className="form-field">
-          <span>背景资源</span>
+          <span>背景资产 ID</span>
+          <input className="control-input" readOnly value={backgroundAssetId ?? "-"} />
+        </label>
+        <label className="form-field">
+          <span>预览地址</span>
           <input className="control-input" readOnly value={backgroundImageUrl ?? "-"} />
         </label>
         <label className="form-field form-field--full">

@@ -11,6 +11,7 @@ export interface HomeHotspotViewModel {
   iconGlyph: string;
   tone: "accent" | "warm" | "neutral";
   iconType: string;
+  labelMode: string;
   status: string;
   statusLabel: string;
   statusSummary: string | null;
@@ -242,6 +243,7 @@ export function mapHomeOverviewViewModel(value: Record<string, unknown> | null):
       asBoolean(hotspot.is_offline),
     ),
     iconType: asString(hotspot.icon_type ?? "device"),
+    labelMode: asString(hotspot.label_mode ?? hotspot.display_policy ?? "AUTO"),
     status: asString(hotspot.status ?? "unknown"),
     statusLabel: translateStatusLabel(
       asString(hotspot.status ?? "unknown"),

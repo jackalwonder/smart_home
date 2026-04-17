@@ -1,4 +1,5 @@
 import { EditorHotspotViewModel } from "../../view-models/editor";
+import { resolveAssetImageUrl } from "../../api/pageAssetsApi";
 import { EditorSelectionLayer } from "./EditorSelectionLayer";
 
 interface EditorCanvasWorkspaceProps {
@@ -18,6 +19,8 @@ export function EditorCanvasWorkspace({
   onSelectHotspot,
   onMoveHotspot,
 }: EditorCanvasWorkspaceProps) {
+  const resolvedBackgroundImageUrl = resolveAssetImageUrl(backgroundImageUrl);
+
   return (
     <section className="panel editor-canvas-workspace">
       <div className="panel__header">
@@ -27,11 +30,11 @@ export function EditorCanvasWorkspace({
         </div>
       </div>
       <div className="editor-canvas-workspace__surface">
-        {backgroundImageUrl ? (
+        {resolvedBackgroundImageUrl ? (
           <img
             alt="编辑器草稿户型图"
             className="editor-canvas-workspace__image"
-            src={backgroundImageUrl}
+            src={resolvedBackgroundImageUrl}
           />
         ) : (
           <div className="floorplan-fallback editor-canvas-workspace__placeholder" aria-hidden="true">

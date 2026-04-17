@@ -5,6 +5,10 @@ const HOME_ID = "11111111-1111-1111-1111-111111111111";
 const TERMINAL_ID = "22222222-2222-2222-2222-222222222222";
 const SECONDARY_TERMINAL_ID = "33333333-3333-3333-3333-333333333333";
 const DEV_PIN = "1234";
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTjwAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 type Envelope<T> = {
   success: boolean;
@@ -53,6 +57,7 @@ type EditorDraft = {
   draft_version: string;
   base_layout_version: string;
   layout: {
+    background_asset_id: string | null;
     background_image_url: string | null;
     layout_meta: Record<string, unknown>;
     hotspots: Array<{
@@ -189,32 +194,39 @@ async function ensureEditorWritable(page: Page) {
     }
     return locator.isEnabled();
   };
+  const clickIfEnabled = async (locator: ReturnType<Page["getByRole"]>) => {
+    if (!(await isEnabled(locator))) {
+      return false;
+    }
+    try {
+      await locator.click({ timeout: 1_000 });
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     if (await saveButton.isEnabled()) {
       return;
     }
-    if (await isEnabled(takeoverButton)) {
-      await takeoverButton.click({ timeout: 1_000 });
+    if (await clickIfEnabled(takeoverButton)) {
       await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
     }
-    if (await isEnabled(noticeTakeoverButton)) {
-      await noticeTakeoverButton.click({ timeout: 1_000 });
+    if (await clickIfEnabled(noticeTakeoverButton)) {
       await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
     }
-    if (await isEnabled(retryAcquireButton)) {
-      await retryAcquireButton.click({ timeout: 1_000 });
+    if (await clickIfEnabled(retryAcquireButton)) {
       await expect(page.getByText("已获取编辑租约")).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
     }
-    if (await isEnabled(acquireButton)) {
-      await acquireButton.click({ timeout: 1_000 });
+    if (await clickIfEnabled(acquireButton)) {
       await expect(page.getByText("已获取编辑租约")).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
@@ -259,6 +271,24 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
 
   await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
   await ensureEditorWritable(page);
+
+  await page.getByLabel("上传背景图").setInputFiles({
+    name: "floorplan-smoke.png",
+    mimeType: "image/png",
+    buffer: TINY_PNG,
+  });
+  await expect(page.getByText("背景图已更新")).toBeVisible();
+  await expect(page.getByAltText("编辑器草稿户型图")).toBeVisible();
+
+  await page.getByRole("button", { name: "新增热点" }).click();
+  const deviceSelect = page.getByLabel("绑定设备");
+  const deviceOptionText = (await deviceSelect.locator("option").nth(1).textContent())?.trim() ?? "";
+  const deviceLabel = deviceOptionText.split(" · ")[0];
+  await deviceSelect.selectOption({ index: 1 });
+  await page.getByLabel("X (%)").fill("35");
+  await page.getByLabel("Y (%)").fill("45");
+  await expect(page.getByText(deviceLabel).first()).toBeVisible();
+
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
 
@@ -266,6 +296,10 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByRole("button", { name: "发布草稿" }).click();
   await expect(page.getByText("草稿已发布")).toBeVisible();
   await expect(page.getByText(/布局版本已更新为/)).toBeVisible();
+
+  await page.getByRole("link", { name: "总览" }).click();
+  await expect(page.getByAltText("家庭户型图")).toBeVisible();
+  await expect(page.getByRole("button", { name: deviceLabel })).toBeVisible();
 });
 
 test("editor downgrades to readonly after takeover and can recover", async ({ page, request }) => {
@@ -318,7 +352,7 @@ test("editor save surfaces version conflict and retries after refresh", async ({
         lease_id: leaseId,
         draft_version: draft.draft_version,
         base_layout_version: draft.base_layout_version,
-        background_asset_id: draft.layout?.background_image_url,
+        background_asset_id: draft.layout?.background_asset_id,
         layout_meta: draft.layout?.layout_meta ?? {},
         hotspots: draft.layout?.hotspots ?? [],
       },
@@ -353,7 +387,7 @@ test("editor publish surfaces version conflict and retries after refresh", async
         lease_id: leaseId,
         draft_version: draft.draft_version,
         base_layout_version: draft.base_layout_version,
-        background_asset_id: draft.layout?.background_image_url,
+        background_asset_id: draft.layout?.background_asset_id,
         layout_meta: draft.layout?.layout_meta ?? {},
         hotspots: draft.layout?.hotspots ?? [],
       },
@@ -434,7 +468,12 @@ test("editor draft can be saved and published through M1 contract", async ({ req
   const draft = await expectEnvelope<EditorDraft>(
     await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
   );
-  const layout = draft.layout ?? { background_image_url: null, layout_meta: {}, hotspots: [] };
+  const layout = draft.layout ?? {
+    background_asset_id: null,
+    background_image_url: null,
+    layout_meta: {},
+    hotspots: [],
+  };
 
   const savedDraft = await expectEnvelope<{ draft_version: string }>(
     await request.put("/api/v1/editor/draft", {
@@ -443,7 +482,7 @@ test("editor draft can be saved and published through M1 contract", async ({ req
         lease_id: editorSession.lease_id,
         draft_version: draft.draft_version,
         base_layout_version: draft.base_layout_version,
-        background_asset_id: layout.background_image_url,
+        background_asset_id: layout.background_asset_id,
         layout_meta: layout.layout_meta ?? {},
         hotspots: layout.hotspots ?? [],
       },

@@ -17,6 +17,7 @@ export interface EditorHotspotViewModel {
 export interface EditorViewModel {
   commandRows: Array<{ label: string; value: string }>;
   hotspots: EditorHotspotViewModel[];
+  backgroundAssetId: string | null;
   backgroundImageUrl: string | null;
   layoutMeta: Record<string, unknown>;
   modeLabel: string;
@@ -121,6 +122,7 @@ export function mapEditorViewModel(input: {
       { label: "PIN 会话", value: input.pinActive ? "已验证" : "待验证" },
     ],
     hotspots,
+    backgroundAssetId: asOptionalString(draft?.background_asset_id),
     backgroundImageUrl: asOptionalString(draft?.background_image_url),
     layoutMeta: asRecord(draft?.layout_meta) ?? {},
     modeLabel,
