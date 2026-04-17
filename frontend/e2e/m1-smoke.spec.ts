@@ -279,6 +279,16 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   });
   await expect(page.getByText("背景图已更新")).toBeVisible();
   await expect(page.getByAltText("编辑器草稿户型图")).toBeVisible();
+  await expect(page.getByRole("button", { name: "清除背景图" })).toBeEnabled();
+  await page.getByRole("button", { name: "清除背景图" }).click();
+  await expect(page.getByText("背景图已清除")).toBeVisible();
+  await expect(page.getByAltText("编辑器草稿户型图")).toHaveCount(0);
+  await page.getByLabel("上传背景图").setInputFiles({
+    name: "floorplan-smoke.png",
+    mimeType: "image/png",
+    buffer: TINY_PNG,
+  });
+  await expect(page.getByText("背景图已更新")).toBeVisible();
 
   await page.getByRole("button", { name: "新增热点" }).click();
   const deviceSelect = page.getByLabel("绑定设备");
@@ -288,6 +298,9 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByLabel("X (%)").fill("35");
   await page.getByLabel("Y (%)").fill("45");
   await expect(page.getByText(deviceLabel).first()).toBeVisible();
+  await page.getByRole("button", { name: "首页预览" }).click();
+  await expect(page.getByText("首页预览仅显示可见热点。")).toBeVisible();
+  await expect(page.getByRole("button", { name: deviceLabel }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
@@ -299,7 +312,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
 
   await page.getByRole("link", { name: "总览" }).click();
   await expect(page.getByAltText("家庭户型图")).toBeVisible();
-  await expect(page.getByRole("button", { name: deviceLabel })).toBeVisible();
+  await expect(page.getByRole("button", { name: deviceLabel }).first()).toBeVisible();
 });
 
 test("editor downgrades to readonly after takeover and can recover", async ({ page, request }) => {

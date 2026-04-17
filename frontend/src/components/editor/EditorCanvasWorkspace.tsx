@@ -7,6 +7,8 @@ interface EditorCanvasWorkspaceProps {
   hotspots: EditorHotspotViewModel[];
   selectedHotspotId: string | null;
   canEdit: boolean;
+  mode: "edit" | "preview";
+  onModeChange: (mode: "edit" | "preview") => void;
   onSelectHotspot: (hotspotId: string) => void;
   onMoveHotspot: (hotspotId: string, x: number, y: number) => void;
 }
@@ -16,17 +18,40 @@ export function EditorCanvasWorkspace({
   hotspots,
   selectedHotspotId,
   canEdit,
+  mode,
+  onModeChange,
   onSelectHotspot,
   onMoveHotspot,
 }: EditorCanvasWorkspaceProps) {
   const resolvedBackgroundImageUrl = resolveAssetImageUrl(backgroundImageUrl);
+  const visibleHotspots = hotspots.filter((hotspot) => hotspot.isVisible);
+  const displayedHotspots = mode === "preview" ? visibleHotspots : hotspots;
 
   return (
     <section className="panel editor-canvas-workspace">
       <div className="panel__header">
         <div>
           <span className="card-eyebrow">画布</span>
-          <h3>当前草稿布局</h3>
+          <h3>{mode === "preview" ? "首页预览" : "当前草稿布局"}</h3>
+          <p className="muted-copy">
+            {mode === "preview" ? "首页预览仅显示可见热点。" : "拖动热点调整位置，保存后写入草稿。"}
+          </p>
+        </div>
+        <div className="badge-row">
+          <button
+            className={mode === "edit" ? "button button--primary" : "button button--ghost"}
+            onClick={() => onModeChange("edit")}
+            type="button"
+          >
+            编辑定位
+          </button>
+          <button
+            className={mode === "preview" ? "button button--primary" : "button button--ghost"}
+            onClick={() => onModeChange("preview")}
+            type="button"
+          >
+            首页预览
+          </button>
         </div>
       </div>
       <div className="editor-canvas-workspace__surface">
@@ -49,8 +74,9 @@ export function EditorCanvasWorkspace({
           </div>
         )}
         <EditorSelectionLayer
-          canEdit={canEdit}
-          hotspots={hotspots}
+          canEdit={canEdit && mode === "edit"}
+          hotspots={displayedHotspots}
+          mode={mode}
           onMoveHotspot={onMoveHotspot}
           onSelectHotspot={onSelectHotspot}
           selectedHotspotId={selectedHotspotId}
