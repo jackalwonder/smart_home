@@ -124,6 +124,22 @@ async function openRealtimeProbe(page: Page, accessToken: string) {
   }, accessToken);
 }
 
+async function unlockManagementPin(page: Page) {
+  await page.goto("/");
+  await page.getByRole("link", { name: "设置" }).click();
+  await expect(page.getByRole("heading", { name: "管理 PIN" })).toBeVisible();
+
+  const pinInput = page.getByPlaceholder("输入管理 PIN");
+  if (await pinInput.isVisible()) {
+    await pinInput.fill(DEV_PIN);
+    await page.getByRole("button", { name: "验证 PIN" }).click();
+  }
+
+  await expect(
+    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
+  ).toBeVisible();
+}
+
 test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "总览" })).toBeVisible();
@@ -151,6 +167,27 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(page.getByText(/备份 bk_/)).toBeVisible();
   await expect(page.getByText("e2e smoke backup").first()).toBeVisible();
   await expect(page.getByText("快照摘要").first()).toBeVisible();
+});
+
+test("editor UI opens an edit session, saves draft, and publishes", async ({ page }) => {
+  await unlockManagementPin(page);
+  await page.getByRole("link", { name: "编辑" }).click();
+
+  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+
+  const takeoverButton = page.getByRole("button", { name: "接管编辑" });
+  if (await takeoverButton.isEnabled()) {
+    await takeoverButton.click();
+    await expect(page.getByText(/已接管/)).toBeVisible();
+  }
+
+  await expect(page.getByRole("button", { name: "保存草稿" })).toBeEnabled();
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(page.getByText("草稿已保存到后端。")).toBeVisible();
+
+  await expect(page.getByRole("button", { name: "发布草稿" })).toBeEnabled();
+  await page.getByRole("button", { name: "发布草稿" }).click();
+  await expect(page.getByText(/草稿已发布，布局版本为/)).toBeVisible();
 });
 
 test("settings save emits realtime settings_updated event", async ({ page, request }) => {

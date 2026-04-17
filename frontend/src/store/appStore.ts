@@ -40,6 +40,9 @@ interface EditorState {
   status: AsyncStatus;
   lockStatus: string | null;
   leaseId: string | null;
+  leaseExpiresAt: string | null;
+  heartbeatIntervalSeconds: number | null;
+  lockedByTerminalId: string | null;
   draftStatus: AsyncStatus;
   draft: Record<string, unknown> | null;
   draftVersion: string | null;
@@ -74,6 +77,9 @@ let state: AppState = {
     status: "idle",
     lockStatus: null,
     leaseId: null,
+    leaseExpiresAt: null,
+    heartbeatIntervalSeconds: null,
+    lockedByTerminalId: null,
     draftStatus: "idle",
     draft: null,
     draftVersion: null,
@@ -196,7 +202,13 @@ export const appStore = {
       ...current,
       editor: { ...current.editor, status: "loading", error: null },
     })),
-  setEditorSession: (payload: { lockStatus: string | null; leaseId: string | null }) =>
+  setEditorSession: (payload: {
+    lockStatus: string | null;
+    leaseId: string | null;
+    leaseExpiresAt?: string | null;
+    heartbeatIntervalSeconds?: number | null;
+    lockedByTerminalId?: string | null;
+  }) =>
     setState((current) => ({
       ...current,
       editor: {
@@ -204,6 +216,18 @@ export const appStore = {
         status: "success",
         lockStatus: payload.lockStatus,
         leaseId: payload.leaseId,
+        leaseExpiresAt:
+          payload.leaseExpiresAt === undefined
+            ? current.editor.leaseExpiresAt
+            : payload.leaseExpiresAt,
+        heartbeatIntervalSeconds:
+          payload.heartbeatIntervalSeconds === undefined
+            ? current.editor.heartbeatIntervalSeconds
+            : payload.heartbeatIntervalSeconds,
+        lockedByTerminalId:
+          payload.lockedByTerminalId === undefined
+            ? current.editor.lockedByTerminalId
+            : payload.lockedByTerminalId,
         error: null,
       },
     })),
