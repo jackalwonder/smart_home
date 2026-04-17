@@ -176,6 +176,11 @@ function createSettingsDraft(data: Record<string, unknown> | null): SettingsDraf
   };
 }
 
+function getSettingsVersion(data: Record<string, unknown> | null): string | null {
+  const value = data?.settings_version;
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 function createSystemDraft(data: SystemConnectionsEnvelopeDto | null): SystemConnectionDraftState {
   const current = data?.home_assistant ?? null;
 
@@ -195,6 +200,7 @@ function createSystemDraft(data: SystemConnectionsEnvelopeDto | null): SystemCon
 
 export function SettingsWorkspacePage() {
   const session = useAppStore((state) => state.session);
+  const pin = useAppStore((state) => state.pin);
   const settings = useAppStore((state) => state.settings);
   const [activeSection, setActiveSection] = useState<SettingsSectionViewModel["key"]>("favorites");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -202,6 +208,7 @@ export function SettingsWorkspacePage() {
   const [settingsDraft, setSettingsDraft] = useState<SettingsDraftState>(() =>
     createSettingsDraft(null),
   );
+  const [draftSourceSettingsVersion, setDraftSourceSettingsVersion] = useState<string | null>(null);
   const [systemDraft, setSystemDraft] = useState<SystemConnectionDraftState>(() =>
     createSystemDraft(null),
   );
@@ -222,8 +229,10 @@ export function SettingsWorkspacePage() {
         fetchSettings(),
         fetchSystemConnections(),
       ]);
-      appStore.setSettingsData(settingsData as unknown as Record<string, unknown>);
-      setSettingsDraft(createSettingsDraft(settingsData as unknown as Record<string, unknown>));
+      const nextSettingsData = settingsData as unknown as Record<string, unknown>;
+      appStore.setSettingsData(nextSettingsData);
+      setSettingsDraft(createSettingsDraft(nextSettingsData));
+      setDraftSourceSettingsVersion(getSettingsVersion(nextSettingsData));
       setSystemDraft(createSystemDraft(systemData));
     } catch (error) {
       appStore.setSettingsError(normalizeApiError(error).message);
@@ -233,6 +242,20 @@ export function SettingsWorkspacePage() {
   useEffect(() => {
     void loadSettings();
   }, []);
+
+  useEffect(() => {
+    const nextVersion = getSettingsVersion(settings.data);
+    if (
+      !settings.data ||
+      !nextVersion ||
+      nextVersion === draftSourceSettingsVersion ||
+      isSaving
+    ) {
+      return;
+    }
+    setSettingsDraft(createSettingsDraft(settings.data));
+    setDraftSourceSettingsVersion(nextVersion);
+  }, [draftSourceSettingsVersion, isSaving, settings.data]);
 
   const viewModel = mapSettingsViewModel(settings.data);
   const overviewRows = [
@@ -244,7 +267,7 @@ export function SettingsWorkspacePage() {
 
   const canSave =
     Boolean(session.data?.terminalId) &&
-    Boolean(session.data?.pinSessionActive) &&
+    pin.active &&
     Boolean(settings.data);
 
   function updatePageDraft(field: "roomLabelMode", value: string) {
@@ -464,7 +487,7 @@ export function SettingsWorkspacePage() {
   }
 
   async function handleSaveSystemConnection() {
-    if (!session.data?.pinSessionActive) {
+    if (!pin.active) {
       setSystemMessage("保存 Home Assistant 连接前，请先验证管理 PIN。");
       return;
     }
@@ -493,7 +516,7 @@ export function SettingsWorkspacePage() {
   }
 
   async function handleTestSystemConnection(useSavedConfig: boolean) {
-    if (!session.data?.pinSessionActive) {
+    if (!pin.active) {
       setSystemMessage("测试 Home Assistant 连接前，请先验证管理 PIN。");
       return;
     }
@@ -527,7 +550,7 @@ export function SettingsWorkspacePage() {
   }
 
   async function handleSyncHomeAssistantDevices() {
-    if (!session.data?.pinSessionActive) {
+    if (!pin.active) {
       setSystemMessage("同步 Home Assistant 设备前，请先验证管理 PIN。");
       return;
     }
@@ -556,7 +579,7 @@ export function SettingsWorkspacePage() {
   if (activeSection === "system") {
     sectionPanel = (
       <SystemConnectionPanel
-        canEdit={Boolean(session.data?.pinSessionActive)}
+        canEdit={pin.active}
         draft={systemDraft}
         message={systemMessage}
         onChange={updateSystemDraft}

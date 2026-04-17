@@ -1,0 +1,245 @@
+import { expect, test, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
+
+const HOME_ID = "11111111-1111-1111-1111-111111111111";
+const TERMINAL_ID = "22222222-2222-2222-2222-222222222222";
+const DEV_PIN = "1234";
+
+type Envelope<T> = {
+  success: boolean;
+  data: T;
+  error: { code: string; message: string } | null;
+};
+
+type AuthSession = {
+  access_token: string;
+  home_id: string;
+  terminal_id: string;
+};
+
+type SettingsSnapshot = {
+  settings_version: string | null;
+  page_settings: {
+    room_label_mode: string;
+    homepage_display_policy: Record<string, unknown>;
+    icon_policy: Record<string, unknown>;
+    layout_preference: Record<string, unknown>;
+  } | null;
+  function_settings: {
+    low_battery_threshold: number;
+    offline_threshold_seconds: number;
+    quick_entry_policy: Record<string, unknown>;
+    music_enabled: boolean;
+    favorite_limit: number;
+    auto_home_timeout_seconds: number | null;
+    position_device_thresholds: Record<string, unknown>;
+  } | null;
+  favorites: Array<{
+    device_id: string;
+    selected: boolean;
+    favorite_order: number | null;
+  }>;
+};
+
+type EditorSession = {
+  granted: boolean;
+  lease_id: string;
+  draft_version: string;
+  current_layout_version: string;
+};
+
+type EditorDraft = {
+  draft_version: string;
+  base_layout_version: string;
+  layout: {
+    background_image_url: string | null;
+    layout_meta: Record<string, unknown>;
+    hotspots: Array<{
+      hotspot_id: string;
+      device_id: string;
+      x: number;
+      y: number;
+      icon_type: string | null;
+      label_mode: string | null;
+      is_visible: boolean;
+      structure_order: number;
+    }>;
+  } | null;
+};
+
+async function expectEnvelope<T>(response: APIResponse): Promise<T> {
+  expect(response.ok(), `${response.url()} returned ${response.status()}`).toBeTruthy();
+  const envelope = (await response.json()) as Envelope<T>;
+  expect(envelope.success, envelope.error?.message).toBe(true);
+  expect(envelope.data).toBeTruthy();
+  return envelope.data;
+}
+
+async function bootstrapSession(request: APIRequestContext) {
+  const session = await expectEnvelope<AuthSession>(
+    await request.get(`/api/v1/auth/session?home_id=${HOME_ID}&terminal_id=${TERMINAL_ID}`),
+  );
+  await expectEnvelope(
+    await request.post("/api/v1/auth/pin/verify", {
+      data: {
+        home_id: HOME_ID,
+        terminal_id: TERMINAL_ID,
+        pin: DEV_PIN,
+        target_action: "MANAGEMENT",
+      },
+    }),
+  );
+  return session;
+}
+
+async function openRealtimeProbe(page: Page, accessToken: string) {
+  await page.goto("/");
+  await page.evaluate((token) => {
+    return new Promise<void>((resolve, reject) => {
+      const events: unknown[] = [];
+      const url = new URL("/ws", window.location.origin);
+      url.protocol = url.protocol.replace("http", "ws");
+      url.searchParams.set("access_token", token);
+      const ws = new WebSocket(url.toString());
+      (window as typeof window & { __m1Ws?: WebSocket; __m1WsEvents?: unknown[] }).__m1Ws = ws;
+      (window as typeof window & { __m1WsEvents?: unknown[] }).__m1WsEvents = events;
+
+      const timer = window.setTimeout(() => {
+        reject(new Error("Timed out waiting for realtime connection"));
+      }, 10_000);
+
+      ws.addEventListener("open", () => {
+        window.clearTimeout(timer);
+        resolve();
+      });
+      ws.addEventListener("message", (message) => {
+        const event = JSON.parse(message.data);
+        events.push(event);
+        ws.send(JSON.stringify({ type: "ack", event_id: event.event_id }));
+      });
+      ws.addEventListener("error", () => {
+        window.clearTimeout(timer);
+        reject(new Error("Realtime connection failed"));
+      });
+    });
+  }, accessToken);
+}
+
+test("shell loads and management PIN unlocks settings", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "总览" })).toBeVisible();
+  await expect(page.getByText("实时流")).toBeVisible();
+
+  await page.getByRole("link", { name: "设置" }).click();
+  await expect(page.getByRole("heading", { name: "管理 PIN" })).toBeVisible();
+
+  const pinInput = page.getByPlaceholder("输入管理 PIN");
+  if (await pinInput.isVisible()) {
+    await pinInput.fill(DEV_PIN);
+    await page.getByRole("button", { name: "验证 PIN" }).click();
+  }
+
+  await expect(
+    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存全部" })).toBeEnabled();
+});
+
+test("settings save emits realtime settings_updated event", async ({ page, request }) => {
+  const session = await bootstrapSession(request);
+  await openRealtimeProbe(page, session.access_token);
+
+  const settings = await expectEnvelope<SettingsSnapshot>(
+    await request.get("/api/v1/settings", {
+      headers: { authorization: `Bearer ${session.access_token}` },
+    }),
+  );
+
+  const pageSettings = settings.page_settings;
+  const functionSettings = settings.function_settings;
+  const saved = await expectEnvelope<{ settings_version: string }>(
+    await request.put("/api/v1/settings", {
+      headers: { authorization: `Bearer ${session.access_token}` },
+      data: {
+        settings_version: settings.settings_version,
+        page_settings: {
+          room_label_mode: pageSettings?.room_label_mode ?? "EDIT_ONLY",
+          homepage_display_policy: pageSettings?.homepage_display_policy ?? {},
+          icon_policy: pageSettings?.icon_policy ?? {},
+          layout_preference: pageSettings?.layout_preference ?? {},
+        },
+        function_settings: {
+          low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
+          offline_threshold_seconds: functionSettings?.offline_threshold_seconds ?? 90,
+          quick_entry_policy: functionSettings?.quick_entry_policy ?? { favorites: true },
+          music_enabled: functionSettings?.music_enabled ?? true,
+          favorite_limit: functionSettings?.favorite_limit ?? 8,
+          auto_home_timeout_seconds: functionSettings?.auto_home_timeout_seconds ?? 180,
+          position_device_thresholds: functionSettings?.position_device_thresholds ?? {
+            closed_max: 5,
+            opened_min: 95,
+          },
+        },
+        favorites: settings.favorites,
+      },
+    }),
+  );
+
+  await page.waitForFunction((settingsVersion) => {
+    const events = (window as typeof window & { __m1WsEvents?: Array<Record<string, unknown>> })
+      .__m1WsEvents;
+    return events?.some((event) => {
+      const payload = event.payload as Record<string, unknown> | undefined;
+      return event.event_type === "settings_updated" && payload?.settings_version === settingsVersion;
+    });
+  }, saved.settings_version);
+});
+
+test("editor draft can be saved and published through M1 contract", async ({ request }) => {
+  const session = await bootstrapSession(request);
+  const headers = { authorization: `Bearer ${session.access_token}` };
+
+  const editorSession = await expectEnvelope<EditorSession>(
+    await request.post("/api/v1/editor/sessions", {
+      headers,
+      data: { takeover_if_locked: true },
+    }),
+  );
+  expect(editorSession.granted).toBe(true);
+  expect(editorSession.lease_id).toBeTruthy();
+
+  const draft = await expectEnvelope<EditorDraft>(
+    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+  );
+  const layout = draft.layout ?? { background_image_url: null, layout_meta: {}, hotspots: [] };
+
+  const savedDraft = await expectEnvelope<{ draft_version: string }>(
+    await request.put("/api/v1/editor/draft", {
+      headers,
+      data: {
+        lease_id: editorSession.lease_id,
+        draft_version: draft.draft_version,
+        base_layout_version: draft.base_layout_version,
+        background_asset_id: layout.background_image_url,
+        layout_meta: layout.layout_meta ?? {},
+        hotspots: layout.hotspots ?? [],
+      },
+    }),
+  );
+
+  const refreshedDraft = await expectEnvelope<EditorDraft>(
+    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+  );
+
+  const published = await expectEnvelope<{ published: boolean; layout_version: string }>(
+    await request.post("/api/v1/editor/publish", {
+      headers,
+      data: {
+        lease_id: editorSession.lease_id,
+        draft_version: refreshedDraft.draft_version ?? savedDraft.draft_version,
+        base_layout_version: refreshedDraft.base_layout_version,
+      },
+    }),
+  );
+  expect(published.published).toBe(true);
+  expect(published.layout_version).toBeTruthy();
+});

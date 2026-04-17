@@ -353,7 +353,7 @@ async def save_editor_draft(
             base_layout_version=body.base_layout_version,
             background_asset_id=body.background_asset_id,
             layout_meta=body.layout_meta,
-            hotspots=body.hotspots,
+            hotspots=[hotspot.model_dump() for hotspot in body.hotspots],
             member_id=body.member_id or context.operator_id,
         )
     )

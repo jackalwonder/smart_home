@@ -63,7 +63,9 @@ class FakeEditorDraftService:
             readonly=False,
         )
 
-    async def save_draft(self, _input):
+    async def save_draft(self, input):
+        assert isinstance(input.hotspots[0], dict)
+        assert input.hotspots[0]["hotspot_id"] == "hs-1"
         return EditorDraftSaveView(
             saved_to_draft=True,
             draft_version="dv_2",
@@ -125,7 +127,18 @@ def test_save_and_publish_editor_draft(app, client):
             "base_layout_version": "INITIAL",
             "background_asset_id": None,
             "layout_meta": {},
-            "hotspots": [],
+            "hotspots": [
+                {
+                    "hotspot_id": "hs-1",
+                    "device_id": "device-1",
+                    "x": 0.5,
+                    "y": 0.5,
+                    "icon_type": None,
+                    "label_mode": None,
+                    "is_visible": True,
+                    "structure_order": 0,
+                }
+            ],
         },
     )
     publish_response = client.post(
