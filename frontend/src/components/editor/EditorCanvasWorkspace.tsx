@@ -45,7 +45,7 @@ export function EditorCanvasWorkspace({
           <p className="muted-copy">
             {mode === "preview"
               ? "首页预览仅显示可见热点。"
-              : "拖动热点调整位置，空白处拖拽可框选多个热点。"}
+              : "拖动热点会吸附到网格和邻近热点，空白处拖拽可框选多个热点。"}
           </p>
         </div>
         <div className="badge-row">

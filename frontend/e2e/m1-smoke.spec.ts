@@ -317,7 +317,17 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByRole("button", { name: "右移 1%" }).click();
   await page.getByRole("button", { name: "下移 1%" }).click();
   await page.getByRole("button", { name: "复制热点" }).click();
-  await page.getByRole("button", { name: "全选当前" }).click();
+  const duplicatedLabel = `${customLabel} 副本`;
+  await page
+    .locator(".editor-selection-layer__item")
+    .filter({ hasText: customLabel })
+    .first()
+    .click({ modifiers: ["Shift"] });
+  await page
+    .locator(".editor-selection-layer__item")
+    .filter({ hasText: duplicatedLabel })
+    .first()
+    .click({ modifiers: ["Shift"] });
   await expect(page.getByText("2 个热点已选")).toBeVisible();
   const canvasHotspot = page.locator(".editor-selection-layer__item", { hasText: customLabel }).first();
   const hotspotBox = await canvasHotspot.boundingBox();

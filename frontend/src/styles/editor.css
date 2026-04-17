@@ -278,6 +278,50 @@
   pointer-events: none;
 }
 
+.editor-selection-layer__marquee-badge,
+.editor-selection-layer__selection-badge {
+  position: absolute;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(7, 12, 24, 0.84);
+  border: 1px solid rgba(104, 219, 255, 0.26);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.3;
+  pointer-events: none;
+  transform: translate(0, 8px);
+}
+
+.editor-selection-layer__selection-box {
+  position: absolute;
+  border: 1px solid rgba(255, 198, 106, 0.88);
+  background: rgba(255, 198, 106, 0.08);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 198, 106, 0.16);
+  pointer-events: none;
+}
+
+.editor-selection-layer__guide {
+  position: absolute;
+  background: rgba(104, 219, 255, 0.88);
+  box-shadow: 0 0 12px rgba(104, 219, 255, 0.22);
+  pointer-events: none;
+}
+
+.editor-selection-layer__guide--vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-0.5px);
+}
+
+.editor-selection-layer__guide--horizontal {
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-0.5px);
+}
+
 .editor-canvas-workspace__image {
   width: 100%;
   height: 100%;

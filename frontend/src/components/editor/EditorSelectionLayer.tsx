@@ -28,10 +28,19 @@ interface EditorMarqueeState {
 interface EditorDragState {
   pointerId: number;
   hotspotIds: string[];
+  activeHotspotId: string;
   originX: number;
   originY: number;
   initialPositions: Map<string, { x: number; y: number }>;
 }
+
+interface EditorSnapGuides {
+  x: number | null;
+  y: number | null;
+}
+
+const SNAP_THRESHOLD = 0.015;
+const GRID_STEP = 0.02;
 
 function clampPosition(value: number) {
   return Math.min(Math.max(value, 0), 1);
@@ -73,6 +82,19 @@ function getCanvasCoordinates(
   };
 }
 
+function findSnapTarget(value: number, candidates: number[]) {
+  let bestTarget: number | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const distance = Math.abs(candidate - value);
+    if (distance <= SNAP_THRESHOLD && distance < bestDistance) {
+      bestTarget = candidate;
+      bestDistance = distance;
+    }
+  }
+  return bestTarget;
+}
+
 export function EditorSelectionLayer({
   hotspots,
   selectedHotspotId,
@@ -87,10 +109,34 @@ export function EditorSelectionLayer({
   const [draggingHotspotId, setDraggingHotspotId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<EditorDragState | null>(null);
   const [marquee, setMarquee] = useState<EditorMarqueeState | null>(null);
+  const [snapGuides, setSnapGuides] = useState<EditorSnapGuides>({ x: null, y: null });
   const batchSelectedSet = useMemo(
     () => new Set(batchSelectedHotspotIds),
     [batchSelectedHotspotIds],
   );
+  const selectionIds = batchSelectedHotspotIds.length
+    ? batchSelectedHotspotIds
+    : selectedHotspotId
+      ? [selectedHotspotId]
+      : [];
+  const selectionBounds =
+    selectionIds.length > 1
+      ? (() => {
+          const selectedHotspots = hotspots.filter((hotspot) => selectionIds.includes(hotspot.id));
+          if (!selectedHotspots.length) {
+            return null;
+          }
+          const xValues = selectedHotspots.map((hotspot) => hotspot.x);
+          const yValues = selectedHotspots.map((hotspot) => hotspot.y);
+          return {
+            left: Math.min(...xValues),
+            right: Math.max(...xValues),
+            top: Math.min(...yValues),
+            bottom: Math.max(...yValues),
+            count: selectedHotspots.length,
+          };
+        })()
+      : null;
 
   function finishMarqueeSelection() {
     if (!marquee) {
@@ -112,6 +158,9 @@ export function EditorSelectionLayer({
       className="editor-selection-layer"
       onPointerCancel={() => {
         setMarquee(null);
+        setDragState(null);
+        setDraggingHotspotId(null);
+        setSnapGuides({ x: null, y: null });
       }}
       onPointerDown={(event) => {
         if (!canEdit || mode !== "edit" || event.target !== event.currentTarget) {
@@ -198,6 +247,7 @@ export function EditorSelectionLayer({
               setDragState({
                 pointerId: event.pointerId,
                 hotspotIds: dragIds,
+                activeHotspotId: hotspot.id,
                 originX: point.x,
                 originY: point.y,
                 initialPositions: new Map(
@@ -223,7 +273,7 @@ export function EditorSelectionLayer({
               const point = getCanvasCoordinates(container, event);
               const deltaX = point.x - dragState.originX;
               const deltaY = point.y - dragState.originY;
-              const updates = dragState.hotspotIds
+              const draftUpdates = dragState.hotspotIds
                 .map((hotspotId) => {
                   const initial = dragState.initialPositions.get(hotspotId);
                   if (!initial) {
@@ -240,6 +290,33 @@ export function EditorSelectionLayer({
                     update,
                   ): update is { hotspotId: string; x: number; y: number } => Boolean(update),
                 );
+              const activeUpdate = draftUpdates.find(
+                (update) => update.hotspotId === dragState.activeHotspotId,
+              );
+              if (!activeUpdate) {
+                return;
+              }
+              const otherHotspots = hotspots.filter(
+                (hotspot) => !dragState.hotspotIds.includes(hotspot.id),
+              );
+              const gridCandidatesX = Array.from({ length: Math.floor(1 / GRID_STEP) + 1 }, (_, index) =>
+                clampPosition(index * GRID_STEP),
+              );
+              const gridCandidatesY = gridCandidatesX;
+              const snappedX =
+                findSnapTarget(activeUpdate.x, otherHotspots.map((hotspot) => hotspot.x)) ??
+                findSnapTarget(activeUpdate.x, gridCandidatesX);
+              const snappedY =
+                findSnapTarget(activeUpdate.y, otherHotspots.map((hotspot) => hotspot.y)) ??
+                findSnapTarget(activeUpdate.y, gridCandidatesY);
+              const offsetX = snappedX !== null ? snappedX - activeUpdate.x : 0;
+              const offsetY = snappedY !== null ? snappedY - activeUpdate.y : 0;
+              const updates = draftUpdates.map((update) => ({
+                ...update,
+                x: clampPosition(update.x + offsetX),
+                y: clampPosition(update.y + offsetY),
+              }));
+              setSnapGuides({ x: snappedX, y: snappedY });
 
               if (updates.length > 1) {
                 onMoveHotspots(updates);
@@ -256,6 +333,7 @@ export function EditorSelectionLayer({
               }
               setDraggingHotspotId(null);
               setDragState(null);
+              setSnapGuides({ x: null, y: null });
             }}
             style={{ left: `${hotspot.x * 100}%`, top: `${hotspot.y * 100}%` }}
             type="button"
@@ -285,6 +363,51 @@ export function EditorSelectionLayer({
             width: `${Math.abs(marquee.currentX - marquee.startX) * 100}%`,
             height: `${Math.abs(marquee.currentY - marquee.startY) * 100}%`,
           }}
+        />
+      ) : null}
+      {marquee ? (
+        <div
+          className="editor-selection-layer__marquee-badge"
+          style={{
+            left: `${Math.min(marquee.startX, marquee.currentX) * 100}%`,
+            top: `${Math.max(marquee.startY, marquee.currentY) * 100}%`,
+          }}
+        >
+          框选中
+        </div>
+      ) : null}
+      {selectionBounds ? (
+        <>
+          <div
+            className="editor-selection-layer__selection-box"
+            style={{
+              left: `${selectionBounds.left * 100}%`,
+              top: `${selectionBounds.top * 100}%`,
+              width: `${Math.max((selectionBounds.right - selectionBounds.left) * 100, 2)}%`,
+              height: `${Math.max((selectionBounds.bottom - selectionBounds.top) * 100, 2)}%`,
+            }}
+          />
+          <div
+            className="editor-selection-layer__selection-badge"
+            style={{
+              left: `${selectionBounds.left * 100}%`,
+              top: `${selectionBounds.top * 100}%`,
+            }}
+          >
+            {selectionBounds.count} 个热点
+          </div>
+        </>
+      ) : null}
+      {snapGuides.x !== null ? (
+        <div
+          className="editor-selection-layer__guide editor-selection-layer__guide--vertical"
+          style={{ left: `${snapGuides.x * 100}%` }}
+        />
+      ) : null}
+      {snapGuides.y !== null ? (
+        <div
+          className="editor-selection-layer__guide editor-selection-layer__guide--horizontal"
+          style={{ top: `${snapGuides.y * 100}%` }}
         />
       ) : null}
     </div>
