@@ -19,6 +19,7 @@ import { DeviceListItemDto } from "../api/types";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { mapEditorViewModel } from "../view-models/editor";
 import { EditorHotspotViewModel } from "../view-models/editor";
+import { WsEvent } from "../ws/types";
 
 interface EditorDraftState {
   backgroundImageUrl: string | null;
@@ -30,6 +31,22 @@ interface RecoveryNoticeState {
   tone: "warning" | "error";
   title: string;
   detail: string;
+}
+
+type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
+type DraftTakenOverEvent = Extract<WsEvent, { event_type: "draft_taken_over" }>;
+type VersionConflictDetectedEvent = Extract<WsEvent, { event_type: "version_conflict_detected" }>;
+
+function isDraftLockLostEvent(event: WsEvent): event is DraftLockLostEvent {
+  return event.event_type === "draft_lock_lost";
+}
+
+function isDraftTakenOverEvent(event: WsEvent): event is DraftTakenOverEvent {
+  return event.event_type === "draft_taken_over";
+}
+
+function isVersionConflictDetectedEvent(event: WsEvent): event is VersionConflictDetectedEvent {
+  return event.event_type === "version_conflict_detected";
 }
 
 function stringifyLayoutMeta(value: Record<string, unknown>) {
@@ -485,24 +502,32 @@ export function EditorWorkbenchWorkspace() {
   }
 
   useEffect(() => {
-    const latestEvent = events[0];
-    if (!latestEvent || handledRealtimeEventIdRef.current === latestEvent.event_id) {
+    const pendingEvents: WsEvent[] = [];
+    for (const event of events) {
+      if (event.event_id === handledRealtimeEventIdRef.current) {
+        break;
+      }
+      pendingEvents.push(event);
+    }
+
+    if (!pendingEvents.length) {
       return;
     }
 
-    handledRealtimeEventIdRef.current = latestEvent.event_id;
+    handledRealtimeEventIdRef.current = pendingEvents[0].event_id;
 
-    if (
-      latestEvent.event_type === "draft_lock_acquired" &&
-      editor.lockStatus === "GRANTED" &&
-      latestEvent.payload.terminal_id !== terminalId
-    ) {
+    const takeoverEvent = pendingEvents.find(
+      (event): event is DraftTakenOverEvent =>
+        isDraftTakenOverEvent(event) && event.payload.previous_terminal_id === terminalId,
+    );
+
+    if (takeoverEvent) {
       appStore.setEditorSession({
         lockStatus: "LOCKED_BY_OTHER",
-        leaseId: latestEvent.payload.lease_id,
-        leaseExpiresAt: latestEvent.payload.lease_expires_at,
+        leaseId: takeoverEvent.payload.new_lease_id,
+        leaseExpiresAt: null,
         heartbeatIntervalSeconds: null,
-        lockedByTerminalId: latestEvent.payload.terminal_id,
+        lockedByTerminalId: takeoverEvent.payload.new_terminal_id,
       });
       appStore.setEditorDraftData({
         draft: editor.draft,
@@ -512,14 +537,53 @@ export function EditorWorkbenchWorkspace() {
         lockStatus: "LOCKED_BY_OTHER",
       });
       setSaveMessage(null);
-      setLockConflictNotice(latestEvent.payload.terminal_id);
-      void refreshDraft(latestEvent.payload.lease_id).catch((error) => {
+      setLockConflictNotice(takeoverEvent.payload.new_terminal_id);
+      void refreshDraft(takeoverEvent.payload.new_lease_id).catch((error) => {
         appStore.setEditorError(normalizeApiError(error).message);
       });
       return;
     }
 
-    if (latestEvent.event_type === "version_conflict_detected") {
+    const lostEvent = pendingEvents.find(
+      (event): event is DraftLockLostEvent =>
+        isDraftLockLostEvent(event) && event.payload.terminal_id === terminalId,
+    );
+
+    if (lostEvent) {
+      appStore.setEditorSession({
+        lockStatus: "READ_ONLY",
+        leaseId: null,
+        leaseExpiresAt: null,
+        heartbeatIntervalSeconds: null,
+        lockedByTerminalId: null,
+      });
+      appStore.setEditorDraftData({
+        draft: editor.draft,
+        draftVersion: editor.draftVersion,
+        baseLayoutVersion: editor.baseLayoutVersion,
+        readonly: true,
+        lockStatus: "READ_ONLY",
+      });
+      setSaveMessage(null);
+      setRecoveryNotice({
+        tone: "warning",
+        title: "编辑租约已失效",
+        detail:
+          lostEvent.payload.lost_reason === "TAKEN_OVER"
+            ? "另一台终端已经接管当前草稿，页面已切换为只读。"
+            : "当前编辑租约已经过期，页面已切换为只读，请重新申请编辑。",
+      });
+      void refreshDraft().catch((error) => {
+        appStore.setEditorError(normalizeApiError(error).message);
+      });
+      return;
+    }
+
+    const versionConflictEvent = pendingEvents.find(
+      (event): event is VersionConflictDetectedEvent => isVersionConflictDetectedEvent(event),
+    );
+
+    if (versionConflictEvent) {
       setRecoveryNotice({
         tone: "warning",
         title: "实时快照已重新同步",

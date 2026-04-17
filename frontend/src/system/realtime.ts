@@ -26,6 +26,8 @@ function targetsForEvent(event: WsEvent): SnapshotTarget[] {
     case "summary_updated":
       return ["home"];
     case "draft_lock_acquired":
+    case "draft_lock_lost":
+    case "draft_taken_over":
       return ["editor"];
     case "publish_succeeded":
       return ["home", "editor"];

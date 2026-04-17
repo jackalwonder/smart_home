@@ -10,6 +10,8 @@ const EVENT_LABELS = {
   backup_restore_completed: "Backup restored",
   device_state_changed: "Device state changed",
   draft_lock_acquired: "Editor lock acquired",
+  draft_lock_lost: "Editor lock lost",
+  draft_taken_over: "Editor lock taken over",
   energy_refresh_completed: "Energy refreshed",
   energy_refresh_failed: "Energy refresh failed",
   ha_sync_degraded: "Home Assistant sync degraded",
@@ -66,6 +68,18 @@ export function formatRealtimeEvent(event: WsEvent): RealtimeEventPresentation {
         title: formatRealtimeEventType(event.event_type),
         domainLabel,
         subtitle: `${domainLabel} · ${event.payload.terminal_id} · ${sequenceSuffix}`,
+      };
+    case "draft_lock_lost":
+      return {
+        title: formatRealtimeEventType(event.event_type),
+        domainLabel,
+        subtitle: `${domainLabel} · ${event.payload.terminal_id} · ${event.payload.lost_reason} · ${sequenceSuffix}`,
+      };
+    case "draft_taken_over":
+      return {
+        title: formatRealtimeEventType(event.event_type),
+        domainLabel,
+        subtitle: `${domainLabel} · ${event.payload.previous_terminal_id} -> ${event.payload.new_terminal_id} · ${sequenceSuffix}`,
       };
     case "energy_refresh_completed":
     case "energy_refresh_failed":

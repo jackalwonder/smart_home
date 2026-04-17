@@ -69,6 +69,20 @@ class DraftLockAcquiredPayload(ApiSchema):
     lease_expires_at: str
 
 
+class DraftLockLostPayload(ApiSchema):
+    lease_id: str
+    terminal_id: str
+    lost_reason: Literal["TAKEN_OVER", "LEASE_EXPIRED"]
+
+
+class DraftTakenOverPayload(ApiSchema):
+    previous_terminal_id: str
+    new_terminal_id: str
+    new_operator_id: str | None = None
+    new_lease_id: str
+    draft_version: str | None = None
+
+
 class PublishSucceededPayload(ApiSchema):
     layout_version: str
     effective_at: str
@@ -159,6 +173,20 @@ class DraftLockAcquiredEvent(RealtimeEventBase):
     payload: DraftLockAcquiredPayload
 
 
+class DraftLockLostEvent(RealtimeEventBase):
+    event_type: Literal["draft_lock_lost"]
+    change_domain: Literal["EDITOR_LOCK"]
+    snapshot_required: Literal[False]
+    payload: DraftLockLostPayload
+
+
+class DraftTakenOverEvent(RealtimeEventBase):
+    event_type: Literal["draft_taken_over"]
+    change_domain: Literal["EDITOR_LOCK"]
+    snapshot_required: Literal[False]
+    payload: DraftTakenOverPayload
+
+
 class PublishSucceededEvent(RealtimeEventBase):
     event_type: Literal["publish_succeeded"]
     change_domain: Literal["LAYOUT"]
@@ -190,6 +218,8 @@ RealtimeServerEvent = Annotated[
     | EnergyRefreshCompletedEvent
     | EnergyRefreshFailedEvent
     | DraftLockAcquiredEvent
+    | DraftLockLostEvent
+    | DraftTakenOverEvent
     | PublishSucceededEvent
     | BackupRestoreCompletedEvent
     | VersionConflictDetectedEvent,

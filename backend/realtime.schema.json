@@ -363,6 +363,184 @@
       "title": "DraftLockAcquiredPayload",
       "type": "object"
     },
+    "DraftLockLostEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "EDITOR_LOCK",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "draft_lock_lost",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/DraftLockLostPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "DraftLockLostEvent",
+      "type": "object"
+    },
+    "DraftLockLostPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "lease_id": {
+          "title": "Lease Id",
+          "type": "string"
+        },
+        "lost_reason": {
+          "enum": [
+            "TAKEN_OVER",
+            "LEASE_EXPIRED"
+          ],
+          "title": "Lost Reason",
+          "type": "string"
+        },
+        "terminal_id": {
+          "title": "Terminal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lease_id",
+        "terminal_id",
+        "lost_reason"
+      ],
+      "title": "DraftLockLostPayload",
+      "type": "object"
+    },
+    "DraftTakenOverEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "change_domain": {
+          "const": "EDITOR_LOCK",
+          "title": "Change Domain",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "draft_taken_over",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "home_id": {
+          "title": "Home Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/DraftTakenOverPayload"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "snapshot_required": {
+          "const": false,
+          "title": "Snapshot Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "occurred_at",
+        "sequence",
+        "home_id",
+        "event_type",
+        "change_domain",
+        "snapshot_required",
+        "payload"
+      ],
+      "title": "DraftTakenOverEvent",
+      "type": "object"
+    },
+    "DraftTakenOverPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "draft_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Draft Version"
+        },
+        "new_lease_id": {
+          "title": "New Lease Id",
+          "type": "string"
+        },
+        "new_operator_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Operator Id"
+        },
+        "new_terminal_id": {
+          "title": "New Terminal Id",
+          "type": "string"
+        },
+        "previous_terminal_id": {
+          "title": "Previous Terminal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "previous_terminal_id",
+        "new_terminal_id",
+        "new_lease_id"
+      ],
+      "title": "DraftTakenOverPayload",
+      "type": "object"
+    },
     "EnergyRefreshCompletedEvent": {
       "additionalProperties": false,
       "properties": {
@@ -1029,6 +1207,8 @@
           "backup_restore_completed": "#/$defs/BackupRestoreCompletedEvent",
           "device_state_changed": "#/$defs/DeviceStateChangedEvent",
           "draft_lock_acquired": "#/$defs/DraftLockAcquiredEvent",
+          "draft_lock_lost": "#/$defs/DraftLockLostEvent",
+          "draft_taken_over": "#/$defs/DraftTakenOverEvent",
           "energy_refresh_completed": "#/$defs/EnergyRefreshCompletedEvent",
           "energy_refresh_failed": "#/$defs/EnergyRefreshFailedEvent",
           "ha_sync_degraded": "#/$defs/HaSyncDegradedEvent",
@@ -1068,6 +1248,12 @@
         },
         {
           "$ref": "#/$defs/DraftLockAcquiredEvent"
+        },
+        {
+          "$ref": "#/$defs/DraftLockLostEvent"
+        },
+        {
+          "$ref": "#/$defs/DraftTakenOverEvent"
         },
         {
           "$ref": "#/$defs/PublishSucceededEvent"
