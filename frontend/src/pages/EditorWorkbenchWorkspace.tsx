@@ -44,6 +44,8 @@ interface EditorNoticeState {
   actions?: EditorNoticeAction[];
 }
 
+type EditorActionKind = "save" | "publish" | "acquire" | "takeover" | "discard";
+
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
 type DraftTakenOverEvent = Extract<WsEvent, { event_type: "draft_taken_over" }>;
 type VersionConflictDetectedEvent = Extract<WsEvent, { event_type: "version_conflict_detected" }>;
@@ -58,6 +60,138 @@ function isDraftTakenOverEvent(event: WsEvent): event is DraftTakenOverEvent {
 
 function isVersionConflictDetectedEvent(event: WsEvent): event is VersionConflictDetectedEvent {
   return event.event_type === "version_conflict_detected";
+}
+
+function getEditorActionLabel(action: EditorActionKind) {
+  switch (action) {
+    case "save":
+      return "保存草稿";
+    case "publish":
+      return "发布草稿";
+    case "acquire":
+      return "申请编辑";
+    case "takeover":
+      return "接管编辑";
+    case "discard":
+      return "丢弃草稿";
+  }
+}
+
+function getEditorRetryAction(action: EditorActionKind): EditorNoticeAction {
+  switch (action) {
+    case "save":
+      return "retry-save";
+    case "publish":
+      return "retry-publish";
+    case "acquire":
+      return "retry-acquire";
+    case "takeover":
+      return "retry-takeover";
+    case "discard":
+      return "retry-discard";
+  }
+}
+
+function formatInvalidFieldList(details: Record<string, unknown> | undefined) {
+  const fields = details?.fields;
+  if (!Array.isArray(fields)) {
+    return null;
+  }
+  const labels = fields
+    .map((field) => {
+      if (!field || typeof field !== "object") {
+        return null;
+      }
+      const value = (field as { field?: unknown }).field;
+      return typeof value === "string" && value.length ? value : null;
+    })
+    .filter((value): value is string => Boolean(value))
+    .slice(0, 3);
+  return labels.length ? labels.join("、") : null;
+}
+
+function buildEditorErrorNotice(
+  apiError: { code: string; message: string; details?: Record<string, unknown> },
+  action: EditorActionKind,
+): EditorNoticeState {
+  const actionLabel = getEditorActionLabel(action);
+  const retryAction = getEditorRetryAction(action);
+  const invalidFields = formatInvalidFieldList(apiError.details);
+
+  switch (apiError.code) {
+    case "PIN_REQUIRED":
+      return {
+        tone: "warning",
+        title: `${actionLabel}前需要管理 PIN`,
+        detail: "当前管理 PIN 会话不可用，请先重新验证管理 PIN，再继续操作。",
+        actions: ["refresh"],
+      };
+    case "PIN_LOCKED":
+      return {
+        tone: "error",
+        title: "管理 PIN 已被锁定",
+        detail: "当前 PIN 处于临时锁定状态，需等待锁定结束后再继续编辑操作。",
+        actions: ["refresh"],
+      };
+    case "UNAUTHORIZED":
+      return {
+        tone: "error",
+        title: "登录状态已失效",
+        detail: "当前会话已失效，请刷新页面并重新进入编辑器。",
+        actions: ["refresh"],
+      };
+    case "NETWORK_ERROR":
+      return {
+        tone: "error",
+        title: `${actionLabel}时网络中断`,
+        detail: "未能连接到服务端。请检查本机网络或容器状态后重试。",
+        actions: ["refresh", retryAction],
+      };
+    case "HA_UNAVAILABLE":
+      return {
+        tone: "error",
+        title: `${actionLabel}时服务依赖不可用`,
+        detail: "当前 Home Assistant 或后端依赖未就绪，请稍后再试。",
+        actions: ["refresh", retryAction],
+      };
+    case "BAD_RESPONSE":
+      return {
+        tone: "error",
+        title: "服务端返回了无法解析的响应",
+        detail: "本次操作没有拿到有效结果，请刷新草稿后重试。",
+        actions: ["refresh", retryAction],
+      };
+    case "INTERNAL_SERVER_ERROR":
+      return {
+        tone: "error",
+        title: `${actionLabel}时服务端异常`,
+        detail: "服务端处理本次请求时发生异常，请稍后重试；若持续出现，需要查看后端日志。",
+        actions: ["refresh", retryAction],
+      };
+    case "INVALID_PARAMS":
+      return {
+        tone: "error",
+        title: action === "publish" ? "发布请求不完整" : `${actionLabel}参数不合法`,
+        detail: invalidFields
+          ? `请求字段校验未通过：${invalidFields}。请刷新草稿确认当前状态后再试。`
+          : "当前提交内容未通过校验，请刷新草稿确认当前状态后再试。",
+        actions: ["refresh", retryAction],
+      };
+    case "REQUEST_FAILED":
+      return {
+        tone: "error",
+        title: `${actionLabel}失败`,
+        detail: "请求没有成功完成，请刷新草稿后再试。",
+        actions: ["refresh", retryAction],
+      };
+    default:
+      return {
+        tone: "error",
+        title: `${actionLabel}失败`,
+        detail: apiError.message,
+        actions: ["refresh", retryAction],
+      };
+  }
 }
 
 function stringifyLayoutMeta(value: Record<string, unknown>) {
@@ -196,12 +330,7 @@ export function EditorWorkbenchWorkspace() {
 
   async function handleEditorActionError(
     error: unknown,
-    action:
-      | "save"
-      | "publish"
-      | "acquire"
-      | "takeover"
-      | "discard",
+    action: EditorActionKind,
   ) {
     const apiError = normalizeApiError(error);
 
@@ -263,33 +392,7 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    const actionLabel =
-      action === "save"
-        ? "保存草稿"
-        : action === "publish"
-          ? "发布草稿"
-          : action === "acquire"
-            ? "申请编辑"
-            : action === "takeover"
-              ? "接管编辑"
-              : "丢弃草稿";
-    const retryAction =
-      action === "save"
-        ? "retry-save"
-        : action === "publish"
-          ? "retry-publish"
-          : action === "acquire"
-            ? "retry-acquire"
-            : action === "takeover"
-              ? "retry-takeover"
-              : "retry-discard";
-
-    showEditorNotice({
-      tone: "error",
-      title: `${actionLabel}失败`,
-      detail: apiError.message,
-      actions: ["refresh", retryAction],
-    });
+    showEditorNotice(buildEditorErrorNotice(apiError, action));
   }
 
   useEffect(() => {
