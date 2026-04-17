@@ -58,6 +58,7 @@ class BackupCreateResponse(ApiSchema):
 class BackupListItemResponse(ApiSchema):
     backup_id: str
     created_at: str
+    restored_at: str | None = None
     created_by: str | None = None
     status: str
     note: str | None = None
@@ -71,6 +72,7 @@ class BackupRestoreResponse(ApiSchema):
     restored: bool
     settings_version: str
     layout_version: str
+    audit_id: str
     effective_at: str
     message: str
 

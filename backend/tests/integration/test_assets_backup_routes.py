@@ -37,6 +37,7 @@ class FakeBackupService:
                 {
                     "backup_id": "bk_1",
                     "created_at": "2026-04-14T10:00:00Z",
+                    "restored_at": "2026-04-14T10:05:00Z",
                     "created_by": "Operator",
                     "status": "READY",
                     "note": "nightly",
@@ -51,6 +52,7 @@ class FakeBackupRestoreService:
             restored=True,
             settings_version="sv_1",
             layout_version="lv_1",
+            audit_id="audit-1",
             effective_at="2026-04-14T10:05:00Z",
             message="Backup restored successfully",
         )
@@ -94,7 +96,9 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
 
     assert list_response.status_code == 200
     assert list_response.json()["data"]["items"][0]["backup_id"] == "bk_1"
+    assert list_response.json()["data"]["items"][0]["restored_at"] == "2026-04-14T10:05:00Z"
 
     assert restore_response.status_code == 200
     assert restore_response.json()["data"]["restored"] is True
     assert restore_response.json()["data"]["layout_version"] == "lv_1"
+    assert restore_response.json()["data"]["audit_id"] == "audit-1"

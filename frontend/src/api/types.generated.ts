@@ -662,6 +662,8 @@ export interface components {
             created_by?: string | null;
             /** Note */
             note?: string | null;
+            /** Restored At */
+            restored_at?: string | null;
             /** Status */
             status: string;
         };
@@ -689,6 +691,8 @@ export interface components {
         };
         /** BackupRestoreResponse */
         BackupRestoreResponse: {
+            /** Audit Id */
+            audit_id: string;
             /** Effective At */
             effective_at: string;
             /** Layout Version */

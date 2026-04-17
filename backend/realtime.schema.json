@@ -54,6 +54,10 @@
     "BackupRestoreCompletedPayload": {
       "additionalProperties": false,
       "properties": {
+        "audit_id": {
+          "title": "Audit Id",
+          "type": "string"
+        },
         "backup_id": {
           "title": "Backup Id",
           "type": "string"
@@ -79,6 +83,7 @@
         "backup_id",
         "settings_version",
         "layout_version",
+        "audit_id",
         "effective_at",
         "restored_by_terminal_id"
       ],

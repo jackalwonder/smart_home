@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import text
 
 from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import session_scope
+from src.infrastructure.db.repositories._support import session_scope, to_jsonb
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
 from src.repositories.base.realtime.WsEventOutboxRepository import NewWsEventOutboxRow, WsEventOutboxRepository
 from src.repositories.base.settings.FavoriteDevicesRepository import (
@@ -48,6 +48,7 @@ class BackupRestoreView:
     restored: bool
     settings_version: str
     layout_version: str
+    audit_id: str
     effective_at: str
     message: str
 
@@ -250,7 +251,7 @@ class BackupRestoreService:
         next_layout_version = self._version_token_generator.next_layout_version()
         now_iso = self._clock.now().isoformat()
 
-        async def _transaction(tx) -> None:
+        async def _transaction(tx) -> str:
             ctx = RepoContext(tx=tx)
             inserted_settings = await self._settings_version_repository.insert(
                 NewSettingsVersionRow(
@@ -343,6 +344,62 @@ class BackupRestoreService:
                 ctx=ctx,
             )
 
+            audit_row = (
+                await tx.session.execute(
+                    text(
+                        """
+                        INSERT INTO audit_logs (
+                            home_id,
+                            operator_id,
+                            terminal_id,
+                            action_type,
+                            target_type,
+                            target_id,
+                            before_version,
+                            after_version,
+                            result_status,
+                            payload_json,
+                            created_at
+                        ) VALUES (
+                            :home_id,
+                            :operator_id,
+                            :terminal_id,
+                            :action_type,
+                            :target_type,
+                            :target_id,
+                            :before_version,
+                            :after_version,
+                            :result_status,
+                            :payload_json,
+                            :created_at
+                        )
+                        RETURNING id::text AS audit_id
+                        """
+                    ),
+                    {
+                        "home_id": home_id,
+                        "operator_id": operator_id,
+                        "terminal_id": terminal_id,
+                        "action_type": "BACKUP_RESTORE",
+                        "target_type": "SYSTEM_BACKUP",
+                        "target_id": backup_id,
+                        "before_version": backup_id,
+                        "after_version": next_settings_version,
+                        "result_status": "SUCCESS",
+                        "payload_json": to_jsonb(
+                            {
+                                "backup_id": backup_id,
+                                "settings_version": next_settings_version,
+                                "layout_version": next_layout_version,
+                                "restored_by_terminal_id": terminal_id,
+                            }
+                        ),
+                        "created_at": now_iso,
+                    },
+                )
+            ).mappings().one()
+            audit_id = audit_row["audit_id"]
+
             await tx.session.execute(
                 text(
                     """
@@ -365,6 +422,7 @@ class BackupRestoreService:
                         "backup_id": backup_id,
                         "settings_version": next_settings_version,
                         "layout_version": next_layout_version,
+                        "audit_id": audit_id,
                         "effective_at": now_iso,
                         "restored_by_terminal_id": terminal_id,
                     },
@@ -372,12 +430,14 @@ class BackupRestoreService:
                 ),
                 ctx=ctx,
             )
+            return audit_id
 
-        await self._unit_of_work.run_in_transaction(_transaction)
+        audit_id = await self._unit_of_work.run_in_transaction(_transaction)
         return BackupRestoreView(
             restored=True,
             settings_version=next_settings_version,
             layout_version=next_layout_version,
+            audit_id=audit_id,
             effective_at=now_iso,
             message="Backup restored successfully",
         )

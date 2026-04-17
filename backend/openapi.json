@@ -206,6 +206,17 @@
             ],
             "title": "Note"
           },
+          "restored_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored At"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -280,6 +291,10 @@
       "BackupRestoreResponse": {
         "additionalProperties": false,
         "properties": {
+          "audit_id": {
+            "title": "Audit Id",
+            "type": "string"
+          },
           "effective_at": {
             "title": "Effective At",
             "type": "string"
@@ -305,6 +320,7 @@
           "restored",
           "settings_version",
           "layout_version",
+          "audit_id",
           "effective_at",
           "message"
         ],
