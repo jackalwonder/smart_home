@@ -537,6 +537,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system/backups/restores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Restore Audits */
+        get: operations["get_api_v1_system_backups_restores"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/backups/{backup_id}/restore": {
         parameters: {
             query?: never;
@@ -671,6 +688,34 @@ export interface components {
         BackupListResponse: {
             /** Items */
             items?: components["schemas"]["BackupListItemResponse"][];
+        };
+        /** BackupRestoreAuditItemResponse */
+        BackupRestoreAuditItemResponse: {
+            /** Audit Id */
+            audit_id: string;
+            /** Backup Id */
+            backup_id: string;
+            /** Before Version */
+            before_version?: string | null;
+            /** Layout Version */
+            layout_version?: string | null;
+            /** Operator Id */
+            operator_id?: string | null;
+            /** Operator Name */
+            operator_name?: string | null;
+            /** Restored At */
+            restored_at: string;
+            /** Result Status */
+            result_status: string;
+            /** Settings Version */
+            settings_version?: string | null;
+            /** Terminal Id */
+            terminal_id?: string | null;
+        };
+        /** BackupRestoreAuditListResponse */
+        BackupRestoreAuditListResponse: {
+            /** Items */
+            items?: components["schemas"]["BackupRestoreAuditItemResponse"][];
         };
         /** BackupRestoreBody */
         BackupRestoreBody: {
@@ -2085,6 +2130,18 @@ export interface components {
         /** SuccessEnvelope[BackupListResponse] */
         SuccessEnvelope_BackupListResponse_: {
             data: components["schemas"]["BackupListResponse"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        };
+        /** SuccessEnvelope[BackupRestoreAuditListResponse] */
+        SuccessEnvelope_BackupRestoreAuditListResponse_: {
+            data: components["schemas"]["BackupRestoreAuditListResponse"];
             /** Error */
             error?: null;
             meta: components["schemas"]["ResponseMeta"];
@@ -9512,6 +9569,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuccessEnvelope_BackupCreateResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    get_api_v1_system_backups_restores: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_BackupRestoreAuditListResponse_"];
                 };
             };
             /** @description Invalid request parameters */

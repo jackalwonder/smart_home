@@ -34,6 +34,13 @@ class _MappingsResult:
     def mappings(self):
         return self
 
+    def all(self):
+        if isinstance(self._row, list):
+            return self._row
+        if self._row is None:
+            return []
+        return [self._row]
+
     def one_or_none(self):
         return self._row
 
@@ -48,6 +55,16 @@ class _BackupSession:
 
     async def execute(self, *_args, **_kwargs):
         return _MappingsResult(self._row)
+
+
+class _AuditSession:
+    def __init__(self, rows):
+        self._rows = rows
+        self.params = None
+
+    async def execute(self, _stmt, params=None):
+        self.params = params
+        return _MappingsResult(self._rows)
 
 
 class _TransactionSession:
@@ -181,6 +198,44 @@ async def _restore(monkeypatch, row, unit_of_work, *, outbox_repository=None):
         terminal_id="terminal-1",
         operator_id="member-1",
     )
+
+
+@pytest.mark.asyncio
+async def test_list_restore_audits_returns_bounded_history(monkeypatch):
+    audit_session = _AuditSession(
+        [
+            {
+                "audit_id": "audit-1",
+                "backup_id": "bk_1",
+                "restored_at": "2026-04-17T10:00:00+00:00",
+                "operator_id": "member-1",
+                "operator_name": "Operator",
+                "terminal_id": "terminal-1",
+                "before_version": "bk_1",
+                "settings_version": "sv_restored",
+                "layout_version": "lv_restored",
+                "result_status": "SUCCESS",
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        restore_module,
+        "session_scope",
+        lambda _database: _SessionScope(audit_session),
+    )
+    service = _build_service(_UnitOfWork())
+
+    result = await service.list_restore_audits(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        limit=500,
+    )
+
+    assert audit_session.params == {"home_id": "home-1", "limit": 100}
+    assert result[0].audit_id == "audit-1"
+    assert result[0].backup_id == "bk_1"
+    assert result[0].settings_version == "sv_restored"
+    assert result[0].layout_version == "lv_restored"
 
 
 @pytest.mark.asyncio

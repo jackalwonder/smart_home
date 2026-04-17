@@ -53,6 +53,20 @@ class BackupRestoreView:
     message: str
 
 
+@dataclass(frozen=True)
+class BackupRestoreAuditView:
+    audit_id: str
+    backup_id: str
+    restored_at: str
+    operator_id: str | None
+    operator_name: str | None
+    terminal_id: str | None
+    before_version: str | None
+    settings_version: str | None
+    layout_version: str | None
+    result_status: str
+
+
 def _invalid_backup_snapshot(reason: str, field: str = "snapshot_blob") -> AppError:
     return AppError(
         ErrorCode.INVALID_PARAMS,
@@ -199,6 +213,65 @@ class BackupRestoreService:
         self._version_token_generator = version_token_generator
         self._event_id_generator = event_id_generator
         self._clock = clock
+
+    async def list_restore_audits(
+        self,
+        *,
+        home_id: str,
+        terminal_id: str,
+        limit: int = 20,
+    ) -> list[BackupRestoreAuditView]:
+        await self._management_pin_guard.require_active_session(home_id, terminal_id)
+        bounded_limit = max(1, min(limit, 100))
+        stmt = text(
+            """
+            SELECT
+                al.id::text AS audit_id,
+                al.target_id AS backup_id,
+                al.created_at::text AS restored_at,
+                al.operator_id::text AS operator_id,
+                m.display_name AS operator_name,
+                al.terminal_id::text AS terminal_id,
+                al.before_version,
+                COALESCE(al.payload_json ->> 'settings_version', al.after_version) AS settings_version,
+                al.payload_json ->> 'layout_version' AS layout_version,
+                al.result_status
+            FROM audit_logs al
+            LEFT JOIN members m
+              ON m.id = al.operator_id
+            WHERE al.home_id = :home_id
+              AND al.action_type = 'BACKUP_RESTORE'
+              AND al.target_type = 'SYSTEM_BACKUP'
+            ORDER BY al.created_at DESC
+            LIMIT :limit
+            """
+        )
+        async with session_scope(self._database) as (session, _):
+            rows = (
+                await session.execute(
+                    stmt,
+                    {
+                        "home_id": home_id,
+                        "limit": bounded_limit,
+                    },
+                )
+            ).mappings().all()
+
+        return [
+            BackupRestoreAuditView(
+                audit_id=row["audit_id"],
+                backup_id=row["backup_id"],
+                restored_at=row["restored_at"],
+                operator_id=row["operator_id"],
+                operator_name=row["operator_name"],
+                terminal_id=row["terminal_id"],
+                before_version=row["before_version"],
+                settings_version=row["settings_version"],
+                layout_version=row["layout_version"],
+                result_status=row["result_status"],
+            )
+            for row in rows
+        ]
 
     async def restore_backup(
         self,

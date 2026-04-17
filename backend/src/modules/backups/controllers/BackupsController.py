@@ -77,6 +77,23 @@ class BackupRestoreResponse(ApiSchema):
     message: str
 
 
+class BackupRestoreAuditItemResponse(ApiSchema):
+    audit_id: str
+    backup_id: str
+    restored_at: str
+    operator_id: str | None = None
+    operator_name: str | None = None
+    terminal_id: str | None = None
+    before_version: str | None = None
+    settings_version: str | None = None
+    layout_version: str | None = None
+    result_status: str
+
+
+class BackupRestoreAuditListResponse(ApiSchema):
+    items: list[BackupRestoreAuditItemResponse] = Field(default_factory=list)
+
+
 @router.post("", response_model=SuccessEnvelope[BackupCreateResponse])
 async def create_backup(
     request: Request,
@@ -116,6 +133,31 @@ async def list_backups(
         terminal_id=context.terminal_id,
     )
     return success_response(request, BackupListResponse.model_validate(payload))
+
+
+@router.get("/restores", response_model=SuccessEnvelope[BackupRestoreAuditListResponse])
+async def list_restore_audits(
+    request: Request,
+    limit: int = Query(default=20, ge=1, le=100),
+    service: BackupRestoreService = Depends(get_backup_restore_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=True,
+    )
+    audits = await service.list_restore_audits(
+        home_id=context.home_id,
+        terminal_id=context.terminal_id,
+        limit=limit,
+    )
+    return success_response(
+        request,
+        BackupRestoreAuditListResponse(
+            items=[BackupRestoreAuditItemResponse.model_validate(asdict(audit)) for audit in audits]
+        ),
+    )
 
 
 @router.post("/{backup_id}/restore", response_model=SuccessEnvelope[BackupRestoreResponse])

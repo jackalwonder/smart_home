@@ -162,6 +162,13 @@ export type BackupListItemDto = Schema<"BackupListItemResponse">;
 
 export type BackupListDto = RequireFields<Schema<"BackupListResponse">, "items">;
 
+export type BackupRestoreAuditItemDto = Schema<"BackupRestoreAuditItemResponse">;
+
+export type BackupRestoreAuditListDto = RequireFields<
+  Schema<"BackupRestoreAuditListResponse">,
+  "items"
+>;
+
 export type BackupRestoreInput = Omit<
   Schema<"BackupRestoreBody">,
   "home_id" | "terminal_id" | "operator_id"
