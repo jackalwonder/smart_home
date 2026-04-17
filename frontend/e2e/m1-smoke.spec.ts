@@ -168,6 +168,66 @@ async function unlockManagementPin(page: Page) {
   ).toBeVisible();
 }
 
+async function readEditorFieldValue(page: Page, label: string) {
+  const field = page.locator("header .field-grid > div").filter({
+    has: page.locator("dt", { hasText: label }),
+  });
+  await expect(field).toHaveCount(1);
+  await expect(field.locator("dd")).toBeVisible();
+  return (await field.locator("dd").textContent())?.trim() ?? "";
+}
+
+async function ensureEditorWritable(page: Page) {
+  const saveButton = page.getByRole("button", { name: "保存草稿" });
+  const takeoverButton = page.getByRole("button", { name: "接管编辑" });
+  const noticeTakeoverButton = page.getByRole("button", { name: "接管当前锁" });
+  const acquireButton = page.getByRole("button", { name: "申请编辑" });
+  const retryAcquireButton = page.getByRole("button", { name: "重新申请编辑" });
+
+  let entryAction = "waiting";
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (await saveButton.isEnabled()) {
+      entryAction = "ready";
+      break;
+    }
+    if (await takeoverButton.isEnabled()) {
+      entryAction = "takeover";
+      break;
+    }
+    if (await noticeTakeoverButton.isEnabled()) {
+      entryAction = "notice-takeover";
+      break;
+    }
+    if (await retryAcquireButton.isEnabled()) {
+      entryAction = "retry-acquire";
+      break;
+    }
+    if (await acquireButton.isEnabled()) {
+      entryAction = "acquire";
+      break;
+    }
+    await page.waitForTimeout(200);
+  }
+  expect(entryAction).not.toBe("waiting");
+
+  if (entryAction === "takeover") {
+    await takeoverButton.click();
+    await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
+  } else if (entryAction === "notice-takeover") {
+    await noticeTakeoverButton.click();
+    await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
+  } else if (entryAction === "retry-acquire") {
+    await retryAcquireButton.click();
+    await expect(page.getByText("已获取编辑租约")).toBeVisible();
+  } else if (entryAction === "acquire") {
+    await acquireButton.click();
+    await expect(page.getByText("已获取编辑租约")).toBeVisible();
+  }
+
+  await expect(saveButton).toBeEnabled();
+}
+
 test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "总览" })).toBeVisible();
@@ -202,20 +262,14 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByRole("link", { name: "编辑" }).click();
 
   await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
-
-  const takeoverButton = page.getByRole("button", { name: "接管编辑" });
-  if (await takeoverButton.isEnabled()) {
-    await takeoverButton.click();
-    await expect(page.getByText(/已接管/)).toBeVisible();
-  }
-
-  await expect(page.getByRole("button", { name: "保存草稿" })).toBeEnabled();
+  await ensureEditorWritable(page);
   await page.getByRole("button", { name: "保存草稿" }).click();
-  await expect(page.getByText("草稿已保存到后端。")).toBeVisible();
+  await expect(page.getByText("草稿已保存")).toBeVisible();
 
   await expect(page.getByRole("button", { name: "发布草稿" })).toBeEnabled();
   await page.getByRole("button", { name: "发布草稿" }).click();
-  await expect(page.getByText(/草稿已发布，布局版本为/)).toBeVisible();
+  await expect(page.getByText("草稿已发布")).toBeVisible();
+  await expect(page.getByText(/布局版本已更新为/)).toBeVisible();
 });
 
 test("editor downgrades to readonly after takeover and can recover", async ({ page, request }) => {
@@ -223,7 +277,7 @@ test("editor downgrades to readonly after takeover and can recover", async ({ pa
   await page.getByRole("link", { name: "编辑" }).click();
 
   await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "保存草稿" })).toBeEnabled();
+  await ensureEditorWritable(page);
 
   ensureSecondaryTerminal();
   const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
@@ -244,8 +298,76 @@ test("editor downgrades to readonly after takeover and can recover", async ({ pa
   await expect(page.getByRole("button", { name: "接管编辑" })).toBeEnabled();
 
   await page.getByRole("button", { name: "接管编辑" }).click();
-  await expect(page.getByText(/已接管终端 .* 的编辑租约|已接管编辑租约/)).toBeVisible();
+  await expect(page.getByText("已接管编辑租约")).toBeVisible();
   await expect(page.getByRole("button", { name: "保存草稿" })).toBeEnabled();
+});
+
+test("editor save surfaces version conflict and retries after refresh", async ({ page, request }) => {
+  await unlockManagementPin(page);
+  await page.getByRole("link", { name: "编辑" }).click();
+  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await ensureEditorWritable(page);
+
+  const leaseId = await readEditorFieldValue(page, "租约 ID");
+  const session = await bootstrapSession(request);
+  const headers = { authorization: `Bearer ${session.access_token}` };
+  const draft = await expectEnvelope<EditorDraft>(
+    await request.get(`/api/v1/editor/draft?lease_id=${leaseId}`, { headers }),
+  );
+
+  await expectEnvelope<{ draft_version: string }>(
+    await request.put("/api/v1/editor/draft", {
+      headers,
+      data: {
+        lease_id: leaseId,
+        draft_version: draft.draft_version,
+        base_layout_version: draft.base_layout_version,
+        background_asset_id: draft.layout?.background_image_url,
+        layout_meta: draft.layout?.layout_meta ?? {},
+        hotspots: draft.layout?.hotspots ?? [],
+      },
+    }),
+  );
+
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(page.getByText("保存前草稿版本已更新")).toBeVisible();
+  await expect(page.getByRole("button", { name: "重新保存" })).toBeVisible();
+  await page.getByRole("button", { name: "重新保存" }).click();
+  await expect(page.getByText("草稿已保存")).toBeVisible();
+});
+
+test("editor publish surfaces version conflict and retries after refresh", async ({ page, request }) => {
+  await unlockManagementPin(page);
+  await page.getByRole("link", { name: "编辑" }).click();
+  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await ensureEditorWritable(page);
+
+  const leaseId = await readEditorFieldValue(page, "租约 ID");
+  const session = await bootstrapSession(request);
+  const headers = { authorization: `Bearer ${session.access_token}` };
+  const draft = await expectEnvelope<EditorDraft>(
+    await request.get(`/api/v1/editor/draft?lease_id=${leaseId}`, { headers }),
+  );
+
+  await expectEnvelope<{ draft_version: string }>(
+    await request.put("/api/v1/editor/draft", {
+      headers,
+      data: {
+        lease_id: leaseId,
+        draft_version: draft.draft_version,
+        base_layout_version: draft.base_layout_version,
+        background_asset_id: draft.layout?.background_image_url,
+        layout_meta: draft.layout?.layout_meta ?? {},
+        hotspots: draft.layout?.hotspots ?? [],
+      },
+    }),
+  );
+
+  await page.getByRole("button", { name: "发布草稿" }).click();
+  await expect(page.getByText("发布前草稿版本已更新")).toBeVisible();
+  await expect(page.getByRole("button", { name: "重新发布" })).toBeVisible();
+  await page.getByRole("button", { name: "重新发布" }).click();
+  await expect(page.getByText("草稿已发布")).toBeVisible();
 });
 
 test("settings save emits realtime settings_updated event", async ({ page, request }) => {
