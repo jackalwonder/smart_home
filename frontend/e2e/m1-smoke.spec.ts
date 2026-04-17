@@ -1,7 +1,9 @@
+import { execFileSync } from "node:child_process";
 import { expect, test, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
 
 const HOME_ID = "11111111-1111-1111-1111-111111111111";
 const TERMINAL_ID = "22222222-2222-2222-2222-222222222222";
+const SECONDARY_TERMINAL_ID = "33333333-3333-3333-3333-333333333333";
 const DEV_PIN = "1234";
 
 type Envelope<T> = {
@@ -74,21 +76,47 @@ async function expectEnvelope<T>(response: APIResponse): Promise<T> {
   return envelope.data;
 }
 
-async function bootstrapSession(request: APIRequestContext) {
+async function bootstrapSession(request: APIRequestContext, terminalId = TERMINAL_ID) {
   const session = await expectEnvelope<AuthSession>(
-    await request.get(`/api/v1/auth/session?home_id=${HOME_ID}&terminal_id=${TERMINAL_ID}`),
+    await request.get(`/api/v1/auth/session?home_id=${HOME_ID}&terminal_id=${terminalId}`),
   );
   await expectEnvelope(
     await request.post("/api/v1/auth/pin/verify", {
       data: {
         home_id: HOME_ID,
-        terminal_id: TERMINAL_ID,
+        terminal_id: terminalId,
         pin: DEV_PIN,
         target_action: "MANAGEMENT",
       },
     }),
   );
   return session;
+}
+
+function ensureSecondaryTerminal() {
+  execFileSync(
+    "docker",
+    [
+      "compose",
+      "-f",
+      "../docker-compose.yml",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "smart_home",
+      "-d",
+      "smart_home",
+      "-c",
+      [
+        "INSERT INTO terminals (id, home_id, terminal_code, terminal_name, terminal_mode)",
+        `VALUES ('${SECONDARY_TERMINAL_ID}', '${HOME_ID}', 'wall-panel-side-smoke', '侧墙板联调', 'KIOSK')`,
+        "ON CONFLICT (id) DO NOTHING;",
+      ].join(" "),
+    ],
+    { cwd: process.cwd(), stdio: "pipe" },
+  );
 }
 
 async function openRealtimeProbe(page: Page, accessToken: string) {
@@ -188,6 +216,36 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await expect(page.getByRole("button", { name: "发布草稿" })).toBeEnabled();
   await page.getByRole("button", { name: "发布草稿" }).click();
   await expect(page.getByText(/草稿已发布，布局版本为/)).toBeVisible();
+});
+
+test("editor downgrades to readonly after takeover and can recover", async ({ page, request }) => {
+  await unlockManagementPin(page);
+  await page.getByRole("link", { name: "编辑" }).click();
+
+  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存草稿" })).toBeEnabled();
+
+  ensureSecondaryTerminal();
+  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  await expectEnvelope(
+    await request.post("/api/v1/editor/sessions", {
+      headers: { authorization: `Bearer ${secondarySession.access_token}` },
+      data: {
+        takeover_if_locked: true,
+        home_id: HOME_ID,
+        terminal_id: SECONDARY_TERMINAL_ID,
+      },
+    }),
+  );
+
+  await expect(page.getByText("编辑租约已被其他终端占用")).toBeVisible();
+  await expect(page.getByText(/终端 .* 当前持有编辑锁/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存草稿" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "接管编辑" })).toBeEnabled();
+
+  await page.getByRole("button", { name: "接管编辑" }).click();
+  await expect(page.getByText(/已接管终端 .* 的编辑租约|已接管编辑租约/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存草稿" })).toBeEnabled();
 });
 
 test("settings save emits realtime settings_updated event", async ({ page, request }) => {

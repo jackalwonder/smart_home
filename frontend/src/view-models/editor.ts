@@ -103,7 +103,10 @@ export function mapEditorViewModel(input: {
       ? `当前草稿被终端 ${input.lockedByTerminalId} 占用，你可以先查看，再决定是否接管。`
       : "当前草稿被其他终端占用，你可以先查看，再决定是否接管。";
   } else if (input.pinActive) {
-    helperText = "PIN 已验证，编辑器正在等待可写租约。";
+    helperText =
+      input.lockStatus === "READ_ONLY"
+        ? "当前是只读快照。你可以重新申请编辑租约，或先刷新草稿确认最新状态。"
+        : "PIN 已验证，编辑器正在等待可写租约。";
   }
 
   return {

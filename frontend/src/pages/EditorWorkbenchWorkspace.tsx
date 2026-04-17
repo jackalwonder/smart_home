@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorCanvasWorkspace } from "../components/editor/EditorCanvasWorkspace";
 import { EditorCommandBar } from "../components/editor/EditorCommandBar";
 import { EditorInspector } from "../components/editor/EditorInspector";
@@ -24,6 +24,12 @@ interface EditorDraftState {
   backgroundImageUrl: string | null;
   layoutMetaText: string;
   hotspots: EditorHotspotViewModel[];
+}
+
+interface RecoveryNoticeState {
+  tone: "warning" | "error";
+  title: string;
+  detail: string;
 }
 
 function stringifyLayoutMeta(value: Record<string, unknown>) {
@@ -72,10 +78,23 @@ export function EditorWorkbenchWorkspace() {
   const [deviceCatalog, setDeviceCatalog] = useState<DeviceListItemDto[]>([]);
   const [deviceCatalogLoading, setDeviceCatalogLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [recoveryNotice, setRecoveryNotice] = useState<RecoveryNoticeState | null>(null);
+  const handledRealtimeEventIdRef = useRef<string | null>(null);
+  const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishingDraft, setIsPublishingDraft] = useState(false);
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
+
+  function setLockConflictNotice(conflictTerminalId?: string | null) {
+    setRecoveryNotice({
+      tone: "warning",
+      title: "编辑租约已被其他终端占用",
+      detail: conflictTerminalId
+        ? `终端 ${conflictTerminalId} 当前持有编辑锁。你可以先刷新只读草稿，确认后再接管。`
+        : "当前编辑锁已经转移到其他终端。你可以先刷新只读草稿，确认后再接管。",
+    });
+  }
 
   function applyEditorSession(input: {
     lock_status: string | null;
@@ -93,6 +112,91 @@ export function EditorWorkbenchWorkspace() {
     });
   }
 
+  function applyEditorDraft(input: Awaited<ReturnType<typeof fetchEditorDraft>>) {
+    appStore.setEditorDraftData({
+      draft: input.layout ?? null,
+      draftVersion: input.draft_version,
+      baseLayoutVersion: input.base_layout_version,
+      readonly: input.readonly,
+      lockStatus: input.lock_status,
+    });
+  }
+
+  async function refreshDraft(leaseId?: string | null) {
+    const refreshed = await fetchEditorDraft(leaseId);
+    applyEditorDraft(refreshed);
+    return refreshed;
+  }
+
+  async function openEditableSession(options?: { silent?: boolean }) {
+    const lease = await createEditorSession();
+    applyEditorSession(lease);
+    const draft = await fetchEditorDraft(lease.lease_id);
+    applyEditorDraft(draft);
+
+    if (lease.lock_status === "LOCKED_BY_OTHER") {
+      setSaveMessage(null);
+      setLockConflictNotice(lease.locked_by?.terminal_id);
+    } else {
+      setRecoveryNotice(null);
+      if (!options?.silent) {
+        setSaveMessage("已获取编辑租约，可以继续修改当前草稿。");
+      }
+    }
+
+    return { lease, draft };
+  }
+
+  async function handleEditorActionError(error: unknown) {
+    const apiError = normalizeApiError(error);
+
+    if (apiError.code === "VERSION_CONFLICT") {
+      try {
+        await refreshDraft(editor.leaseId);
+      } catch (refreshError) {
+        appStore.setEditorError(normalizeApiError(refreshError).message);
+      }
+      appStore.setEditorSession({
+        lockStatus: editor.lockStatus,
+        leaseId: editor.leaseId,
+      });
+      setRecoveryNotice({
+        tone: "warning",
+        title: "草稿版本已更新",
+        detail: "后端草稿版本已经变化，页面已刷新到最新草稿，请确认变更后重试。",
+      });
+      return;
+    }
+
+    if (apiError.code === "DRAFT_LOCK_LOST") {
+      appStore.setEditorSession({
+        lockStatus: "READ_ONLY",
+        leaseId: null,
+        leaseExpiresAt: null,
+        heartbeatIntervalSeconds: null,
+        lockedByTerminalId: null,
+      });
+      try {
+        await refreshDraft();
+      } catch (refreshError) {
+        appStore.setEditorError(normalizeApiError(refreshError).message);
+      }
+      setRecoveryNotice({
+        tone: "warning",
+        title: "编辑租约已失效",
+        detail: "当前会话已经失去编辑锁。请先刷新草稿，再重新申请编辑或接管其他终端的锁。",
+      });
+      return;
+    }
+
+    appStore.setEditorError(apiError.message);
+    setRecoveryNotice({
+      tone: "error",
+      title: "编辑操作失败",
+      detail: apiError.message,
+    });
+  }
+
   useEffect(() => {
     if (!terminalId) {
       return;
@@ -106,23 +210,10 @@ export function EditorWorkbenchWorkspace() {
 
       try {
         if (pinSessionActive) {
-          const lease = await createEditorSession();
+          await openEditableSession({ silent: true });
           if (!active) {
             return;
           }
-          applyEditorSession(lease);
-
-          const draft = await fetchEditorDraft(lease.lease_id);
-          if (!active) {
-            return;
-          }
-          appStore.setEditorDraftData({
-            draft: draft.layout ?? null,
-            draftVersion: draft.draft_version,
-            baseLayoutVersion: draft.base_layout_version,
-            readonly: draft.readonly,
-            lockStatus: draft.lock_status,
-          });
           return;
         }
 
@@ -137,18 +228,13 @@ export function EditorWorkbenchWorkspace() {
           heartbeatIntervalSeconds: null,
           lockedByTerminalId: null,
         });
-        appStore.setEditorDraftData({
-          draft: draft.layout ?? null,
-          draftVersion: draft.draft_version,
-          baseLayoutVersion: draft.base_layout_version,
-          readonly: draft.readonly,
-          lockStatus: draft.lock_status,
-        });
+        applyEditorDraft(draft);
+        setRecoveryNotice(null);
       } catch (error) {
         if (!active) {
           return;
         }
-        appStore.setEditorError(normalizeApiError(error).message);
+        await handleEditorActionError(error);
       }
     })();
 
@@ -224,6 +310,8 @@ export function EditorWorkbenchWorkspace() {
     draftState.hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ??
     null;
   const canEdit = !editor.readonly && editor.lockStatus === "GRANTED";
+  const canAcquire =
+    pin.active && editor.lockStatus !== "GRANTED" && editor.lockStatus !== "LOCKED_BY_OTHER";
   const canTakeover = pin.active && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
   const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
 
@@ -396,17 +484,56 @@ export function EditorWorkbenchWorkspace() {
     });
   }
 
-  async function refreshDraft(leaseId?: string | null) {
-    const refreshed = await fetchEditorDraft(leaseId);
-    appStore.setEditorDraftData({
-      draft: refreshed.layout ?? null,
-      draftVersion: refreshed.draft_version,
-      baseLayoutVersion: refreshed.base_layout_version,
-      readonly: refreshed.readonly,
-      lockStatus: refreshed.lock_status,
-    });
-    return refreshed;
-  }
+  useEffect(() => {
+    const latestEvent = events[0];
+    if (!latestEvent || handledRealtimeEventIdRef.current === latestEvent.event_id) {
+      return;
+    }
+
+    handledRealtimeEventIdRef.current = latestEvent.event_id;
+
+    if (
+      latestEvent.event_type === "draft_lock_acquired" &&
+      editor.lockStatus === "GRANTED" &&
+      latestEvent.payload.terminal_id !== terminalId
+    ) {
+      appStore.setEditorSession({
+        lockStatus: "LOCKED_BY_OTHER",
+        leaseId: latestEvent.payload.lease_id,
+        leaseExpiresAt: latestEvent.payload.lease_expires_at,
+        heartbeatIntervalSeconds: null,
+        lockedByTerminalId: latestEvent.payload.terminal_id,
+      });
+      appStore.setEditorDraftData({
+        draft: editor.draft,
+        draftVersion: editor.draftVersion,
+        baseLayoutVersion: editor.baseLayoutVersion,
+        readonly: true,
+        lockStatus: "LOCKED_BY_OTHER",
+      });
+      setSaveMessage(null);
+      setLockConflictNotice(latestEvent.payload.terminal_id);
+      void refreshDraft(latestEvent.payload.lease_id).catch((error) => {
+        appStore.setEditorError(normalizeApiError(error).message);
+      });
+      return;
+    }
+
+    if (latestEvent.event_type === "version_conflict_detected") {
+      setRecoveryNotice({
+        tone: "warning",
+        title: "实时快照已重新同步",
+        detail: "连接恢复时检测到事件间隙，页面已经刷新到最新快照，请确认当前草稿状态。",
+      });
+    }
+  }, [
+    editor.baseLayoutVersion,
+    editor.draft,
+    editor.draftVersion,
+    editor.lockStatus,
+    events,
+    terminalId,
+  ]);
 
   useEffect(() => {
     if (editor.lockStatus !== "GRANTED" || !editor.leaseId) {
@@ -437,17 +564,7 @@ export function EditorWorkbenchWorkspace() {
         if (!active) {
           return;
         }
-        appStore.setEditorError(normalizeApiError(error).message);
-        appStore.setEditorSession({
-          lockStatus: "READ_ONLY",
-          leaseId: null,
-          leaseExpiresAt: null,
-          heartbeatIntervalSeconds: null,
-          lockedByTerminalId: null,
-        });
-        await refreshDraft().catch((refreshError) => {
-          appStore.setEditorError(normalizeApiError(refreshError).message);
-        });
+        await handleEditorActionError(error);
         setSaveMessage("编辑租约已失效，已切换为只读。");
       }
     }
@@ -487,12 +604,20 @@ export function EditorWorkbenchWorkspace() {
         })),
       });
       const refreshed = await refreshDraft(editor.leaseId);
+      appStore.setEditorSession({
+        lockStatus: "GRANTED",
+        leaseId: editor.leaseId,
+        leaseExpiresAt: editor.leaseExpiresAt,
+        heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds,
+        lockedByTerminalId: null,
+      });
       if (!options?.silent) {
+        setRecoveryNotice(null);
         setSaveMessage("草稿已保存到后端。");
       }
       return refreshed;
     } catch (error) {
-      appStore.setEditorError(normalizeApiError(error).message);
+      await handleEditorActionError(error);
       return null;
     }
   }
@@ -535,11 +660,28 @@ export function EditorWorkbenchWorkspace() {
       });
       await refreshDraft();
       setSelectedHotspotId(null);
+      setRecoveryNotice(null);
       setSaveMessage(`草稿已发布，布局版本为 ${published.layout_version}。`);
     } catch (error) {
-      appStore.setEditorError(normalizeApiError(error).message);
+      await handleEditorActionError(error);
     } finally {
       setIsPublishingDraft(false);
+    }
+  }
+
+  async function handleAcquireLock() {
+    if (!canAcquire) {
+      return;
+    }
+
+    setSaveMessage(null);
+    setIsAcquiringLock(true);
+    try {
+      await openEditableSession();
+    } catch (error) {
+      await handleEditorActionError(error);
+    } finally {
+      setIsAcquiringLock(false);
     }
   }
 
@@ -570,8 +712,9 @@ export function EditorWorkbenchWorkspace() {
           ? `已接管终端 ${takeover.previous_terminal_id} 的编辑租约。`
           : "已接管编辑租约。",
       );
+      setRecoveryNotice(null);
     } catch (error) {
-      appStore.setEditorError(normalizeApiError(error).message);
+      await handleEditorActionError(error);
     } finally {
       setIsTakingOver(false);
     }
@@ -598,9 +741,10 @@ export function EditorWorkbenchWorkspace() {
       });
       await refreshDraft();
       setSelectedHotspotId(null);
+      setRecoveryNotice(null);
       setSaveMessage("草稿已丢弃，编辑租约已释放。");
     } catch (error) {
-      appStore.setEditorError(normalizeApiError(error).message);
+      await handleEditorActionError(error);
     } finally {
       setIsDiscardingDraft(false);
     }
@@ -615,7 +759,42 @@ export function EditorWorkbenchWorkspace() {
     <section className="page page--editor">
       {editor.error ? <p className="inline-error">{editor.error}</p> : null}
       {saveMessage ? <p className="inline-success">{saveMessage}</p> : null}
+      {recoveryNotice ? (
+        <section className={`editor-recovery editor-recovery--${recoveryNotice.tone}`}>
+          <div>
+            <strong>{recoveryNotice.title}</strong>
+            <p>{recoveryNotice.detail}</p>
+          </div>
+          <div className="badge-row">
+            <button className="button button--ghost" onClick={() => void refreshDraft()} type="button">
+              刷新草稿
+            </button>
+            {canAcquire ? (
+              <button
+                className="button button--ghost"
+                disabled={isAcquiringLock}
+                onClick={() => void handleAcquireLock()}
+                type="button"
+              >
+                {isAcquiringLock ? "申请中..." : "重新申请编辑"}
+              </button>
+            ) : null}
+            {canTakeover ? (
+              <button
+                className="button button--primary"
+                disabled={isTakingOver}
+                onClick={() => void handleTakeover()}
+                type="button"
+              >
+                {isTakingOver ? "接管中..." : "接管当前锁"}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       <EditorCommandBar
+        acquireBusy={isAcquiringLock}
+        canAcquire={canAcquire}
         canSave={canEdit}
         canPublish={canEdit}
         canTakeover={canTakeover}
@@ -624,6 +803,7 @@ export function EditorWorkbenchWorkspace() {
         hotspotCount={draftState.hotspots.length}
         modeLabel={viewModel.modeLabel}
         onAddHotspot={addHotspot}
+        onAcquire={() => void handleAcquireLock()}
         onDiscardDraft={() => void handleDiscardDraft()}
         onPublishDraft={() => void handlePublishDraft()}
         onSaveDraft={() => void handleSaveDraft()}
