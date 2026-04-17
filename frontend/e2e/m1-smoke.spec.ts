@@ -5,9 +5,14 @@ const HOME_ID = "11111111-1111-1111-1111-111111111111";
 const TERMINAL_ID = "22222222-2222-2222-2222-222222222222";
 const SECONDARY_TERMINAL_ID = "33333333-3333-3333-3333-333333333333";
 const DEV_PIN = "1234";
+const SMOKE_ROOM_ID = "11111111-1111-1111-1111-000000000010";
+const SMOKE_DEVICE_ID = "11111111-1111-1111-1111-000000000101";
 const BOOTSTRAP_TOKEN_STORAGE_KEY = "smart_home.bootstrap_token";
 const TERMINAL_ACTIVATION_TEST = "terminal activation stores bootstrap token and enters shell";
+const DEVICE_SYNC_TIMEOUT_MS = 45_000;
+const DEVICE_SYNC_POLL_INTERVAL_MS = 1_000;
 const bootstrapTokens = new Map<string, string>();
+const primedHomes = new Set<string>();
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTjwAAAABJRU5ErkJggg==",
   "base64",
@@ -23,6 +28,17 @@ type AuthSession = {
   access_token: string;
   home_id: string;
   terminal_id: string;
+};
+
+type SupportedControlRequest = {
+  action_type: string;
+  device_id: string;
+  payload: {
+    target_scope: string | null;
+    target_key: string | null;
+    value: unknown;
+    unit: string | null;
+  };
 };
 
 test.beforeEach(async ({ page }, testInfo) => {
@@ -193,6 +209,98 @@ function issueBootstrapToken(terminalId = TERMINAL_ID) {
   return token;
 }
 
+function seedSmokeDeviceFixture() {
+  if (primedHomes.has(HOME_ID)) {
+    return;
+  }
+
+  const script = [
+    "import os",
+    "import psycopg",
+    `HOME_ID = ${JSON.stringify(HOME_ID)}`,
+    `ROOM_ID = ${JSON.stringify(SMOKE_ROOM_ID)}`,
+    `DEVICE_ID = ${JSON.stringify(SMOKE_DEVICE_ID)}`,
+    "db_url = os.environ.get('DATABASE_URL', 'postgresql://smart_home:smart_home@postgres:5432/smart_home').replace('postgresql+psycopg://', 'postgresql://')",
+    "conn = psycopg.connect(db_url)",
+    "conn.autocommit = True",
+    "with conn.cursor() as cur:",
+    "    cur.execute(\"\"\"",
+    "        INSERT INTO rooms (id, home_id, room_name, priority, visible_in_editor, sort_order)",
+    "        VALUES (%s, %s, %s, 0, true, 0)",
+    "        ON CONFLICT (id) DO UPDATE",
+    "        SET room_name = EXCLUDED.room_name,",
+    "            visible_in_editor = EXCLUDED.visible_in_editor,",
+    "            sort_order = EXCLUDED.sort_order,",
+    "            updated_at = now()",
+    "    \"\"\", (ROOM_ID, HOME_ID, 'E2E 客厅'))",
+    "    cur.execute(\"\"\"",
+    "        INSERT INTO devices (",
+    "            id, home_id, room_id, display_name, raw_name, device_type,",
+    "            is_complex_device, is_readonly_device, confirmation_type, entry_behavior,",
+    "            default_control_target, is_primary_device, is_homepage_visible,",
+    "            capabilities_json, source_meta_json)",
+    "        VALUES (",
+    "            %s, %s, %s, %s, %s, %s,",
+    "            false, false, 'ACK_DRIVEN', 'OPEN_CONTROL_CARD',",
+    "            'PRIMARY', true, true,",
+    "            %s::jsonb, %s::jsonb)",
+    "        ON CONFLICT (id) DO UPDATE",
+    "        SET room_id = EXCLUDED.room_id,",
+    "            display_name = EXCLUDED.display_name,",
+    "            raw_name = EXCLUDED.raw_name,",
+    "            device_type = EXCLUDED.device_type,",
+    "            confirmation_type = EXCLUDED.confirmation_type,",
+    "            entry_behavior = EXCLUDED.entry_behavior,",
+    "            default_control_target = EXCLUDED.default_control_target,",
+    "            is_primary_device = EXCLUDED.is_primary_device,",
+    "            is_homepage_visible = EXCLUDED.is_homepage_visible,",
+    "            capabilities_json = EXCLUDED.capabilities_json,",
+    "            source_meta_json = EXCLUDED.source_meta_json,",
+    "            updated_at = now()",
+    "    \"\"\", (",
+    "        DEVICE_ID, HOME_ID, ROOM_ID, 'E2E 客厅主灯', 'E2E 客厅主灯', 'LIGHT',",
+    "        '{\"power\": true}', '{\"fixture\": \"e2e\"}')",
+    "    )",
+    "    cur.execute(\"\"\"",
+    "        INSERT INTO device_runtime_states (",
+    "            device_id, home_id, status, is_offline, status_summary_json, runtime_state_json,",
+    "            aggregated_state, aggregated_mode, aggregated_position, last_state_update_at, updated_at)",
+    "        VALUES (",
+    "            %s, %s, 'ONLINE', false, %s::jsonb, %s::jsonb,",
+    "            'ON', NULL, NULL, now(), now())",
+    "        ON CONFLICT (device_id) DO UPDATE",
+    "        SET status = EXCLUDED.status,",
+    "            is_offline = EXCLUDED.is_offline,",
+    "            status_summary_json = EXCLUDED.status_summary_json,",
+    "            runtime_state_json = EXCLUDED.runtime_state_json,",
+    "            aggregated_state = EXCLUDED.aggregated_state,",
+    "            last_state_update_at = EXCLUDED.last_state_update_at,",
+    "            updated_at = now()",
+    "    \"\"\", (DEVICE_ID, HOME_ID, '{\"primary\": \"在线\"}', '{\"power\": true}'))",
+    "    cur.execute(\"\"\"",
+    "        INSERT INTO device_control_schemas (",
+    "            id, device_id, action_type, target_scope, target_key, value_type,",
+    "            value_range_json, allowed_values_json, unit, is_quick_action,",
+    "            requires_detail_entry, sort_order)",
+    "        VALUES (gen_random_uuid(), %s, 'TOGGLE_POWER', 'PRIMARY', 'power', 'BOOLEAN',",
+    "            NULL, NULL, NULL, true, false, 0)",
+    "        ON CONFLICT (device_id, action_type, target_scope, target_key) DO UPDATE",
+    "        SET value_type = EXCLUDED.value_type,",
+    "            is_quick_action = EXCLUDED.is_quick_action,",
+    "            requires_detail_entry = EXCLUDED.requires_detail_entry,",
+    "            sort_order = EXCLUDED.sort_order,",
+    "            updated_at = now()",
+    "    \"\"\", (DEVICE_ID,))",
+    "conn.close()",
+  ].join("\n");
+
+  execFileSync("docker", ["compose", "exec", "-T", "backend", "python", "-c", script], {
+    cwd: process.cwd(),
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
 async function ensureControllableHotspot(request: APIRequestContext, accessToken: string) {
   const headers = { authorization: `Bearer ${accessToken}` };
   const catalog = await expectEnvelope<{ items: Array<{ device_id: string }> }>(
@@ -315,7 +423,10 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
   };
 }
 
-async function findSupportedControlRequest(request: APIRequestContext, accessToken: string) {
+async function tryFindSupportedControlRequest(
+  request: APIRequestContext,
+  accessToken: string,
+): Promise<SupportedControlRequest | null> {
   const headers = { authorization: `Bearer ${accessToken}` };
   const catalog = await expectEnvelope<{ items: Array<{ device_id: string }> }>(
     await request.get("/api/v1/devices?page=1&page_size=50", { headers }),
@@ -388,7 +499,44 @@ async function findSupportedControlRequest(request: APIRequestContext, accessTok
     };
   }
 
-  throw new Error("No supported controllable device found for smoke test");
+  return null;
+}
+
+async function ensureDevicesReady(
+  request: APIRequestContext,
+  accessToken: string,
+): Promise<SupportedControlRequest> {
+  if (primedHomes.has(HOME_ID)) {
+    const supported = await tryFindSupportedControlRequest(request, accessToken);
+    if (supported) {
+      return supported;
+    }
+    primedHomes.delete(HOME_ID);
+  }
+
+  seedSmokeDeviceFixture();
+  const headers = { authorization: `Bearer ${accessToken}` };
+
+  const deadline = Date.now() + DEVICE_SYNC_TIMEOUT_MS;
+  let lastKnownState = "device catalog still empty";
+  while (Date.now() < deadline) {
+    const supported = await tryFindSupportedControlRequest(request, accessToken);
+    if (supported) {
+      primedHomes.add(HOME_ID);
+      return supported;
+    }
+
+    const catalog = await expectEnvelope<{ items: Array<{ device_id: string }> }>(
+      await request.get("/api/v1/devices?page=1&page_size=50", { headers }),
+    );
+    lastKnownState =
+      catalog.items.length === 0
+        ? "device catalog still empty"
+        : `device catalog has ${catalog.items.length} device(s), but no controllable schema yet`;
+    await new Promise((resolve) => setTimeout(resolve, DEVICE_SYNC_POLL_INTERVAL_MS));
+  }
+
+  throw new Error(`No supported controllable device found for smoke test: ${lastKnownState}`);
 }
 
 async function saveCurrentSettingsSnapshot(
@@ -598,7 +746,10 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(page.getByText("快照摘要").first()).toBeVisible();
 });
 
-test("editor UI opens an edit session, saves draft, and publishes", async ({ page }) => {
+test("editor UI opens an edit session, saves draft, and publishes", async ({ page, request }) => {
+  const session = await bootstrapSession(request);
+  await ensureDevicesReady(request, session.access_token);
+
   await unlockManagementPin(page);
   await page.getByRole("link", { name: "编辑" }).click();
 
@@ -625,6 +776,11 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
 
   await page.getByRole("button", { name: "新增热点" }).click();
   const deviceSelect = page.getByLabel("绑定设备");
+  await expect
+    .poll(async () => deviceSelect.locator("option").count(), {
+      message: "waiting for bindable devices to appear in the editor",
+    })
+    .toBeGreaterThan(1);
   const deviceOptionText = (await deviceSelect.locator("option").nth(1).textContent())?.trim() ?? "";
   const deviceLabel = deviceOptionText.split(" · ")[0];
   const customLabel = `E2E 热点 ${Date.now()}`;
@@ -824,7 +980,7 @@ test("realtime reconnect resumes with last_event_id and refreshes settings snaps
 
 test("device control request can be accepted and queried to final result", async ({ request }) => {
   const session = await bootstrapSession(request);
-  const supportedRequest = await findSupportedControlRequest(request, session.access_token);
+  const supportedRequest = await ensureDevicesReady(request, session.access_token);
   const requestId = `e2e-control-${Date.now()}`;
   const headers = { authorization: `Bearer ${session.access_token}` };
 
