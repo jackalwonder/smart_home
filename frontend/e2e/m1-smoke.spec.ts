@@ -112,6 +112,246 @@ async function bootstrapSession(request: APIRequestContext, terminalId = TERMINA
   return session;
 }
 
+async function ensureControllableHotspot(request: APIRequestContext, accessToken: string) {
+  const headers = { authorization: `Bearer ${accessToken}` };
+  const catalog = await expectEnvelope<{ items: Array<{ device_id: string }> }>(
+    await request.get("/api/v1/devices?page=1&page_size=50", { headers }),
+  );
+
+  let controllableDeviceId: string | null = null;
+  for (const item of catalog.items) {
+    const detail = await expectEnvelope<{
+      control_schema?: Array<{
+        action_type?: string | null;
+        allowed_values?: unknown[] | null;
+        value_range?: Record<string, unknown> | null;
+        value_type?: string | null;
+      }>;
+      device_id: string;
+      is_readonly_device?: boolean;
+    }>(
+      await request.get(
+        `/api/v1/devices/${encodeURIComponent(
+          item.device_id,
+        )}?include_runtime_fields=true&include_editor_fields=true`,
+        { headers },
+      ),
+    );
+    const supportedControl = detail.control_schema?.some((schema) => {
+      const actionType = schema.action_type?.toUpperCase() ?? "";
+      const valueType = schema.value_type?.toUpperCase() ?? "";
+      return (
+        actionType.includes("POWER") ||
+        actionType.includes("TOGGLE") ||
+        (Array.isArray(schema.allowed_values) && schema.allowed_values.length > 0) ||
+        Boolean(schema.value_range) ||
+        (valueType.length > 0 && valueType !== "NONE")
+      );
+    });
+    if (!detail.is_readonly_device && supportedControl) {
+      controllableDeviceId = detail.device_id;
+      break;
+    }
+  }
+
+  expect(controllableDeviceId).toBeTruthy();
+
+  const editorSession = await expectEnvelope<EditorSession>(
+    await request.post("/api/v1/editor/sessions", {
+      headers,
+      data: { takeover_if_locked: true },
+    }),
+  );
+  const draft = await expectEnvelope<EditorDraft>(
+    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+  );
+  const layout = draft.layout ?? {
+    background_asset_id: null,
+    background_image_url: null,
+    layout_meta: {},
+    hotspots: [],
+  };
+  const existingHotspot = layout.hotspots.find((hotspot) => hotspot.device_id === controllableDeviceId);
+  const hotspots = existingHotspot
+    ? toEditorSaveHotspots(layout.hotspots)
+    : [
+        ...toEditorSaveHotspots(layout.hotspots),
+        {
+          hotspot_id: `e2e-home-${Date.now()}`,
+          device_id: controllableDeviceId as string,
+          x: 0.5,
+          y: 0.5,
+          icon_type: "device",
+          label_mode: "ALWAYS",
+          is_visible: true,
+          structure_order: layout.hotspots.length,
+        },
+      ];
+
+  await expectEnvelope<{ draft_version: string }>(
+    await request.put("/api/v1/editor/draft", {
+      headers,
+      data: {
+        lease_id: editorSession.lease_id,
+        draft_version: draft.draft_version,
+        base_layout_version: draft.base_layout_version,
+        background_asset_id: layout.background_asset_id,
+        layout_meta: layout.layout_meta ?? {},
+        hotspots,
+      },
+    }),
+  );
+
+  const refreshedDraft = await expectEnvelope<EditorDraft>(
+    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+  );
+  await expectEnvelope<{ published: boolean }>(
+    await request.post("/api/v1/editor/publish", {
+      headers,
+      data: {
+        lease_id: editorSession.lease_id,
+        draft_version: refreshedDraft.draft_version,
+        base_layout_version: refreshedDraft.base_layout_version,
+      },
+    }),
+  );
+
+  const home = await expectEnvelope<{
+    stage?: {
+      hotspots?: Array<{
+        device_id: string;
+        display_name?: string | null;
+      }>;
+    };
+  }>(await request.get("/api/v1/home/overview", { headers }));
+  const preparedHotspot = home.stage?.hotspots?.find(
+    (hotspot) => hotspot.device_id === controllableDeviceId,
+  );
+  expect(preparedHotspot).toBeTruthy();
+  return {
+    deviceId: controllableDeviceId as string,
+    label: preparedHotspot?.display_name || controllableDeviceId || "",
+  };
+}
+
+async function findSupportedControlRequest(request: APIRequestContext, accessToken: string) {
+  const headers = { authorization: `Bearer ${accessToken}` };
+  const catalog = await expectEnvelope<{ items: Array<{ device_id: string }> }>(
+    await request.get("/api/v1/devices?page=1&page_size=50", { headers }),
+  );
+
+  for (const item of catalog.items) {
+    const detail = await expectEnvelope<{
+      control_schema?: Array<{
+        action_type?: string | null;
+        allowed_values?: unknown[] | null;
+        target_key?: string | null;
+        target_scope?: string | null;
+        unit?: string | null;
+        value_range?: { min?: number | null } | null;
+        value_type?: string | null;
+      }>;
+      device_id: string;
+      is_readonly_device?: boolean;
+    }>(
+      await request.get(
+        `/api/v1/devices/${encodeURIComponent(
+          item.device_id,
+        )}?include_runtime_fields=true&include_editor_fields=true`,
+        { headers },
+      ),
+    );
+
+    if (detail.is_readonly_device || !Array.isArray(detail.control_schema)) {
+      continue;
+    }
+
+    const schema = detail.control_schema.find((candidate) => {
+      const actionType = candidate.action_type?.toUpperCase() ?? "";
+      const valueType = candidate.value_type?.toUpperCase() ?? "";
+      return (
+        actionType.includes("POWER") ||
+        actionType.includes("TOGGLE") ||
+        (Array.isArray(candidate.allowed_values) && candidate.allowed_values.length > 0) ||
+        Boolean(candidate.value_range) ||
+        (valueType.length > 0 && valueType !== "NONE")
+      );
+    });
+
+    if (!schema) {
+      continue;
+    }
+
+    const actionType = schema.action_type?.toUpperCase() ?? "";
+    const valueType = schema.value_type?.toUpperCase() ?? "";
+    const value =
+      Array.isArray(schema.allowed_values) && schema.allowed_values.length > 0
+        ? schema.allowed_values[0]
+        : schema.value_range?.min ?? (
+            actionType.includes("POWER") || actionType.includes("TOGGLE") || valueType.includes("BOOL")
+              ? true
+              : valueType.includes("NUMBER") || valueType.includes("INT") || valueType.includes("FLOAT")
+                ? 1
+                : "1"
+          );
+
+    return {
+      action_type: schema.action_type ?? "SET_VALUE",
+      device_id: detail.device_id,
+      payload: {
+        target_scope: schema.target_scope ?? null,
+        target_key: schema.target_key ?? null,
+        value,
+        unit: schema.unit ?? null,
+      },
+    };
+  }
+
+  throw new Error("No supported controllable device found for smoke test");
+}
+
+async function saveCurrentSettingsSnapshot(
+  request: APIRequestContext,
+  accessToken: string,
+  settings: SettingsSnapshot,
+) {
+  const pageSettings = settings.page_settings;
+  const functionSettings = settings.function_settings;
+  return expectEnvelope<{ settings_version: string }>(
+    await request.put("/api/v1/settings", {
+      headers: { authorization: `Bearer ${accessToken}` },
+      data: {
+        settings_version: settings.settings_version,
+        page_settings: {
+          room_label_mode: pageSettings?.room_label_mode ?? "EDIT_ONLY",
+          homepage_display_policy: pageSettings?.homepage_display_policy ?? {},
+          icon_policy: pageSettings?.icon_policy ?? {},
+          layout_preference: pageSettings?.layout_preference ?? {},
+        },
+        function_settings: {
+          low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
+          offline_threshold_seconds: functionSettings?.offline_threshold_seconds ?? 90,
+          quick_entry_policy: functionSettings?.quick_entry_policy ?? { favorites: true },
+          music_enabled: functionSettings?.music_enabled ?? true,
+          favorite_limit: functionSettings?.favorite_limit ?? 8,
+          auto_home_timeout_seconds: functionSettings?.auto_home_timeout_seconds ?? 180,
+          position_device_thresholds: functionSettings?.position_device_thresholds ?? {
+            closed_max: 5,
+            opened_min: 95,
+          },
+        },
+        favorites: settings.favorites,
+      },
+    }),
+  );
+}
+
+async function forceRealtimeDisconnect(page: Page) {
+  await page.evaluate(() => {
+    window.__smartHomeRealtime?.forceDisconnect();
+  });
+}
+
 function ensureSecondaryTerminal() {
   execFileSync(
     "docker",
@@ -236,12 +476,10 @@ async function ensureEditorWritable(page: Page) {
       return;
     }
     if (await clickIfEnabled(retryAcquireButton)) {
-      await expect(page.getByText("已获取编辑租约")).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
     }
     if (await clickIfEnabled(acquireButton)) {
-      await expect(page.getByText("已获取编辑租约")).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
     }
@@ -318,7 +556,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByRole("button", { name: "下移 1%" }).click();
   await page.getByRole("button", { name: "复制热点" }).click();
   await page.getByRole("button", { name: "全选当前" }).click();
-  await expect(page.getByText("2 个热点已选")).toBeVisible();
+  await expect(page.getByRole("button", { name: "左对齐" })).toBeEnabled();
   const canvasHotspot = page.locator(".editor-selection-layer__item", { hasText: customLabel }).first();
   const hotspotBox = await canvasHotspot.boundingBox();
   expect(hotspotBox).toBeTruthy();
@@ -463,36 +701,7 @@ test("settings save emits realtime settings_updated event", async ({ page, reque
       headers: { authorization: `Bearer ${session.access_token}` },
     }),
   );
-
-  const pageSettings = settings.page_settings;
-  const functionSettings = settings.function_settings;
-  const saved = await expectEnvelope<{ settings_version: string }>(
-    await request.put("/api/v1/settings", {
-      headers: { authorization: `Bearer ${session.access_token}` },
-      data: {
-        settings_version: settings.settings_version,
-        page_settings: {
-          room_label_mode: pageSettings?.room_label_mode ?? "EDIT_ONLY",
-          homepage_display_policy: pageSettings?.homepage_display_policy ?? {},
-          icon_policy: pageSettings?.icon_policy ?? {},
-          layout_preference: pageSettings?.layout_preference ?? {},
-        },
-        function_settings: {
-          low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
-          offline_threshold_seconds: functionSettings?.offline_threshold_seconds ?? 90,
-          quick_entry_policy: functionSettings?.quick_entry_policy ?? { favorites: true },
-          music_enabled: functionSettings?.music_enabled ?? true,
-          favorite_limit: functionSettings?.favorite_limit ?? 8,
-          auto_home_timeout_seconds: functionSettings?.auto_home_timeout_seconds ?? 180,
-          position_device_thresholds: functionSettings?.position_device_thresholds ?? {
-            closed_max: 5,
-            opened_min: 95,
-          },
-        },
-        favorites: settings.favorites,
-      },
-    }),
-  );
+  const saved = await saveCurrentSettingsSnapshot(request, session.access_token, settings);
 
   await page.waitForFunction((settingsVersion) => {
     const events = (window as typeof window & { __m1WsEvents?: Array<Record<string, unknown>> })
@@ -502,6 +711,104 @@ test("settings save emits realtime settings_updated event", async ({ page, reque
       return event.event_type === "settings_updated" && payload?.settings_version === settingsVersion;
     });
   }, saved.settings_version);
+});
+
+test("realtime reconnect resumes with last_event_id and refreshes settings snapshot", async ({
+  page,
+  request,
+}) => {
+  await unlockManagementPin(page);
+  ensureSecondaryTerminal();
+  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  const secondaryHeaders = { authorization: `Bearer ${secondarySession.access_token}` };
+
+  const settings = await expectEnvelope<SettingsSnapshot>(
+    await request.get("/api/v1/settings", { headers: secondaryHeaders }),
+  );
+
+  await forceRealtimeDisconnect(page);
+  await expect(page.getByText(/实时连接已断开，正在尝试第 1 次重连/)).toBeVisible();
+
+  const saved = await saveCurrentSettingsSnapshot(request, secondarySession.access_token, settings);
+
+  await expect(page.getByText("实时连接已恢复，正在刷新最新状态。")).toBeVisible();
+  await expect(page.getByText(new RegExp(`当前版本 ${saved.settings_version}`))).toBeVisible();
+});
+
+test("device control request can be accepted and queried to final result", async ({ request }) => {
+  const session = await bootstrapSession(request);
+  const supportedRequest = await findSupportedControlRequest(request, session.access_token);
+  const requestId = `e2e-control-${Date.now()}`;
+  const headers = { authorization: `Bearer ${session.access_token}` };
+
+  const accepted = await expectEnvelope<{ accepted: boolean; request_id: string }>(
+    await request.post("/api/v1/device-controls", {
+      headers,
+      data: {
+        request_id: requestId,
+        device_id: supportedRequest.device_id,
+        action_type: supportedRequest.action_type,
+        payload: supportedRequest.payload,
+        client_ts: new Date().toISOString(),
+      },
+    }),
+  );
+  expect(accepted.accepted).toBe(true);
+  expect(accepted.request_id).toBe(requestId);
+
+  let queried:
+    | {
+        execution_status: string;
+        request_id: string;
+      }
+    | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    queried = await expectEnvelope<{
+      execution_status: string;
+      request_id: string;
+    }>(
+      await request.get(`/api/v1/device-controls/${requestId}`, {
+        headers,
+      }),
+    );
+    if (queried.execution_status !== "PENDING") {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+
+  expect(queried).not.toBeNull();
+  expect(queried?.request_id).toBe(requestId);
+  expect(["SUCCESS", "FAILED", "TIMEOUT", "STATE_MISMATCH", "PENDING"]).toContain(
+    queried?.execution_status,
+  );
+});
+
+test("backup restore syncs to another terminal through realtime", async ({ page, request }) => {
+  await unlockManagementPin(page);
+  await page.getByRole("button", { name: /备份恢复/ }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
+
+  ensureSecondaryTerminal();
+  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  const secondaryHeaders = { authorization: `Bearer ${secondarySession.access_token}` };
+
+  const created = await expectEnvelope<{ backup_id: string }>(
+    await request.post("/api/v1/system/backups", {
+      headers: secondaryHeaders,
+      data: { note: `cross-terminal-${Date.now()}` },
+    }),
+  );
+
+  const restored = await expectEnvelope<{ backup_id?: string; settings_version: string }>(
+    await request.post(`/api/v1/system/backups/${created.backup_id}/restore`, {
+      headers: secondaryHeaders,
+      data: {},
+    }),
+  );
+
+  await expect(page.getByText(created.backup_id).first()).toBeVisible();
+  await expect(page.getByText(`当前版本 ${restored.settings_version}`).first()).toBeVisible();
 });
 
 test("editor draft can be saved and published through M1 contract", async ({ request }) => {

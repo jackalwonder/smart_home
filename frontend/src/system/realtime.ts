@@ -97,6 +97,10 @@ async function refreshSnapshots(targets: SnapshotTarget[]) {
   ]);
 }
 
+function refreshAllSnapshots() {
+  scheduleSnapshotRefresh(["home", "settings", "editor"]);
+}
+
 function flushSnapshotRefreshes() {
   const targets = [...pendingSnapshotTargets];
   pendingSnapshotTargets = new Set();
@@ -134,21 +138,39 @@ export function syncRealtimeSession(session: SessionModel) {
       connectionStatus: "idle",
       lastEventType: null,
       lastSequence: null,
+      reconnectAttempt: 0,
+      notice: null,
     });
     return;
   }
 
   wsClient.connect({
     session,
-    onConnectionChange: (connectionStatus) =>
-      appStore.setRealtimeState({ connectionStatus }),
+    onConnectionChange: ({ status, reconnectAttempt, recovered }) =>
+      appStore.setRealtimeState({
+        connectionStatus: status,
+        reconnectAttempt,
+        notice:
+          status === "reconnecting"
+            ? `实时连接已断开，正在尝试第 ${reconnectAttempt} 次重连。`
+            : recovered
+              ? "实时连接已恢复，正在刷新最新状态。"
+              : status === "connecting"
+                ? "正在建立实时连接。"
+                : null,
+      }),
     onEvent: (event) => {
       appStore.setRealtimeState({
         connectionStatus: "connected",
         lastEventType: event.event_type,
         lastSequence: event.sequence,
+        reconnectAttempt: 0,
+        notice: null,
       });
       scheduleSnapshotRefresh(targetsForEvent(event));
+    },
+    onRecovered: () => {
+      refreshAllSnapshots();
     },
   });
 }

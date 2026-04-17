@@ -19,9 +19,11 @@ interface PinState {
 }
 
 interface RealtimeState {
-  connectionStatus: "idle" | "connecting" | "connected" | "disconnected";
+  connectionStatus: "idle" | "connecting" | "connected" | "reconnecting" | "disconnected";
   lastSequence: number | null;
   lastEventType: WsEventType | null;
+  reconnectAttempt: number;
+  notice: string | null;
 }
 
 interface HomeState {
@@ -70,7 +72,13 @@ let state: AppState = {
     remainingLockSeconds: 0,
     error: null,
   },
-  realtime: { connectionStatus: "idle", lastSequence: null, lastEventType: null },
+  realtime: {
+    connectionStatus: "idle",
+    lastSequence: null,
+    lastEventType: null,
+    reconnectAttempt: 0,
+    notice: null,
+  },
   home: { status: "idle", data: null, error: null },
   settings: { status: "idle", data: null, error: null },
   editor: {
@@ -161,6 +169,11 @@ export const appStore = {
     setState((current) => ({
       ...current,
       realtime: { ...current.realtime, ...payload },
+    })),
+  clearRealtimeNotice: () =>
+    setState((current) => ({
+      ...current,
+      realtime: { ...current.realtime, notice: null },
     })),
   pushWsEvent: (event: WsEvent) =>
     setState((current) => ({
