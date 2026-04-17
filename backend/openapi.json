@@ -2084,6 +2084,17 @@
             "title": "Device Id",
             "type": "string"
           },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
           "hotspot_id": {
             "title": "Hotspot Id",
             "type": "string"

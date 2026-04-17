@@ -154,6 +154,7 @@ class EditorDraftLayoutImageSizeResponse(ApiSchema):
 class EditorDraftHotspotResponse(ApiSchema):
     hotspot_id: str
     device_id: str
+    display_name: str | None = None
     x: float
     y: float
     icon_type: str | None = None

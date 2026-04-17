@@ -43,17 +43,29 @@ class EditorDraftQueryRepositoryImpl:
                     text(
                         """
                         SELECT
-                            hotspot_id,
-                            device_id::text AS device_id,
-                            x::float8 AS x,
-                            y::float8 AS y,
-                            icon_type,
-                            label_mode,
-                            is_visible,
-                            structure_order
-                        FROM draft_hotspots
-                        WHERE draft_layout_id = :draft_layout_id
-                        ORDER BY structure_order ASC, hotspot_id ASC
+                            dh.hotspot_id,
+                            dh.device_id::text AS device_id,
+                            COALESCE(
+                                draft_context.layout_meta_json -> 'hotspot_labels' ->> dh.hotspot_id,
+                                d.display_name,
+                                dh.device_id::text
+                            ) AS display_name,
+                            dh.x::float8 AS x,
+                            dh.y::float8 AS y,
+                            dh.icon_type,
+                            dh.label_mode,
+                            dh.is_visible,
+                            dh.structure_order
+                        FROM draft_hotspots dh
+                        CROSS JOIN (
+                            SELECT layout_meta_json
+                            FROM draft_layouts
+                            WHERE id = :draft_layout_id
+                        ) draft_context
+                        LEFT JOIN devices d
+                          ON d.id = dh.device_id
+                        WHERE dh.draft_layout_id = :draft_layout_id
+                        ORDER BY dh.structure_order ASC, dh.hotspot_id ASC
                         """
                     ),
                     {"draft_layout_id": draft["id"]},
@@ -93,6 +105,7 @@ class EditorDraftQueryRepositoryImpl:
                 {
                     "hotspot_id": row["hotspot_id"],
                     "device_id": row["device_id"],
+                    "display_name": row["display_name"],
                     "x": row["x"],
                     "y": row["y"],
                     "icon_type": row["icon_type"],

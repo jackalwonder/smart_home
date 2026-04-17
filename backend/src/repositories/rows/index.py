@@ -108,6 +108,7 @@ class CurrentLayoutVersionRow:
     layout_version: str
     background_asset_id: str | None
     effective_at: str
+    layout_meta_json: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

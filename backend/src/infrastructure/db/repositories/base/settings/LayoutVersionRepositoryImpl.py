@@ -16,6 +16,7 @@ def _to_layout_version_row(row) -> CurrentLayoutVersionRow:
         layout_version=row["layout_version"],
         background_asset_id=row["background_asset_id"],
         effective_at=row["effective_at"],
+        layout_meta_json=as_dict(row["layout_meta_json"]),
     )
 
 
@@ -35,6 +36,7 @@ class LayoutVersionRepositoryImpl:
                 home_id::text AS home_id,
                 layout_version,
                 background_asset_id::text AS background_asset_id,
+                layout_meta_json,
                 effective_at::text AS effective_at
             FROM v_current_layout_versions
             WHERE home_id = :home_id
@@ -73,6 +75,7 @@ class LayoutVersionRepositoryImpl:
                 home_id::text AS home_id,
                 layout_version,
                 background_asset_id::text AS background_asset_id,
+                layout_meta_json,
                 effective_at::text AS effective_at
             """
         )
