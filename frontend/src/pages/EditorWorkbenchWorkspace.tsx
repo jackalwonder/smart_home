@@ -10,6 +10,7 @@ import {
   discardEditorDraft,
   fetchEditorDraft,
   heartbeatEditorSession,
+  previewEditorDraftDiff,
   publishEditorDraft,
   saveEditorDraft,
   takeoverEditorSession,
@@ -17,7 +18,7 @@ import {
 import { fetchDevices } from "../api/devicesApi";
 import { normalizeApiError } from "../api/httpClient";
 import { uploadFloorplanAsset } from "../api/pageAssetsApi";
-import { DeviceListItemDto } from "../api/types";
+import { DeviceListItemDto, EditorDraftDiffDto } from "../api/types";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { mapEditorViewModel } from "../view-models/editor";
 import { EditorHotspotViewModel } from "../view-models/editor";
@@ -63,6 +64,7 @@ type EditorBulkDistributeAction = "horizontal" | "vertical";
 interface EditorPublishSummaryItem {
   label: string;
   value: string;
+  count?: number;
 }
 
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
@@ -366,11 +368,55 @@ function clampPosition(value: number) {
 }
 
 function parseLayoutMetaText(value: string) {
+  const parsed = JSON.parse(value || "{}");
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>)
+    : {};
+}
+
+function buildDraftHotspotInputs(hotspots: EditorHotspotViewModel[]) {
+  return hotspots.map((hotspot, index) => ({
+    hotspot_id: hotspot.id,
+    device_id: hotspot.deviceId.trim(),
+    x: hotspot.x,
+    y: hotspot.y,
+    icon_type: hotspot.iconType,
+    label_mode: hotspot.labelMode,
+    is_visible: hotspot.isVisible,
+    structure_order: hotspot.structureOrder ?? index,
+  }));
+}
+
+function buildDraftDiffInput(
+  draftState: EditorDraftState,
+  baseLayoutVersion: string | null,
+) {
+  const parsedLayoutMeta = parseLayoutMetaText(draftState.layoutMetaText);
+  return {
+    base_layout_version: baseLayoutVersion,
+    background_asset_id: draftState.backgroundAssetId,
+    layout_meta: buildLayoutMetaWithHotspotLabels(parsedLayoutMeta, draftState.hotspots),
+    hotspots: buildDraftHotspotInputs(draftState.hotspots),
+  };
+}
+
+function mapPublishSummary(diff: EditorDraftDiffDto): {
+  items: EditorPublishSummaryItem[];
+  totalChanges: number;
+} {
+  return {
+    totalChanges: diff.total_changes ?? 0,
+    items: (diff.items ?? []).map((item) => ({
+      label: item.label ?? "-",
+      value: item.summary ?? "-",
+      count: item.count ?? undefined,
+    })),
+  };
+}
+
+function parseLayoutMetaTextSafe(value: string) {
   try {
-    const parsed = JSON.parse(value || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
+    return parseLayoutMetaText(value);
   } catch {
     return {};
   }
@@ -391,33 +437,12 @@ function normalizeForComparison(value: unknown): unknown {
   return value;
 }
 
-function isLayoutMetaChanged(current: string, baseline: string) {
-  return (
-    JSON.stringify(normalizeForComparison(parseLayoutMetaText(current))) !==
-    JSON.stringify(normalizeForComparison(parseLayoutMetaText(baseline)))
-  );
-}
-
 function formatHotspotList(hotspots: EditorHotspotViewModel[]) {
   const names = hotspots.slice(0, 3).map((hotspot) => hotspot.label || hotspot.id);
   return hotspots.length > 3 ? `${names.join("、")} 等 ${hotspots.length} 个` : names.join("、");
 }
 
-function addSummaryItem(
-  items: EditorPublishSummaryItem[],
-  label: string,
-  hotspots: EditorHotspotViewModel[],
-) {
-  if (hotspots.length) {
-    items.push({
-      label,
-      value: formatHotspotList(hotspots),
-    });
-  }
-  return hotspots.length;
-}
-
-function buildPublishSummary(
+function buildLocalPublishSummary(
   current: EditorDraftState,
   baseline: EditorDraftState | null,
 ): { items: EditorPublishSummaryItem[]; totalChanges: number } {
@@ -462,25 +487,46 @@ function buildPublishSummary(
   }
 
   const items: EditorPublishSummaryItem[] = [];
+  const groups: Array<[string, EditorHotspotViewModel[]]> = [
+    ["新增热点", added],
+    ["移除热点", removed],
+    ["位置调整", moved],
+    ["名称更新", relabeled],
+    ["设备绑定更新", rebound],
+    ["展示样式更新", restyled],
+    ["排序更新", reordered],
+  ];
   let totalChanges = 0;
-  totalChanges += addSummaryItem(items, "新增热点", added);
-  totalChanges += addSummaryItem(items, "移除热点", removed);
-  totalChanges += addSummaryItem(items, "位置调整", moved);
-  totalChanges += addSummaryItem(items, "名称更新", relabeled);
-  totalChanges += addSummaryItem(items, "设备绑定更新", rebound);
-  totalChanges += addSummaryItem(items, "展示样式更新", restyled);
-  totalChanges += addSummaryItem(items, "排序更新", reordered);
+  for (const [label, hotspots] of groups) {
+    if (!hotspots.length) {
+      continue;
+    }
+    items.push({
+      label,
+      value: formatHotspotList(hotspots),
+      count: hotspots.length,
+    });
+    totalChanges += hotspots.length;
+  }
 
   if (current.backgroundAssetId !== baseline.backgroundAssetId) {
     items.push({
       label: "背景图更新",
       value: current.backgroundAssetId ? "已设置或替换背景图" : "已清除背景图",
+      count: 1,
     });
     totalChanges += 1;
   }
 
-  if (isLayoutMetaChanged(current.layoutMetaText, baseline.layoutMetaText)) {
-    items.push({ label: "布局元数据更新", value: "JSON 元数据已修改" });
+  if (
+    JSON.stringify(normalizeForComparison(parseLayoutMetaTextSafe(current.layoutMetaText))) !==
+    JSON.stringify(normalizeForComparison(parseLayoutMetaTextSafe(baseline.layoutMetaText)))
+  ) {
+    items.push({
+      label: "布局元数据更新",
+      value: "JSON 元数据已修改",
+      count: 1,
+    });
     totalChanges += 1;
   }
 
@@ -505,6 +551,12 @@ export function EditorWorkbenchWorkspace() {
     hotspots: [],
   });
   const [publishBaseline, setPublishBaseline] = useState<EditorDraftState | null>(null);
+  const [publishSummary, setPublishSummary] = useState<{
+    items: EditorPublishSummaryItem[];
+    totalChanges: number;
+  }>({ items: [], totalChanges: 0 });
+  const [publishSummaryLoading, setPublishSummaryLoading] = useState(false);
+  const [publishSummaryError, setPublishSummaryError] = useState<string | null>(null);
   const [deviceCatalog, setDeviceCatalog] = useState<DeviceListItemDto[]>([]);
   const [deviceCatalogLoading, setDeviceCatalogLoading] = useState(false);
   const [editorNotice, setEditorNotice] = useState<EditorNoticeState | null>(null);
@@ -803,6 +855,48 @@ export function EditorWorkbenchWorkspace() {
     editor.lockStatus,
   ]);
 
+  useEffect(() => {
+    let active = true;
+    let timer = 0;
+
+    timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const diffInput = buildDraftDiffInput(draftState, editor.baseLayoutVersion);
+          if (!active) {
+            return;
+          }
+          setPublishSummaryLoading(true);
+          setPublishSummaryError(null);
+          const diff = await previewEditorDraftDiff(diffInput);
+          if (!active) {
+            return;
+          }
+          setPublishSummary(mapPublishSummary(diff));
+        } catch (error) {
+          if (!active) {
+            return;
+          }
+          setPublishSummary({ items: [], totalChanges: 0 });
+          setPublishSummaryError(
+            error instanceof SyntaxError
+              ? "布局元数据暂时不可解析，发布前摘要不可用。"
+              : "暂时无法读取后端发布摘要，请稍后重试。",
+          );
+        } finally {
+          if (active) {
+            setPublishSummaryLoading(false);
+          }
+        }
+      })();
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [draftState, editor.baseLayoutVersion]);
+
   const visibleHotspots = sortHotspots(
     draftState.hotspots.filter((hotspot) =>
       `${hotspot.label} ${hotspot.deviceId}`.toLowerCase().includes(searchValue.trim().toLowerCase()),
@@ -821,12 +915,31 @@ export function EditorWorkbenchWorkspace() {
   const selectedBatchHotspots = sortHotspots(
     draftState.hotspots.filter((hotspot) => batchSelectedHotspotIds.includes(hotspot.id)),
   );
-  const publishSummary = buildPublishSummary(draftState, publishBaseline);
+  const localPublishSummary = buildLocalPublishSummary(draftState, publishBaseline);
+  const effectivePublishSummary =
+    publishSummary.totalChanges > 0 ? publishSummary : localPublishSummary;
+  const effectivePublishSummaryError =
+    effectivePublishSummary.totalChanges > 0 ? null : publishSummaryError;
+  const effectivePublishSummaryLoading =
+    publishSummaryLoading && effectivePublishSummary.totalChanges === 0;
   const canEdit = !editor.readonly && editor.lockStatus === "GRANTED";
   const canAcquire =
     pin.active && editor.lockStatus !== "GRANTED" && editor.lockStatus !== "LOCKED_BY_OTHER";
   const canTakeover = pin.active && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
   const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
+
+  function selectSingleHotspot(hotspotId: string, options?: { keepBatch?: boolean }) {
+    setSelectedHotspotId(hotspotId);
+    if (!options?.keepBatch) {
+      setBatchSelectedHotspotIds([]);
+    }
+  }
+
+  function replaceBatchSelection(hotspotIds: string[]) {
+    const next = Array.from(new Set(hotspotIds));
+    setBatchSelectedHotspotIds(next);
+    setSelectedHotspotId(next[0] ?? null);
+  }
 
   function toggleBatchHotspot(hotspotId: string) {
     setBatchSelectedHotspotIds((current) =>
@@ -836,8 +949,20 @@ export function EditorWorkbenchWorkspace() {
     );
   }
 
+  function handleCanvasHotspotPointer(
+    hotspotId: string,
+    options?: { toggleBatch?: boolean; preserveBatch?: boolean },
+  ) {
+    if (options?.toggleBatch) {
+      toggleBatchHotspot(hotspotId);
+      setSelectedHotspotId(hotspotId);
+      return;
+    }
+    selectSingleHotspot(hotspotId, { keepBatch: options?.preserveBatch });
+  }
+
   function selectAllVisibleHotspots() {
-    setBatchSelectedHotspotIds(visibleHotspots.map((hotspot) => hotspot.id));
+    replaceBatchSelection(visibleHotspots.map((hotspot) => hotspot.id));
   }
 
   function clearBatchSelection() {
@@ -1094,6 +1219,7 @@ export function EditorWorkbenchWorkspace() {
       hotspots: resequenceHotspots([...current.hotspots, duplicatedHotspot]),
     }));
     setSelectedHotspotId(duplicatedHotspot.id);
+    setBatchSelectedHotspotIds([]);
   }
 
   function moveHotspot(hotspotId: string, x: number, y: number) {
@@ -1101,11 +1227,29 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
+    setSelectedHotspotId(hotspotId);
     setDraftState((current) => ({
       ...current,
       hotspots: current.hotspots.map((hotspot) =>
         hotspot.id === hotspotId ? { ...hotspot, x, y } : hotspot,
       ),
+    }));
+  }
+
+  function moveHotspotGroup(updates: Array<{ hotspotId: string; x: number; y: number }>) {
+    if (!canEdit || !updates.length) {
+      return;
+    }
+
+    const updatesById = new Map(
+      updates.map((update) => [update.hotspotId, { x: update.x, y: update.y }]),
+    );
+    setDraftState((current) => ({
+      ...current,
+      hotspots: current.hotspots.map((hotspot) => {
+        const next = updatesById.get(hotspot.id);
+        return next ? { ...hotspot, x: next.x, y: next.y } : hotspot;
+      }),
     }));
   }
 
@@ -1131,6 +1275,7 @@ export function EditorWorkbenchWorkspace() {
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
     }));
     setSelectedHotspotId(newHotspot.id);
+    setBatchSelectedHotspotIds([]);
   }
 
   function addDeviceHotspot(device: DeviceListItemDto) {
@@ -1164,6 +1309,7 @@ export function EditorWorkbenchWorkspace() {
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
     }));
     setSelectedHotspotId(newHotspot.id);
+    setBatchSelectedHotspotIds([]);
     showEditorNotice({
       tone: "success",
       title: "草稿已更新",
@@ -1415,30 +1561,15 @@ export function EditorWorkbenchWorkspace() {
     }
 
     try {
-      const parsedLayoutMeta = JSON.parse(draftState.layoutMetaText || "{}");
-      const layoutMeta =
-        parsedLayoutMeta && typeof parsedLayoutMeta === "object" && !Array.isArray(parsedLayoutMeta)
-          ? buildLayoutMetaWithHotspotLabels(
-              parsedLayoutMeta as Record<string, unknown>,
-              draftState.hotspots,
-            )
-          : buildLayoutMetaWithHotspotLabels({}, draftState.hotspots);
+      const parsedLayoutMeta = parseLayoutMetaText(draftState.layoutMetaText);
+      const layoutMeta = buildLayoutMetaWithHotspotLabels(parsedLayoutMeta, draftState.hotspots);
       await saveEditorDraft({
         lease_id: editor.leaseId,
         draft_version: editor.draftVersion,
         base_layout_version: editor.baseLayoutVersion,
         background_asset_id: draftState.backgroundAssetId,
         layout_meta: layoutMeta,
-        hotspots: draftState.hotspots.map((hotspot, index) => ({
-          hotspot_id: hotspot.id,
-          device_id: hotspot.deviceId.trim(),
-          x: hotspot.x,
-          y: hotspot.y,
-          icon_type: hotspot.iconType,
-          label_mode: hotspot.labelMode,
-          is_visible: hotspot.isVisible,
-          structure_order: hotspot.structureOrder ?? index,
-        })),
+        hotspots: buildDraftHotspotInputs(draftState.hotspots),
       });
       const refreshed = await refreshDraft(editor.leaseId);
       appStore.setEditorSession({
@@ -1500,6 +1631,7 @@ export function EditorWorkbenchWorkspace() {
       });
       await refreshDraft();
       setSelectedHotspotId(null);
+      setBatchSelectedHotspotIds([]);
       showEditorNotice({
         tone: "success",
         title: "草稿已发布",
@@ -1590,6 +1722,7 @@ export function EditorWorkbenchWorkspace() {
       });
       await refreshDraft();
       setSelectedHotspotId(null);
+      setBatchSelectedHotspotIds([]);
       showEditorNotice({
         tone: "success",
         title: "草稿已丢弃",
@@ -1688,8 +1821,10 @@ export function EditorWorkbenchWorkspace() {
         takeoverBusy={isTakingOver}
       />
       <EditorPublishSummary
-        items={publishSummary.items}
-        totalChanges={publishSummary.totalChanges}
+        errorMessage={effectivePublishSummaryError}
+        isLoading={effectivePublishSummaryLoading}
+        items={effectivePublishSummary.items}
+        totalChanges={effectivePublishSummary.totalChanges}
       />
       <div className="editor-workbench">
         <EditorToolbox
@@ -1702,19 +1837,22 @@ export function EditorWorkbenchWorkspace() {
           onClearBatchSelection={clearBatchSelection}
           onSearchChange={setSearchValue}
           onSelectAllHotspots={selectAllVisibleHotspots}
-          onSelectHotspot={setSelectedHotspotId}
+          onSelectHotspot={selectSingleHotspot}
           onToggleBatchHotspot={toggleBatchHotspot}
           searchValue={searchValue}
           selectedHotspotId={selectedHotspotId}
         />
         <EditorCanvasWorkspace
+          batchSelectedHotspotIds={batchSelectedHotspotIds}
           backgroundImageUrl={draftState.backgroundImageUrl}
           canEdit={canEdit}
           hotspots={draftState.hotspots}
           mode={canvasMode}
           onModeChange={setCanvasMode}
           onMoveHotspot={moveHotspot}
-          onSelectHotspot={setSelectedHotspotId}
+          onMoveHotspots={moveHotspotGroup}
+          onReplaceBatchSelection={replaceBatchSelection}
+          onSelectHotspot={handleCanvasHotspotPointer}
           selectedHotspotId={selectedHotspotId}
         />
         <EditorInspector

@@ -319,6 +319,18 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByRole("button", { name: "复制热点" }).click();
   await page.getByRole("button", { name: "全选当前" }).click();
   await expect(page.getByText("2 个热点已选")).toBeVisible();
+  const canvasHotspot = page.locator(".editor-selection-layer__item", { hasText: customLabel }).first();
+  const hotspotBox = await canvasHotspot.boundingBox();
+  expect(hotspotBox).toBeTruthy();
+  if (!hotspotBox) {
+    throw new Error("Canvas hotspot not found");
+  }
+  await page.mouse.move(hotspotBox.x + hotspotBox.width / 2, hotspotBox.y + hotspotBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hotspotBox.x + hotspotBox.width / 2 + 40, hotspotBox.y + hotspotBox.height / 2 + 30, {
+    steps: 8,
+  });
+  await page.mouse.up();
   await page.getByRole("button", { name: "左对齐" }).click();
   await page.getByLabel("统一标签模式").selectOption("ALWAYS");
   await expect(page.getByLabel("发布前变更摘要")).toContainText("新增热点");

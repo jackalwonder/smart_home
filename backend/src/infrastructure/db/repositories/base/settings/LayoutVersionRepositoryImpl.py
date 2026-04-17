@@ -46,6 +46,37 @@ class LayoutVersionRepositoryImpl:
             row = (await session.execute(stmt, {"home_id": home_id})).mappings().one_or_none()
         return _to_layout_version_row(row) if row is not None else None
 
+    async def find_by_home_and_layout_version(
+        self,
+        home_id: str,
+        layout_version: str,
+        ctx: RepoContext | None = None,
+    ) -> CurrentLayoutVersionRow | None:
+        stmt = text(
+            """
+            SELECT
+                id::text AS id,
+                home_id::text AS home_id,
+                layout_version,
+                background_asset_id::text AS background_asset_id,
+                layout_meta_json,
+                effective_at::text AS effective_at
+            FROM layout_versions
+            WHERE home_id = :home_id
+              AND layout_version = :layout_version
+            ORDER BY effective_at DESC
+            LIMIT 1
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            row = (
+                await session.execute(
+                    stmt,
+                    {"home_id": home_id, "layout_version": layout_version},
+                )
+            ).mappings().one_or_none()
+        return _to_layout_version_row(row) if row is not None else None
+
     async def insert(
         self,
         input: NewLayoutVersionRow,

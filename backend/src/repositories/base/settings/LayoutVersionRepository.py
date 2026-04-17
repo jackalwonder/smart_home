@@ -25,6 +25,13 @@ class LayoutVersionRepository(Protocol):
         ctx: RepoContext | None = None,
     ) -> CurrentLayoutVersionRow | None: ...
 
+    async def find_by_home_and_layout_version(
+        self,
+        home_id: str,
+        layout_version: str,
+        ctx: RepoContext | None = None,
+    ) -> CurrentLayoutVersionRow | None: ...
+
     async def insert(
         self,
         input: NewLayoutVersionRow,

@@ -7,7 +7,12 @@ from src.app.container import (
     get_request_context_service,
 )
 from src.modules.auth.services.query.RequestContextService import RequestContext
-from src.modules.editor.services.EditorDraftService import EditorDraftSaveView, EditorDraftView
+from src.modules.editor.services.EditorDraftService import (
+    EditorDraftDiffItemView,
+    EditorDraftDiffView,
+    EditorDraftSaveView,
+    EditorDraftView,
+)
 from src.modules.editor.services.EditorPublishService import EditorPublishView
 from src.modules.editor.services.EditorSessionService import (
     EditorHeartbeatView,
@@ -63,6 +68,30 @@ class FakeEditorDraftService:
             readonly=False,
         )
 
+    async def preview_diff(self, _input):
+        return EditorDraftDiffView(
+            base_layout_version="INITIAL",
+            compared_layout_version="INITIAL",
+            has_changes=True,
+            total_changes=2,
+            items=[
+                EditorDraftDiffItemView(
+                    change_type="added",
+                    label="新增热点",
+                    count=1,
+                    summary="热点 1",
+                    preview=["热点 1"],
+                ),
+                EditorDraftDiffItemView(
+                    change_type="background",
+                    label="背景图更新",
+                    count=1,
+                    summary="已设置或替换背景图",
+                    preview=[],
+                ),
+            ],
+        )
+
     async def save_draft(self, input):
         assert isinstance(input.hotspots[0], dict)
         assert input.hotspots[0]["hotspot_id"] == "hs-1"
@@ -112,6 +141,31 @@ def test_open_and_get_editor_draft(app, client):
     assert draft_response.json()["data"]["draft_version"] == "dv_1"
     assert draft_response.json()["data"]["draft_exists"] is True
     assert draft_response.json()["data"]["layout"]["hotspots"][0]["hotspot_id"] == "hs-1"
+
+    diff_response = client.post(
+        "/api/v1/editor/draft/diff",
+        json={
+            "base_layout_version": "INITIAL",
+            "background_asset_id": "asset-1",
+            "layout_meta": {"density": "comfortable"},
+            "hotspots": [
+                {
+                    "hotspot_id": "hs-1",
+                    "device_id": "device-1",
+                    "x": 0.5,
+                    "y": 0.5,
+                    "icon_type": None,
+                    "label_mode": None,
+                    "is_visible": True,
+                    "structure_order": 0,
+                }
+            ],
+        },
+    )
+    assert diff_response.status_code == 200
+    assert diff_response.json()["success"] is True
+    assert diff_response.json()["data"]["total_changes"] == 2
+    assert diff_response.json()["data"]["items"][0]["label"] == "新增热点"
 
 
 def test_save_and_publish_editor_draft(app, client):

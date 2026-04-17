@@ -6,22 +6,31 @@ interface EditorCanvasWorkspaceProps {
   backgroundImageUrl: string | null;
   hotspots: EditorHotspotViewModel[];
   selectedHotspotId: string | null;
+  batchSelectedHotspotIds: string[];
   canEdit: boolean;
   mode: "edit" | "preview";
   onModeChange: (mode: "edit" | "preview") => void;
-  onSelectHotspot: (hotspotId: string) => void;
+  onSelectHotspot: (
+    hotspotId: string,
+    options?: { toggleBatch?: boolean; preserveBatch?: boolean },
+  ) => void;
+  onReplaceBatchSelection: (hotspotIds: string[]) => void;
   onMoveHotspot: (hotspotId: string, x: number, y: number) => void;
+  onMoveHotspots: (updates: Array<{ hotspotId: string; x: number; y: number }>) => void;
 }
 
 export function EditorCanvasWorkspace({
   backgroundImageUrl,
   hotspots,
   selectedHotspotId,
+  batchSelectedHotspotIds,
   canEdit,
   mode,
   onModeChange,
   onSelectHotspot,
+  onReplaceBatchSelection,
   onMoveHotspot,
+  onMoveHotspots,
 }: EditorCanvasWorkspaceProps) {
   const resolvedBackgroundImageUrl = resolveAssetImageUrl(backgroundImageUrl);
   const visibleHotspots = hotspots.filter((hotspot) => hotspot.isVisible);
@@ -34,7 +43,9 @@ export function EditorCanvasWorkspace({
           <span className="card-eyebrow">画布</span>
           <h3>{mode === "preview" ? "首页预览" : "当前草稿布局"}</h3>
           <p className="muted-copy">
-            {mode === "preview" ? "首页预览仅显示可见热点。" : "拖动热点调整位置，保存后写入草稿。"}
+            {mode === "preview"
+              ? "首页预览仅显示可见热点。"
+              : "拖动热点调整位置，空白处拖拽可框选多个热点。"}
           </p>
         </div>
         <div className="badge-row">
@@ -74,10 +85,13 @@ export function EditorCanvasWorkspace({
           </div>
         )}
         <EditorSelectionLayer
+          batchSelectedHotspotIds={batchSelectedHotspotIds}
           canEdit={canEdit && mode === "edit"}
           hotspots={displayedHotspots}
           mode={mode}
           onMoveHotspot={onMoveHotspot}
+          onMoveHotspots={onMoveHotspots}
+          onReplaceBatchSelection={onReplaceBatchSelection}
           onSelectHotspot={onSelectHotspot}
           selectedHotspotId={selectedHotspotId}
         />
