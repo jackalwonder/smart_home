@@ -164,7 +164,12 @@ class EditorDraftService:
             base_layout_version=draft.base_layout_version,
             lock_status=lock_status,
             layout={
-                "background_image_url": draft.background_asset_id,
+                "background_asset_id": draft.background_asset_id,
+                "background_image_url": (
+                    f"/api/v1/page-assets/floorplan/{draft.background_asset_id}/file"
+                    if draft.background_asset_id is not None
+                    else None
+                ),
                 "background_image_size": None,
                 "hotspots": draft.hotspots,
                 "layout_meta": draft.layout_meta,

@@ -31,7 +31,9 @@ export async function apiRequest<T>(
   }
 
   const headers = new Headers(init?.headers ?? undefined);
-  if (!headers.has("Content-Type")) {
+  const body = init?.body;
+  const hasFormDataBody = typeof FormData !== "undefined" && body instanceof FormData;
+  if (!headers.has("Content-Type") && !hasFormDataBody) {
     headers.set("Content-Type", "application/json");
   }
   if (accessToken) {

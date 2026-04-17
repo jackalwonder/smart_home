@@ -15,6 +15,7 @@ import {
 } from "../api/editorApi";
 import { fetchDevices } from "../api/devicesApi";
 import { normalizeApiError } from "../api/httpClient";
+import { uploadFloorplanAsset } from "../api/pageAssetsApi";
 import { DeviceListItemDto } from "../api/types";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { mapEditorViewModel } from "../view-models/editor";
@@ -22,6 +23,7 @@ import { EditorHotspotViewModel } from "../view-models/editor";
 import { WsEvent } from "../ws/types";
 
 interface EditorDraftState {
+  backgroundAssetId: string | null;
   backgroundImageUrl: string | null;
   layoutMetaText: string;
   hotspots: EditorHotspotViewModel[];
@@ -44,7 +46,7 @@ interface EditorNoticeState {
   actions?: EditorNoticeAction[];
 }
 
-type EditorActionKind = "save" | "publish" | "acquire" | "takeover" | "discard";
+type EditorActionKind = "save" | "publish" | "acquire" | "takeover" | "discard" | "upload";
 
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
 type DraftTakenOverEvent = Extract<WsEvent, { event_type: "draft_taken_over" }>;
@@ -74,6 +76,8 @@ function getEditorActionLabel(action: EditorActionKind) {
       return "接管编辑";
     case "discard":
       return "丢弃草稿";
+    case "upload":
+      return "上传背景图";
   }
 }
 
@@ -89,6 +93,8 @@ function getEditorRetryAction(action: EditorActionKind): EditorNoticeAction {
       return "retry-takeover";
     case "discard":
       return "retry-discard";
+    case "upload":
+      return "retry-save";
   }
 }
 
@@ -333,6 +339,7 @@ export function EditorWorkbenchWorkspace() {
   const [searchValue, setSearchValue] = useState("");
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<EditorDraftState>({
+    backgroundAssetId: null,
     backgroundImageUrl: null,
     layoutMetaText: "{}",
     hotspots: [],
@@ -346,6 +353,7 @@ export function EditorWorkbenchWorkspace() {
   const [isPublishingDraft, setIsPublishingDraft] = useState(false);
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
+  const [isUploadingBackground, setIsUploadingBackground] = useState(false);
 
   function setLockConflictNotice(conflictTerminalId?: string | null) {
     appStore.clearEditorError();
@@ -598,6 +606,7 @@ export function EditorWorkbenchWorkspace() {
 
   useEffect(() => {
     setDraftState({
+      backgroundAssetId: viewModel.backgroundAssetId,
       backgroundImageUrl: viewModel.backgroundImageUrl,
       layoutMetaText: stringifyLayoutMeta(viewModel.layoutMeta),
       hotspots: resequenceHotspots(viewModel.hotspots),
@@ -655,6 +664,11 @@ export function EditorWorkbenchWorkspace() {
           };
         }
 
+        if (field === "deviceId") {
+          const device = deviceCatalog.find((item) => item.device_id === value);
+          return { ...hotspot, deviceId: value, label: device?.display_name ?? hotspot.label };
+        }
+
         return { ...hotspot, [field]: value };
       });
 
@@ -664,6 +678,32 @@ export function EditorWorkbenchWorkspace() {
           field === "structureOrder" ? resequenceHotspots(nextHotspots) : nextHotspots,
       };
     });
+  }
+
+  async function handleUploadBackground(file: File) {
+    if (!canEdit) {
+      return;
+    }
+
+    clearEditorFeedback();
+    setIsUploadingBackground(true);
+    try {
+      const uploaded = await uploadFloorplanAsset({ file, replaceCurrent: false });
+      setDraftState((current) => ({
+        ...current,
+        backgroundAssetId: uploaded.asset_id,
+        backgroundImageUrl: uploaded.background_image_url,
+      }));
+      showEditorNotice({
+        tone: "success",
+        title: "背景图已更新",
+        detail: "图片已上传并应用到当前草稿。保存草稿后会写入后端，发布后进入首页布局。",
+      });
+    } catch (error) {
+      await handleEditorActionError(error, "upload");
+    } finally {
+      setIsUploadingBackground(false);
+    }
   }
 
   function updateHotspotVisibility(visible: boolean) {
@@ -999,7 +1039,7 @@ export function EditorWorkbenchWorkspace() {
         lease_id: editor.leaseId,
         draft_version: editor.draftVersion,
         base_layout_version: editor.baseLayoutVersion,
-        background_asset_id: draftState.backgroundImageUrl,
+        background_asset_id: draftState.backgroundAssetId,
         layout_meta: layoutMeta && typeof layoutMeta === "object" ? layoutMeta : {},
         hotspots: draftState.hotspots.map((hotspot, index) => ({
           hotspot_id: hotspot.id,
@@ -1280,18 +1320,22 @@ export function EditorWorkbenchWorkspace() {
           selectedHotspotId={selectedHotspotId}
         />
         <EditorInspector
+          backgroundAssetId={draftState.backgroundAssetId}
           backgroundImageUrl={draftState.backgroundImageUrl}
           canEdit={canEdit}
+          devices={deviceCatalog}
           hotspot={selectedHotspot}
           layoutMetaText={draftState.layoutMetaText}
           canMoveDown={selectedHotspotIndex > -1 && selectedHotspotIndex < orderedHotspots.length - 1}
           canMoveUp={selectedHotspotIndex > 0}
+          isUploadingBackground={isUploadingBackground}
           onChangeHotspot={updateHotspotField}
           onChangeLayoutMeta={(value) =>
             setDraftState((current) => ({ ...current, layoutMetaText: value }))
           }
           onDeleteHotspot={deleteSelectedHotspot}
           onMoveHotspot={moveSelectedHotspot}
+          onUploadBackground={(file) => void handleUploadBackground(file)}
           onToggleVisibility={updateHotspotVisibility}
           rows={viewModel.commandRows}
         />

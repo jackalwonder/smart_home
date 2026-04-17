@@ -1,4 +1,5 @@
 import { HomeHotspotViewModel } from "../../view-models/home";
+import { resolveAssetImageUrl } from "../../api/pageAssetsApi";
 import { HomeDeviceControlPanel } from "./HomeDeviceControlPanel";
 import { HomeHotspotOverlay } from "./HomeHotspotOverlay";
 
@@ -18,6 +19,7 @@ export function HomeCommandStage({
   cacheMode,
 }: HomeCommandStageProps) {
   const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? null;
+  const resolvedBackgroundImageUrl = resolveAssetImageUrl(backgroundImageUrl);
 
   return (
     <section className="panel home-command-stage">
@@ -34,11 +36,11 @@ export function HomeCommandStage({
 
       <div className="home-command-stage__surface">
         <div className="home-command-stage__canvas">
-          {backgroundImageUrl ? (
+          {resolvedBackgroundImageUrl ? (
             <img
               alt="家庭户型图"
               className="home-command-stage__image"
-              src={backgroundImageUrl}
+              src={resolvedBackgroundImageUrl}
             />
           ) : (
             <div className="floorplan-fallback home-command-stage__placeholder" aria-hidden="true">

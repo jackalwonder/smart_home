@@ -163,6 +163,7 @@ class EditorDraftHotspotResponse(ApiSchema):
 
 
 class EditorDraftLayoutResponse(ApiSchema):
+    background_asset_id: str | None = None
     background_image_url: str | None = None
     background_image_size: EditorDraftLayoutImageSizeResponse | None = None
     hotspots: list[EditorDraftHotspotResponse] = Field(default_factory=list)

@@ -4,6 +4,7 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse
 
 from src.app.container import get_floorplan_asset_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
@@ -62,3 +63,40 @@ async def upload_floorplan(
         replace_current=replace_current,
     )
     return success_response(request, FloorplanAssetResponse.model_validate(asdict(view)))
+
+
+@router.get(
+    "/floorplan/{asset_id}/file",
+    response_class=FileResponse,
+    response_model=str,
+    responses={
+        200: {
+            "description": "Floorplan image file",
+            "content": {
+                "image/png": {},
+                "image/jpeg": {},
+                "image/gif": {},
+                "image/webp": {},
+            },
+        }
+    },
+)
+async def get_floorplan_file(
+    asset_id: str,
+    request: Request,
+    home_id: str | None = None,
+    terminal_id: str | None = None,
+    service: FloorplanAssetService = Depends(get_floorplan_asset_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> FileResponse:
+    context = await request_context_service.resolve_http_request(
+        request,
+        explicit_home_id=home_id,
+        explicit_terminal_id=terminal_id,
+        require_home=True,
+    )
+    view = await service.get_floorplan_file(
+        home_id=context.home_id,
+        asset_id=asset_id,
+    )
+    return FileResponse(view.path, media_type=view.mime_type)

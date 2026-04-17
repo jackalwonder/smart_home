@@ -75,6 +75,7 @@ class HomeOverviewQueryRepositoryImpl:
                             layout_hotspots.x::float8 AS x,
                             layout_hotspots.y::float8 AS y,
                             layout_hotspots.icon_type,
+                            layout_hotspots.label_mode,
                             COALESCE(drs.status, 'UNKNOWN') AS status,
                             COALESCE(drs.is_offline, true) AS is_offline,
                             d.is_complex_device,
@@ -89,6 +90,7 @@ class HomeOverviewQueryRepositoryImpl:
                         LEFT JOIN device_runtime_states drs
                           ON drs.device_id = d.id
                         WHERE layout_hotspots.layout_version_id = :layout_version_id
+                          AND layout_hotspots.is_visible = true
                         ORDER BY layout_hotspots.structure_order ASC, layout_hotspots.created_at ASC
                         """
                     ),
@@ -318,6 +320,7 @@ class HomeOverviewQueryRepositoryImpl:
                     "x": row["x"],
                     "y": row["y"],
                     "icon_type": row["icon_type"],
+                    "label_mode": row["label_mode"],
                     "status": row["status"],
                     "is_offline": row["is_offline"],
                     "is_complex_device": row["is_complex_device"],

@@ -49,6 +49,12 @@ class FloorplanAssetView:
     updated_at: str
 
 
+@dataclass(frozen=True)
+class FloorplanAssetFileView:
+    path: str
+    mime_type: str
+
+
 class FloorplanAssetService:
     def __init__(
         self,
@@ -211,7 +217,45 @@ class FloorplanAssetService:
         return FloorplanAssetView(
             asset_updated=True,
             asset_id=row["asset_id"],
-            background_image_url=str(stored_path),
+            background_image_url=f"/api/v1/page-assets/floorplan/{row['asset_id']}/file",
             background_image_size={"width": width, "height": height},
             updated_at=row["updated_at"] or now_iso,
+        )
+
+    async def get_floorplan_file(
+        self,
+        *,
+        home_id: str,
+        asset_id: str,
+    ) -> FloorplanAssetFileView:
+        async with session_scope(self._database) as (session, _):
+            row = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT file_url, mime_type
+                        FROM page_assets
+                        WHERE home_id = :home_id
+                          AND id::text = :asset_id
+                          AND asset_type = 'FLOORPLAN'
+                        """
+                    ),
+                    {"home_id": home_id, "asset_id": asset_id},
+                )
+            ).mappings().one_or_none()
+
+        if row is None:
+            raise AppError(ErrorCode.NOT_FOUND, "floorplan asset not found")
+
+        path = Path(row["file_url"])
+        if not path.exists() or not path.is_file():
+            raise AppError(
+                ErrorCode.NOT_FOUND,
+                "floorplan asset file not found",
+                details={"asset_id": asset_id},
+            )
+
+        return FloorplanAssetFileView(
+            path=str(path),
+            mime_type=row["mime_type"] or "application/octet-stream",
         )
