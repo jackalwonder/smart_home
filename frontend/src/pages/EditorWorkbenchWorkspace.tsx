@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { EditorCanvasWorkspace } from "../components/editor/EditorCanvasWorkspace";
 import { EditorCommandBar } from "../components/editor/EditorCommandBar";
 import { EditorInspector } from "../components/editor/EditorInspector";
+import { EditorPublishSummary } from "../components/editor/EditorPublishSummary";
 import { EditorRealtimeFeed } from "../components/editor/EditorRealtimeFeed";
 import { EditorToolbox } from "../components/editor/EditorToolbox";
 import {
@@ -56,6 +57,13 @@ interface EditorNoticeState {
 }
 
 type EditorActionKind = "save" | "publish" | "acquire" | "takeover" | "discard" | "upload";
+type EditorBulkAlignAction = "left" | "right" | "top" | "bottom" | "centerX" | "centerY";
+type EditorBulkDistributeAction = "horizontal" | "vertical";
+
+interface EditorPublishSummaryItem {
+  label: string;
+  value: string;
+}
 
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
 type DraftTakenOverEvent = Extract<WsEvent, { event_type: "draft_taken_over" }>;
@@ -353,6 +361,132 @@ function buildLayoutMetaWithHotspotLabels(
   };
 }
 
+function clampPosition(value: number) {
+  return Math.min(Math.max(value, 0), 1);
+}
+
+function parseLayoutMetaText(value: string) {
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeForComparison(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeForComparison);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => key !== "hotspot_labels")
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, normalizeForComparison(item)]),
+    );
+  }
+  return value;
+}
+
+function isLayoutMetaChanged(current: string, baseline: string) {
+  return (
+    JSON.stringify(normalizeForComparison(parseLayoutMetaText(current))) !==
+    JSON.stringify(normalizeForComparison(parseLayoutMetaText(baseline)))
+  );
+}
+
+function formatHotspotList(hotspots: EditorHotspotViewModel[]) {
+  const names = hotspots.slice(0, 3).map((hotspot) => hotspot.label || hotspot.id);
+  return hotspots.length > 3 ? `${names.join("、")} 等 ${hotspots.length} 个` : names.join("、");
+}
+
+function addSummaryItem(
+  items: EditorPublishSummaryItem[],
+  label: string,
+  hotspots: EditorHotspotViewModel[],
+) {
+  if (hotspots.length) {
+    items.push({
+      label,
+      value: formatHotspotList(hotspots),
+    });
+  }
+  return hotspots.length;
+}
+
+function buildPublishSummary(
+  current: EditorDraftState,
+  baseline: EditorDraftState | null,
+): { items: EditorPublishSummaryItem[]; totalChanges: number } {
+  if (!baseline) {
+    return { items: [], totalChanges: 0 };
+  }
+
+  const currentById = new Map(current.hotspots.map((hotspot) => [hotspot.id, hotspot]));
+  const baselineById = new Map(baseline.hotspots.map((hotspot) => [hotspot.id, hotspot]));
+  const added = current.hotspots.filter((hotspot) => !baselineById.has(hotspot.id));
+  const removed = baseline.hotspots.filter((hotspot) => !currentById.has(hotspot.id));
+  const moved: EditorHotspotViewModel[] = [];
+  const relabeled: EditorHotspotViewModel[] = [];
+  const rebound: EditorHotspotViewModel[] = [];
+  const restyled: EditorHotspotViewModel[] = [];
+  const reordered: EditorHotspotViewModel[] = [];
+
+  for (const hotspot of current.hotspots) {
+    const previous = baselineById.get(hotspot.id);
+    if (!previous) {
+      continue;
+    }
+    if (Math.abs(hotspot.x - previous.x) > 0.0005 || Math.abs(hotspot.y - previous.y) > 0.0005) {
+      moved.push(hotspot);
+    }
+    if (hotspot.label !== previous.label) {
+      relabeled.push(hotspot);
+    }
+    if (hotspot.deviceId !== previous.deviceId) {
+      rebound.push(hotspot);
+    }
+    if (
+      hotspot.iconType !== previous.iconType ||
+      hotspot.labelMode !== previous.labelMode ||
+      hotspot.isVisible !== previous.isVisible
+    ) {
+      restyled.push(hotspot);
+    }
+    if (hotspot.structureOrder !== previous.structureOrder) {
+      reordered.push(hotspot);
+    }
+  }
+
+  const items: EditorPublishSummaryItem[] = [];
+  let totalChanges = 0;
+  totalChanges += addSummaryItem(items, "新增热点", added);
+  totalChanges += addSummaryItem(items, "移除热点", removed);
+  totalChanges += addSummaryItem(items, "位置调整", moved);
+  totalChanges += addSummaryItem(items, "名称更新", relabeled);
+  totalChanges += addSummaryItem(items, "设备绑定更新", rebound);
+  totalChanges += addSummaryItem(items, "展示样式更新", restyled);
+  totalChanges += addSummaryItem(items, "排序更新", reordered);
+
+  if (current.backgroundAssetId !== baseline.backgroundAssetId) {
+    items.push({
+      label: "背景图更新",
+      value: current.backgroundAssetId ? "已设置或替换背景图" : "已清除背景图",
+    });
+    totalChanges += 1;
+  }
+
+  if (isLayoutMetaChanged(current.layoutMetaText, baseline.layoutMetaText)) {
+    items.push({ label: "布局元数据更新", value: "JSON 元数据已修改" });
+    totalChanges += 1;
+  }
+
+  return { items, totalChanges };
+}
+
 export function EditorWorkbenchWorkspace() {
   const session = useAppStore((state) => state.session);
   const editor = useAppStore((state) => state.editor);
@@ -362,6 +496,7 @@ export function EditorWorkbenchWorkspace() {
   const pinSessionActive = session.data?.pinSessionActive ?? false;
   const [searchValue, setSearchValue] = useState("");
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [batchSelectedHotspotIds, setBatchSelectedHotspotIds] = useState<string[]>([]);
   const [canvasMode, setCanvasMode] = useState<"edit" | "preview">("edit");
   const [draftState, setDraftState] = useState<EditorDraftState>({
     backgroundAssetId: null,
@@ -369,10 +504,12 @@ export function EditorWorkbenchWorkspace() {
     layoutMetaText: "{}",
     hotspots: [],
   });
+  const [publishBaseline, setPublishBaseline] = useState<EditorDraftState | null>(null);
   const [deviceCatalog, setDeviceCatalog] = useState<DeviceListItemDto[]>([]);
   const [deviceCatalogLoading, setDeviceCatalogLoading] = useState(false);
   const [editorNotice, setEditorNotice] = useState<EditorNoticeState | null>(null);
   const handledRealtimeEventIdRef = useRef<string | null>(null);
+  const publishBaselineLeaseIdRef = useRef<string | null>(null);
   const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishingDraft, setIsPublishingDraft] = useState(false);
@@ -630,14 +767,41 @@ export function EditorWorkbenchWorkspace() {
   });
 
   useEffect(() => {
-    setDraftState({
+    const nextDraftState = {
       backgroundAssetId: viewModel.backgroundAssetId,
       backgroundImageUrl: viewModel.backgroundImageUrl,
       layoutMetaText: stringifyLayoutMeta(viewModel.layoutMeta),
       hotspots: resequenceHotspots(viewModel.hotspots),
-    });
-    setSelectedHotspotId((current) => current ?? viewModel.hotspots[0]?.id ?? null);
-  }, [editor.draft, editor.draftVersion, editor.baseLayoutVersion]);
+    };
+    const nextHotspotIds = new Set(nextDraftState.hotspots.map((hotspot) => hotspot.id));
+    setDraftState(nextDraftState);
+    setSelectedHotspotId((current) =>
+      current && nextHotspotIds.has(current) ? current : viewModel.hotspots[0]?.id ?? null,
+    );
+    setBatchSelectedHotspotIds((current) =>
+      current.filter((hotspotId) => nextHotspotIds.has(hotspotId)),
+    );
+
+    if (editor.lockStatus !== "GRANTED" || !editor.leaseId) {
+      publishBaselineLeaseIdRef.current = editor.leaseId ?? null;
+      setPublishBaseline(nextDraftState);
+      return;
+    }
+
+    if (publishBaselineLeaseIdRef.current !== editor.leaseId) {
+      publishBaselineLeaseIdRef.current = editor.leaseId;
+      setPublishBaseline(nextDraftState);
+      return;
+    }
+
+    setPublishBaseline((current) => current ?? nextDraftState);
+  }, [
+    editor.baseLayoutVersion,
+    editor.draft,
+    editor.draftVersion,
+    editor.leaseId,
+    editor.lockStatus,
+  ]);
 
   const visibleHotspots = sortHotspots(
     draftState.hotspots.filter((hotspot) =>
@@ -654,11 +818,31 @@ export function EditorWorkbenchWorkspace() {
     visibleHotspots.find((hotspot) => hotspot.id === selectedHotspotId) ??
     draftState.hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ??
     null;
+  const selectedBatchHotspots = sortHotspots(
+    draftState.hotspots.filter((hotspot) => batchSelectedHotspotIds.includes(hotspot.id)),
+  );
+  const publishSummary = buildPublishSummary(draftState, publishBaseline);
   const canEdit = !editor.readonly && editor.lockStatus === "GRANTED";
   const canAcquire =
     pin.active && editor.lockStatus !== "GRANTED" && editor.lockStatus !== "LOCKED_BY_OTHER";
   const canTakeover = pin.active && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
   const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
+
+  function toggleBatchHotspot(hotspotId: string) {
+    setBatchSelectedHotspotIds((current) =>
+      current.includes(hotspotId)
+        ? current.filter((selectedId) => selectedId !== hotspotId)
+        : [...current, hotspotId],
+    );
+  }
+
+  function selectAllVisibleHotspots() {
+    setBatchSelectedHotspotIds(visibleHotspots.map((hotspot) => hotspot.id));
+  }
+
+  function clearBatchSelection() {
+    setBatchSelectedHotspotIds([]);
+  }
 
   function updateHotspotField(
     field: EditorHotspotField,
@@ -763,6 +947,109 @@ export function EditorWorkbenchWorkspace() {
         hotspot.id === selectedHotspotId ? { ...hotspot, isVisible: visible } : hotspot,
       ),
     }));
+  }
+
+  function updateBatchHotspots(
+    updater: (hotspot: EditorHotspotViewModel, selected: EditorHotspotViewModel[]) => EditorHotspotViewModel,
+  ) {
+    if (!canEdit || !batchSelectedHotspotIds.length) {
+      return;
+    }
+
+    const selectedSet = new Set(batchSelectedHotspotIds);
+    setDraftState((current) => {
+      const selected = sortHotspots(current.hotspots.filter((hotspot) => selectedSet.has(hotspot.id)));
+      if (!selected.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        hotspots: current.hotspots.map((hotspot) =>
+          selectedSet.has(hotspot.id) ? updater(hotspot, selected) : hotspot,
+        ),
+      };
+    });
+  }
+
+  function alignBatchHotspots(action: EditorBulkAlignAction) {
+    updateBatchHotspots((hotspot, selected) => {
+      if (selected.length < 2) {
+        return hotspot;
+      }
+      const xValues = selected.map((item) => item.x);
+      const yValues = selected.map((item) => item.y);
+      const targetX =
+        action === "left"
+          ? Math.min(...xValues)
+          : action === "right"
+            ? Math.max(...xValues)
+            : action === "centerX"
+              ? xValues.reduce((total, value) => total + value, 0) / xValues.length
+              : hotspot.x;
+      const targetY =
+        action === "top"
+          ? Math.min(...yValues)
+          : action === "bottom"
+            ? Math.max(...yValues)
+            : action === "centerY"
+              ? yValues.reduce((total, value) => total + value, 0) / yValues.length
+              : hotspot.y;
+      return {
+        ...hotspot,
+        x: clampPosition(targetX),
+        y: clampPosition(targetY),
+      };
+    });
+  }
+
+  function distributeBatchHotspots(action: EditorBulkDistributeAction) {
+    if (!canEdit || batchSelectedHotspotIds.length < 3) {
+      return;
+    }
+
+    const selectedSet = new Set(batchSelectedHotspotIds);
+    setDraftState((current) => {
+      const selected = current.hotspots
+        .filter((hotspot) => selectedSet.has(hotspot.id))
+        .sort((left, right) => (action === "horizontal" ? left.x - right.x : left.y - right.y));
+      if (selected.length < 3) {
+        return current;
+      }
+
+      const first = action === "horizontal" ? selected[0].x : selected[0].y;
+      const last =
+        action === "horizontal"
+          ? selected[selected.length - 1].x
+          : selected[selected.length - 1].y;
+      const step = (last - first) / (selected.length - 1);
+      const targetById = new Map(
+        selected.map((hotspot, index) => [hotspot.id, clampPosition(first + step * index)]),
+      );
+
+      return {
+        ...current,
+        hotspots: current.hotspots.map((hotspot) => {
+          const target = targetById.get(hotspot.id);
+          if (target === undefined) {
+            return hotspot;
+          }
+          return action === "horizontal" ? { ...hotspot, x: target } : { ...hotspot, y: target };
+        }),
+      };
+    });
+  }
+
+  function setBatchVisibility(visible: boolean) {
+    updateBatchHotspots((hotspot) => ({ ...hotspot, isVisible: visible }));
+  }
+
+  function setBatchIconType(iconType: string) {
+    updateBatchHotspots((hotspot) => ({ ...hotspot, iconType }));
+  }
+
+  function setBatchLabelMode(labelMode: string) {
+    updateBatchHotspots((hotspot) => ({ ...hotspot, labelMode }));
   }
 
   function nudgeSelectedHotspot(direction: "left" | "right" | "up" | "down") {
@@ -889,9 +1176,10 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
+    const deletedHotspotId = selectedHotspotId;
     setDraftState((current) => {
       const nextHotspots = resequenceHotspots(
-        current.hotspots.filter((hotspot) => hotspot.id !== selectedHotspotId),
+        current.hotspots.filter((hotspot) => hotspot.id !== deletedHotspotId),
       );
       setSelectedHotspotId(nextHotspots[0]?.id ?? null);
       return {
@@ -899,6 +1187,9 @@ export function EditorWorkbenchWorkspace() {
         hotspots: nextHotspots,
       };
     });
+    setBatchSelectedHotspotIds((current) =>
+      current.filter((hotspotId) => hotspotId !== deletedHotspotId),
+    );
   }
 
   function moveSelectedHotspot(direction: "up" | "down") {
@@ -1396,15 +1687,23 @@ export function EditorWorkbenchWorkspace() {
         saveBusy={isSavingDraft}
         takeoverBusy={isTakingOver}
       />
+      <EditorPublishSummary
+        items={publishSummary.items}
+        totalChanges={publishSummary.totalChanges}
+      />
       <div className="editor-workbench">
         <EditorToolbox
+          batchSelectedHotspotIds={batchSelectedHotspotIds}
           canEdit={canEdit}
           devicesLoading={deviceCatalogLoading}
           hotspots={visibleHotspots}
           unplacedDevices={unplacedDevices}
           onAddDeviceHotspot={addDeviceHotspot}
+          onClearBatchSelection={clearBatchSelection}
           onSearchChange={setSearchValue}
+          onSelectAllHotspots={selectAllVisibleHotspots}
           onSelectHotspot={setSelectedHotspotId}
+          onToggleBatchHotspot={toggleBatchHotspot}
           searchValue={searchValue}
           selectedHotspotId={selectedHotspotId}
         />
@@ -1419,6 +1718,7 @@ export function EditorWorkbenchWorkspace() {
           selectedHotspotId={selectedHotspotId}
         />
         <EditorInspector
+          batchHotspots={selectedBatchHotspots}
           backgroundAssetId={draftState.backgroundAssetId}
           backgroundImageUrl={draftState.backgroundImageUrl}
           canEdit={canEdit}
@@ -1428,11 +1728,17 @@ export function EditorWorkbenchWorkspace() {
           canMoveDown={selectedHotspotIndex > -1 && selectedHotspotIndex < orderedHotspots.length - 1}
           canMoveUp={selectedHotspotIndex > 0}
           isUploadingBackground={isUploadingBackground}
+          onBulkAlign={alignBatchHotspots}
+          onBulkDistribute={distributeBatchHotspots}
+          onBulkSetIconType={setBatchIconType}
+          onBulkSetLabelMode={setBatchLabelMode}
+          onBulkSetVisibility={setBatchVisibility}
           onChangeHotspot={updateHotspotField}
           onChangeLayoutMeta={(value) =>
             setDraftState((current) => ({ ...current, layoutMetaText: value }))
           }
           onClearBackground={handleClearBackground}
+          onClearBatchSelection={clearBatchSelection}
           onDeleteHotspot={deleteSelectedHotspot}
           onDuplicateHotspot={duplicateSelectedHotspot}
           onMoveHotspot={moveSelectedHotspot}
