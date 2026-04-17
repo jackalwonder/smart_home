@@ -1,6 +1,8 @@
 import { apiRequest } from "./httpClient";
 import {
   EditorDraftDiscardDto,
+  EditorDraftDiffDto,
+  EditorDraftDiffInput,
   EditorDraftDiscardInput,
   EditorDraftDto,
   EditorHeartbeatDto,
@@ -38,6 +40,13 @@ export function saveEditorDraft(input: EditorDraftSaveInput) {
 export function discardEditorDraft(input: EditorDraftDiscardInput) {
   return apiRequest<EditorDraftDiscardDto>("/api/v1/editor/draft", {
     method: "DELETE",
+    body: JSON.stringify(input),
+  });
+}
+
+export function previewEditorDraftDiff(input: EditorDraftDiffInput) {
+  return apiRequest<EditorDraftDiffDto>("/api/v1/editor/draft/diff", {
+    method: "POST",
     body: JSON.stringify(input),
   });
 }

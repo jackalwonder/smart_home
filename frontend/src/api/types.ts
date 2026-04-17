@@ -209,6 +209,18 @@ export type EditorDraftDiscardInput = Omit<
 
 export type EditorDraftDiscardDto = Schema<"EditorDraftDiscardResponse">;
 
+export type EditorDraftDiffInput = RequireFields<
+  Schema<"EditorDraftDiffRequestBody">,
+  "layout_meta" | "hotspots"
+>;
+
+export type EditorDraftDiffItemDto = Schema<"EditorDraftDiffItemResponse">;
+
+export type EditorDraftDiffDto = RequireFields<
+  Schema<"EditorDraftDiffResponse">,
+  "items"
+>;
+
 export type EditorPublishInput = Omit<
   Schema<"EditorPublishRequestBody">,
   "home_id" | "terminal_id" | "member_id"

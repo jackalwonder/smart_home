@@ -14,6 +14,8 @@ from src.repositories.base.editor.DraftLayoutRepository import (
     DraftLayoutUpsertRow,
 )
 from src.repositories.base.editor.DraftLeaseRepository import DraftLeaseRepository
+from src.repositories.base.settings.LayoutHotspotRepository import LayoutHotspotRepository
+from src.repositories.base.settings.LayoutVersionRepository import LayoutVersionRepository
 from src.repositories.query.editor.EditorDraftQueryRepository import EditorDraftQueryRepository
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
@@ -51,6 +53,33 @@ class EditorDraftDiscardInput:
 
 
 @dataclass(frozen=True)
+class EditorDraftDiffInput:
+    home_id: str
+    base_layout_version: str | None
+    background_asset_id: str | None
+    layout_meta: dict[str, Any]
+    hotspots: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class EditorDraftDiffItemView:
+    change_type: str
+    label: str
+    count: int
+    summary: str
+    preview: list[str]
+
+
+@dataclass(frozen=True)
+class EditorDraftDiffView:
+    base_layout_version: str | None
+    compared_layout_version: str | None
+    has_changes: bool
+    total_changes: int
+    items: list[EditorDraftDiffItemView]
+
+
+@dataclass(frozen=True)
 class EditorDraftSaveView:
     saved_to_draft: bool
     draft_version: str
@@ -76,6 +105,8 @@ class EditorDraftService:
         draft_layout_repository: DraftLayoutRepository,
         draft_hotspot_repository: DraftHotspotRepository,
         draft_lease_repository: DraftLeaseRepository,
+        layout_version_repository: LayoutVersionRepository,
+        layout_hotspot_repository: LayoutHotspotRepository,
         management_pin_guard: ManagementPinGuard,
         version_token_generator: VersionTokenGenerator,
         clock: Clock,
@@ -85,9 +116,183 @@ class EditorDraftService:
         self._draft_layout_repository = draft_layout_repository
         self._draft_hotspot_repository = draft_hotspot_repository
         self._draft_lease_repository = draft_lease_repository
+        self._layout_version_repository = layout_version_repository
+        self._layout_hotspot_repository = layout_hotspot_repository
         self._management_pin_guard = management_pin_guard
         self._version_token_generator = version_token_generator
         self._clock = clock
+
+    def _extract_hotspot_labels(self, layout_meta: dict[str, Any] | None) -> dict[str, str]:
+        source = layout_meta.get("hotspot_labels") if isinstance(layout_meta, dict) else None
+        if not isinstance(source, dict):
+            return {}
+        labels: dict[str, str] = {}
+        for hotspot_id, label in source.items():
+            if isinstance(hotspot_id, str) and isinstance(label, str) and label.strip():
+                labels[hotspot_id] = label.strip()
+        return labels
+
+    def _normalize_layout_meta(self, layout_meta: dict[str, Any] | None) -> dict[str, Any]:
+        if not isinstance(layout_meta, dict):
+            return {}
+        return {
+            key: value
+            for key, value in layout_meta.items()
+            if key != "hotspot_labels"
+        }
+
+    def _normalize_hotspot(
+        self,
+        hotspot: dict[str, Any],
+        labels: dict[str, str],
+        fallback_index: int,
+    ) -> dict[str, Any]:
+        hotspot_id = str(hotspot.get("hotspot_id") or f"hotspot-{fallback_index}")
+        device_id = str(hotspot.get("device_id") or "")
+        label = labels.get(hotspot_id) or device_id or hotspot_id
+        return {
+            "hotspot_id": hotspot_id,
+            "device_id": device_id,
+            "label": label,
+            "x": float(hotspot.get("x") or 0),
+            "y": float(hotspot.get("y") or 0),
+            "icon_type": hotspot.get("icon_type"),
+            "label_mode": hotspot.get("label_mode"),
+            "is_visible": bool(hotspot.get("is_visible", True)),
+            "structure_order": int(hotspot.get("structure_order", fallback_index) or 0),
+        }
+
+    def _format_preview_names(self, hotspots: list[dict[str, Any]]) -> list[str]:
+        return [str(hotspot["label"]) for hotspot in hotspots[:3]]
+
+    def _build_diff_item(
+        self,
+        *,
+        change_type: str,
+        label: str,
+        hotspots: list[dict[str, Any]],
+    ) -> EditorDraftDiffItemView | None:
+        if not hotspots:
+            return None
+        preview = self._format_preview_names(hotspots)
+        summary = "、".join(preview)
+        if len(hotspots) > 3:
+            summary = f"{summary} 等 {len(hotspots)} 个"
+        return EditorDraftDiffItemView(
+            change_type=change_type,
+            label=label,
+            count=len(hotspots),
+            summary=summary,
+            preview=preview,
+        )
+
+    async def preview_diff(self, input: EditorDraftDiffInput) -> EditorDraftDiffView:
+        base_layout = None
+        if input.base_layout_version:
+            base_layout = await self._layout_version_repository.find_by_home_and_layout_version(
+                input.home_id,
+                input.base_layout_version,
+            )
+
+        base_hotspots_raw: list[dict[str, Any]] = []
+        base_layout_meta = base_layout.layout_meta_json if base_layout is not None else {}
+        if base_layout is not None:
+            base_hotspots = await self._layout_hotspot_repository.list_by_layout_version_id(base_layout.id)
+            base_hotspots_raw = [
+                {
+                    "hotspot_id": hotspot.hotspot_id,
+                    "device_id": hotspot.device_id,
+                    "x": hotspot.x,
+                    "y": hotspot.y,
+                    "icon_type": hotspot.icon_type,
+                    "label_mode": hotspot.label_mode,
+                    "is_visible": hotspot.is_visible,
+                    "structure_order": hotspot.structure_order,
+                }
+                for hotspot in base_hotspots
+            ]
+
+        submitted_labels = self._extract_hotspot_labels(input.layout_meta)
+        base_labels = self._extract_hotspot_labels(base_layout_meta)
+        submitted_hotspots = [
+            self._normalize_hotspot(hotspot, submitted_labels, index)
+            for index, hotspot in enumerate(input.hotspots)
+        ]
+        compared_hotspots = [
+            self._normalize_hotspot(hotspot, base_labels, index)
+            for index, hotspot in enumerate(base_hotspots_raw)
+        ]
+        submitted_by_id = {hotspot["hotspot_id"]: hotspot for hotspot in submitted_hotspots}
+        compared_by_id = {hotspot["hotspot_id"]: hotspot for hotspot in compared_hotspots}
+
+        added = [hotspot for hotspot in submitted_hotspots if hotspot["hotspot_id"] not in compared_by_id]
+        removed = [hotspot for hotspot in compared_hotspots if hotspot["hotspot_id"] not in submitted_by_id]
+        moved: list[dict[str, Any]] = []
+        relabeled: list[dict[str, Any]] = []
+        rebound: list[dict[str, Any]] = []
+        restyled: list[dict[str, Any]] = []
+        reordered: list[dict[str, Any]] = []
+
+        for hotspot in submitted_hotspots:
+            previous = compared_by_id.get(hotspot["hotspot_id"])
+            if previous is None:
+                continue
+            if abs(hotspot["x"] - previous["x"]) > 0.0005 or abs(hotspot["y"] - previous["y"]) > 0.0005:
+                moved.append(hotspot)
+            if hotspot["label"] != previous["label"]:
+                relabeled.append(hotspot)
+            if hotspot["device_id"] != previous["device_id"]:
+                rebound.append(hotspot)
+            if (
+                hotspot["icon_type"] != previous["icon_type"]
+                or hotspot["label_mode"] != previous["label_mode"]
+                or hotspot["is_visible"] != previous["is_visible"]
+            ):
+                restyled.append(hotspot)
+            if hotspot["structure_order"] != previous["structure_order"]:
+                reordered.append(hotspot)
+
+        items = [
+            self._build_diff_item(change_type="added", label="新增热点", hotspots=added),
+            self._build_diff_item(change_type="removed", label="移除热点", hotspots=removed),
+            self._build_diff_item(change_type="moved", label="位置调整", hotspots=moved),
+            self._build_diff_item(change_type="relabeled", label="名称更新", hotspots=relabeled),
+            self._build_diff_item(change_type="rebound", label="设备绑定更新", hotspots=rebound),
+            self._build_diff_item(change_type="restyled", label="展示样式更新", hotspots=restyled),
+            self._build_diff_item(change_type="reordered", label="排序更新", hotspots=reordered),
+        ]
+        filtered_items = [item for item in items if item is not None]
+
+        if input.background_asset_id != (base_layout.background_asset_id if base_layout is not None else None):
+            filtered_items.append(
+                EditorDraftDiffItemView(
+                    change_type="background",
+                    label="背景图更新",
+                    count=1,
+                    summary="已设置或替换背景图" if input.background_asset_id else "已清除背景图",
+                    preview=[],
+                )
+            )
+
+        if self._normalize_layout_meta(input.layout_meta) != self._normalize_layout_meta(base_layout_meta):
+            filtered_items.append(
+                EditorDraftDiffItemView(
+                    change_type="layout_meta",
+                    label="布局元数据更新",
+                    count=1,
+                    summary="JSON 元数据已修改",
+                    preview=[],
+                )
+            )
+
+        total_changes = sum(item.count for item in filtered_items)
+        return EditorDraftDiffView(
+            base_layout_version=input.base_layout_version,
+            compared_layout_version=base_layout.layout_version if base_layout is not None else None,
+            has_changes=bool(filtered_items),
+            total_changes=total_changes,
+            items=filtered_items,
+        )
 
     def _is_lease_valid(self, lease, now: datetime) -> bool:
         if lease is None or not lease.is_active:

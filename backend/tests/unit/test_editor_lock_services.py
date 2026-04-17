@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.modules.editor.services.EditorDraftService import (
+    EditorDraftDiffInput,
     EditorDraftInput,
     EditorDraftSaveInput,
     EditorDraftService,
@@ -46,6 +47,25 @@ class _NoopDraftHotspotRepository:
 class _NoopLayoutHotspotRepository:
     async def list_by_layout_version_id(self, *_args, **_kwargs):
         return []
+
+
+class _LayoutVersionRepository:
+    def __init__(self, layout=None):
+        self._layout = layout
+
+    async def find_current_by_home(self, *_args, **_kwargs):
+        return self._layout
+
+    async def find_by_home_and_layout_version(self, *_args, **_kwargs):
+        return self._layout
+
+
+class _LayoutHotspotRepository:
+    def __init__(self, hotspots=None):
+        self._hotspots = hotspots or []
+
+    async def list_by_layout_version_id(self, *_args, **_kwargs):
+        return self._hotspots
 
 
 class _NoopWsEventOutboxRepository:
@@ -149,13 +169,15 @@ class _EditorDraftQueryRepository:
         return self._draft
 
 
-def _build_draft_service(draft):
+def _build_draft_service(draft, *, base_layout=None, base_hotspots=None):
     return EditorDraftService(
         unit_of_work=_NoopUnitOfWork(),
         editor_draft_query_repository=_EditorDraftQueryRepository(draft),
         draft_layout_repository=SimpleNamespace(),
         draft_hotspot_repository=SimpleNamespace(),
         draft_lease_repository=SimpleNamespace(),
+        layout_version_repository=_LayoutVersionRepository(base_layout),
+        layout_hotspot_repository=_LayoutHotspotRepository(base_hotspots),
         management_pin_guard=_NoopPinGuard(),
         version_token_generator=_VersionTokenGenerator(),
         clock=_Clock(),
@@ -169,6 +191,8 @@ def _build_draft_command_service(*, draft, lease):
         draft_layout_repository=_DraftLayoutRepository(draft),
         draft_hotspot_repository=_NoopDraftHotspotRepository(),
         draft_lease_repository=_DraftLeaseLookupRepository(lease),
+        layout_version_repository=_LayoutVersionRepository(),
+        layout_hotspot_repository=_LayoutHotspotRepository(),
         management_pin_guard=_NoopPinGuard(),
         version_token_generator=_VersionTokenGenerator(),
         clock=_Clock(),
@@ -258,6 +282,75 @@ async def test_get_draft_distinguishes_granted_locked_and_read_only():
     assert readonly_same_terminal.readonly is True
     assert locked_by_other.lock_status == "LOCKED_BY_OTHER"
     assert locked_by_other.readonly is True
+
+
+@pytest.mark.asyncio
+async def test_preview_diff_compares_submitted_draft_against_base_layout():
+    base_layout = SimpleNamespace(
+        id="layout-row-1",
+        layout_version="lv-base",
+        background_asset_id=None,
+        layout_meta_json={"hotspot_labels": {"hs-1": "原始热点"}},
+    )
+    base_hotspots = [
+        SimpleNamespace(
+            hotspot_id="hs-1",
+            device_id="device-1",
+            x=0.1,
+            y=0.2,
+            icon_type="device",
+            label_mode="AUTO",
+            is_visible=True,
+            structure_order=0,
+        )
+    ]
+    service = _build_draft_service(None, base_layout=base_layout, base_hotspots=base_hotspots)
+
+    diff = await service.preview_diff(
+        EditorDraftDiffInput(
+            home_id="home-1",
+            base_layout_version="lv-base",
+            background_asset_id="asset-1",
+            layout_meta={"hotspot_labels": {"hs-1": "新热点", "hs-2": "新增热点"}},
+            hotspots=[
+                {
+                    "hotspot_id": "hs-1",
+                    "device_id": "device-1",
+                    "x": 0.3,
+                    "y": 0.2,
+                    "icon_type": "light",
+                    "label_mode": "ALWAYS",
+                    "is_visible": False,
+                    "structure_order": 1,
+                },
+                {
+                    "hotspot_id": "hs-2",
+                    "device_id": "device-2",
+                    "x": 0.6,
+                    "y": 0.7,
+                    "icon_type": "device",
+                    "label_mode": "AUTO",
+                    "is_visible": True,
+                    "structure_order": 2,
+                },
+            ],
+        )
+    )
+
+    assert diff.base_layout_version == "lv-base"
+    assert diff.compared_layout_version == "lv-base"
+    assert diff.has_changes is True
+    assert diff.total_changes == 6
+    assert [item.label for item in diff.items] == [
+        "新增热点",
+        "位置调整",
+        "名称更新",
+        "展示样式更新",
+        "排序更新",
+        "背景图更新",
+    ]
+    assert diff.items[0].summary == "新增热点"
+    assert diff.items[-1].summary == "已设置或替换背景图"
 
 
 @pytest.mark.asyncio

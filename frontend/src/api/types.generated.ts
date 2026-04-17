@@ -176,6 +176,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editor/draft/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Editor Draft Diff */
+        post: operations["post_api_v1_editor_draft_diff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/editor/publish": {
         parameters: {
             query?: never;
@@ -1254,6 +1271,45 @@ export interface components {
              */
             terminal_id?: string | null;
         };
+        /** EditorDraftDiffItemResponse */
+        EditorDraftDiffItemResponse: {
+            /** Change Type */
+            change_type: string;
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+            /** Preview */
+            preview?: string[];
+            /** Summary */
+            summary: string;
+        };
+        /** EditorDraftDiffRequestBody */
+        EditorDraftDiffRequestBody: {
+            /** Background Asset Id */
+            background_asset_id?: string | null;
+            /** Base Layout Version */
+            base_layout_version?: string | null;
+            /** Hotspots */
+            hotspots?: components["schemas"]["EditorDraftSaveHotspotRequestBody"][];
+            /** Layout Meta */
+            layout_meta?: {
+                [key: string]: unknown;
+            };
+        };
+        /** EditorDraftDiffResponse */
+        EditorDraftDiffResponse: {
+            /** Base Layout Version */
+            base_layout_version?: string | null;
+            /** Compared Layout Version */
+            compared_layout_version?: string | null;
+            /** Has Changes */
+            has_changes: boolean;
+            /** Items */
+            items?: components["schemas"]["EditorDraftDiffItemResponse"][];
+            /** Total Changes */
+            total_changes: number;
+        };
         /** EditorDraftDiscardResponse */
         EditorDraftDiscardResponse: {
             /** Discarded */
@@ -2299,6 +2355,18 @@ export interface components {
         /** SuccessEnvelope[DeviceReloadResponse] */
         SuccessEnvelope_DeviceReloadResponse_: {
             data: components["schemas"]["DeviceReloadResponse"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        };
+        /** SuccessEnvelope[EditorDraftDiffResponse] */
+        SuccessEnvelope_EditorDraftDiffResponse_: {
+            data: components["schemas"]["EditorDraftDiffResponse"];
             /** Error */
             error?: null;
             meta: components["schemas"]["ResponseMeta"];
@@ -4880,6 +4948,200 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuccessEnvelope_EditorDraftDiscardResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    post_api_v1_editor_draft_diff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditorDraftDiffRequestBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_EditorDraftDiffResponse_"];
                 };
             };
             /** @description Invalid request parameters */

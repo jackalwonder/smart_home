@@ -530,6 +530,8 @@ def get_editor_draft_service() -> EditorDraftService:
         draft_layout_repository=get_draft_layout_repository(),
         draft_hotspot_repository=get_draft_hotspot_repository(),
         draft_lease_repository=get_draft_lease_repository(),
+        layout_version_repository=get_layout_version_repository(),
+        layout_hotspot_repository=get_layout_hotspot_repository(),
         management_pin_guard=get_management_pin_guard(),
         version_token_generator=get_version_token_generator(),
         clock=get_clock(),

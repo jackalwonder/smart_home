@@ -14,6 +14,8 @@ from src.app.container import (
 )
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.editor.services.EditorDraftService import (
+    EditorDraftDiffInput,
+    EditorDraftDiffView,
     EditorDraftDiscardInput,
     EditorDraftInput,
     EditorDraftSaveInput,
@@ -118,6 +120,13 @@ class EditorDraftDeleteRequestBody(ApiSchema):
     draft_version: str | None = None
 
 
+class EditorDraftDiffRequestBody(ApiSchema):
+    base_layout_version: str | None = None
+    background_asset_id: str | None = None
+    layout_meta: dict[str, Any] = Field(default_factory=dict)
+    hotspots: list["EditorDraftSaveHotspotRequestBody"] = Field(default_factory=list)
+
+
 class EditorDraftSaveHotspotRequestBody(ApiSchema):
     hotspot_id: str
     device_id: str
@@ -213,6 +222,22 @@ class EditorDraftDiscardResponse(ApiSchema):
     lock_released: bool
 
 
+class EditorDraftDiffItemResponse(ApiSchema):
+    change_type: str
+    label: str
+    count: int
+    summary: str
+    preview: list[str] = Field(default_factory=list)
+
+
+class EditorDraftDiffResponse(ApiSchema):
+    base_layout_version: str | None = None
+    compared_layout_version: str | None = None
+    has_changes: bool
+    total_changes: int
+    items: list[EditorDraftDiffItemResponse] = Field(default_factory=list)
+
+
 def _serialize_editor_session(view: EditorSessionView) -> EditorSessionResponse:
     payload = asdict(view)
     payload["locked_by"] = (
@@ -271,6 +296,30 @@ async def get_editor_draft(
         )
     )
     return success_response(request, EditorDraftResponse.model_validate(asdict(view)))
+
+
+@router.post("/draft/diff", response_model=SuccessEnvelope[EditorDraftDiffResponse])
+async def preview_editor_draft_diff(
+    request: Request,
+    body: EditorDraftDiffRequestBody = Body(...),
+    service: EditorDraftService = Depends(get_editor_draft_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=False,
+    )
+    view: EditorDraftDiffView = await service.preview_diff(
+        EditorDraftDiffInput(
+            home_id=context.home_id,
+            base_layout_version=body.base_layout_version,
+            background_asset_id=body.background_asset_id,
+            layout_meta=body.layout_meta,
+            hotspots=[hotspot.model_dump() for hotspot in body.hotspots],
+        )
+    )
+    return success_response(request, EditorDraftDiffResponse.model_validate(asdict(view)))
 
 
 @router.post("/sessions/{lease_id}/heartbeat", response_model=SuccessEnvelope[EditorHeartbeatResponse])
