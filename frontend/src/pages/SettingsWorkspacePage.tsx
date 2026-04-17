@@ -240,8 +240,11 @@ export function SettingsWorkspacePage() {
   }
 
   useEffect(() => {
+    if (session.status !== "success") {
+      return;
+    }
     void loadSettings();
-  }, []);
+  }, [session.data?.accessToken, session.status]);
 
   useEffect(() => {
     const nextVersion = getSettingsVersion(settings.data);

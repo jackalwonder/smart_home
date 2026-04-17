@@ -11,6 +11,9 @@ import src.main as main_module
 
 
 class _NoopDatabase:
+    async def check(self) -> None:
+        return None
+
     async def dispose(self) -> None:
         return None
 

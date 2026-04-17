@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 
@@ -27,6 +28,10 @@ class Database:
 
     def session_factory(self) -> async_sessionmaker[AsyncSession]:
         return self._session_factory
+
+    async def check(self) -> None:
+        async with self._engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
 
     async def dispose(self) -> None:
         await self._engine.dispose()
