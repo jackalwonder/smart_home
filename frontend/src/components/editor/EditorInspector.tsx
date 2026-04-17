@@ -14,6 +14,7 @@ interface EditorInspectorProps {
     field: "deviceId" | "iconType" | "labelMode" | "x" | "y" | "structureOrder",
     value: string,
   ) => void;
+  onClearBackground: () => void;
   onUploadBackground: (file: File) => void;
   onToggleVisibility: (visible: boolean) => void;
   onChangeLayoutMeta: (value: string) => void;
@@ -33,6 +34,7 @@ export function EditorInspector({
   rows,
   isUploadingBackground,
   onChangeHotspot,
+  onClearBackground,
   onUploadBackground,
   onToggleVisibility,
   onChangeLayoutMeta,
@@ -210,6 +212,16 @@ export function EditorInspector({
             type="file"
           />
         </label>
+        <div className="settings-module-card__actions form-field--full">
+          <button
+            className="button button--ghost button--danger"
+            disabled={!canEdit || !backgroundAssetId}
+            onClick={onClearBackground}
+            type="button"
+          >
+            清除背景图
+          </button>
+        </div>
         <label className="form-field">
           <span>背景资产 ID</span>
           <input className="control-input" readOnly value={backgroundAssetId ?? "-"} />

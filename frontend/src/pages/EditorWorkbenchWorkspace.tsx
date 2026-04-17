@@ -338,6 +338,7 @@ export function EditorWorkbenchWorkspace() {
   const pinSessionActive = session.data?.pinSessionActive ?? false;
   const [searchValue, setSearchValue] = useState("");
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [canvasMode, setCanvasMode] = useState<"edit" | "preview">("edit");
   const [draftState, setDraftState] = useState<EditorDraftState>({
     backgroundAssetId: null,
     backgroundImageUrl: null,
@@ -704,6 +705,23 @@ export function EditorWorkbenchWorkspace() {
     } finally {
       setIsUploadingBackground(false);
     }
+  }
+
+  function handleClearBackground() {
+    if (!canEdit) {
+      return;
+    }
+
+    setDraftState((current) => ({
+      ...current,
+      backgroundAssetId: null,
+      backgroundImageUrl: null,
+    }));
+    showEditorNotice({
+      tone: "success",
+      title: "背景图已清除",
+      detail: "当前草稿已切回默认户型底图。保存草稿后会写入后端，发布后进入首页布局。",
+    });
   }
 
   function updateHotspotVisibility(visible: boolean) {
@@ -1315,6 +1333,8 @@ export function EditorWorkbenchWorkspace() {
           backgroundImageUrl={draftState.backgroundImageUrl}
           canEdit={canEdit}
           hotspots={draftState.hotspots}
+          mode={canvasMode}
+          onModeChange={setCanvasMode}
           onMoveHotspot={moveHotspot}
           onSelectHotspot={setSelectedHotspotId}
           selectedHotspotId={selectedHotspotId}
@@ -1333,6 +1353,7 @@ export function EditorWorkbenchWorkspace() {
           onChangeLayoutMeta={(value) =>
             setDraftState((current) => ({ ...current, layoutMetaText: value }))
           }
+          onClearBackground={handleClearBackground}
           onDeleteHotspot={deleteSelectedHotspot}
           onMoveHotspot={moveSelectedHotspot}
           onUploadBackground={(file) => void handleUploadBackground(file)}
