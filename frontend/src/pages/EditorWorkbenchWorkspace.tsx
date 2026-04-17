@@ -67,6 +67,20 @@ interface EditorPublishSummaryItem {
   count?: number;
 }
 
+interface EditorHistoryEntry {
+  draft: EditorDraftState;
+  selectedHotspotId: string | null;
+  batchSelectedHotspotIds: string[];
+  label: string;
+}
+
+interface EditorHistoryGroup {
+  key: string;
+  timer: number | null;
+}
+
+type EditorDraftStateUpdater = (current: EditorDraftState) => EditorDraftState;
+
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
 type DraftTakenOverEvent = Extract<WsEvent, { event_type: "draft_taken_over" }>;
 type VersionConflictDetectedEvent = Extract<WsEvent, { event_type: "version_conflict_detected" }>;
@@ -367,6 +381,46 @@ function clampPosition(value: number) {
   return Math.min(Math.max(value, 0), 1);
 }
 
+function isTextEditingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
+
+function cloneEditorDraftState(state: EditorDraftState): EditorDraftState {
+  return {
+    ...state,
+    hotspots: state.hotspots.map((hotspot) => ({ ...hotspot })),
+  };
+}
+
+function areEditorDraftStatesEqual(left: EditorDraftState, right: EditorDraftState) {
+  if (
+    left.backgroundAssetId !== right.backgroundAssetId ||
+    left.backgroundImageUrl !== right.backgroundImageUrl ||
+    left.layoutMetaText !== right.layoutMetaText ||
+    left.hotspots.length !== right.hotspots.length
+  ) {
+    return false;
+  }
+
+  return left.hotspots.every((leftHotspot, index) => {
+    const rightHotspot = right.hotspots[index];
+    return (
+      leftHotspot.id === rightHotspot.id &&
+      leftHotspot.label === rightHotspot.label &&
+      leftHotspot.deviceId === rightHotspot.deviceId &&
+      leftHotspot.x === rightHotspot.x &&
+      leftHotspot.y === rightHotspot.y &&
+      leftHotspot.iconType === rightHotspot.iconType &&
+      leftHotspot.labelMode === rightHotspot.labelMode &&
+      leftHotspot.isVisible === rightHotspot.isVisible &&
+      leftHotspot.structureOrder === rightHotspot.structureOrder
+    );
+  });
+}
+
 function parseLayoutMetaText(value: string) {
   const parsed = JSON.parse(value || "{}");
   return parsed && typeof parsed === "object" && !Array.isArray(parsed)
@@ -562,6 +616,18 @@ export function EditorWorkbenchWorkspace() {
   const [editorNotice, setEditorNotice] = useState<EditorNoticeState | null>(null);
   const handledRealtimeEventIdRef = useRef<string | null>(null);
   const publishBaselineLeaseIdRef = useRef<string | null>(null);
+  const undoStackRef = useRef<EditorHistoryEntry[]>([]);
+  const redoStackRef = useRef<EditorHistoryEntry[]>([]);
+  const historyGroupRef = useRef<EditorHistoryGroup | null>(null);
+  const [historyState, setHistoryState] = useState<{
+    undoCount: number;
+    redoCount: number;
+    lastAction: string | null;
+  }>({
+    undoCount: 0,
+    redoCount: 0,
+    lastAction: null,
+  });
   const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishingDraft, setIsPublishingDraft] = useState(false);
@@ -804,6 +870,12 @@ export function EditorWorkbenchWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      clearHistoryGroup();
+    };
+  }, []);
+
   const viewModel = mapEditorViewModel({
     lockStatus: editor.lockStatus,
     leaseId: editor.leaseId,
@@ -827,6 +899,10 @@ export function EditorWorkbenchWorkspace() {
     };
     const nextHotspotIds = new Set(nextDraftState.hotspots.map((hotspot) => hotspot.id));
     setDraftState(nextDraftState);
+    clearHistoryGroup();
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    syncHistoryState(null);
     setSelectedHotspotId((current) =>
       current && nextHotspotIds.has(current) ? current : viewModel.hotspots[0]?.id ?? null,
     );
@@ -927,6 +1003,137 @@ export function EditorWorkbenchWorkspace() {
     pin.active && editor.lockStatus !== "GRANTED" && editor.lockStatus !== "LOCKED_BY_OTHER";
   const canTakeover = pin.active && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
   const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
+  const canUndo = canEdit && historyState.undoCount > 0;
+  const canRedo = canEdit && historyState.redoCount > 0;
+
+  function syncHistoryState(lastAction: string | null = historyState.lastAction) {
+    setHistoryState({
+      undoCount: undoStackRef.current.length,
+      redoCount: redoStackRef.current.length,
+      lastAction,
+    });
+  }
+
+  function clearHistoryGroup() {
+    if (historyGroupRef.current?.timer) {
+      window.clearTimeout(historyGroupRef.current.timer);
+    }
+    historyGroupRef.current = null;
+  }
+
+  function markHistoryGroup(key: string) {
+    if (historyGroupRef.current?.timer) {
+      window.clearTimeout(historyGroupRef.current.timer);
+    }
+    historyGroupRef.current = {
+      key,
+      timer: window.setTimeout(() => {
+        historyGroupRef.current = null;
+      }, 700),
+    };
+  }
+
+  function pushDraftHistory(current: EditorDraftState, label: string, groupKey?: string) {
+    if (groupKey && historyGroupRef.current?.key === groupKey) {
+      markHistoryGroup(groupKey);
+      return;
+    }
+
+    if (groupKey) {
+      markHistoryGroup(groupKey);
+    } else {
+      clearHistoryGroup();
+    }
+
+    undoStackRef.current = [
+      ...undoStackRef.current,
+      {
+        draft: cloneEditorDraftState(current),
+        selectedHotspotId,
+        batchSelectedHotspotIds: [...batchSelectedHotspotIds],
+        label,
+      },
+    ].slice(-50);
+    redoStackRef.current = [];
+    syncHistoryState(label);
+  }
+
+  function updateDraftStateWithHistory(
+    updater: EditorDraftStateUpdater,
+    label: string,
+    groupKey?: string,
+  ) {
+    if (!canEdit) {
+      return;
+    }
+
+    setDraftState((current) => {
+      const next = updater(current);
+      if (areEditorDraftStatesEqual(current, next)) {
+        return current;
+      }
+      pushDraftHistory(current, label, groupKey);
+      return next;
+    });
+  }
+
+  function restoreDraftHistoryEntry(entry: EditorHistoryEntry) {
+    setDraftState(cloneEditorDraftState(entry.draft));
+    setSelectedHotspotId(entry.selectedHotspotId);
+    setBatchSelectedHotspotIds([...entry.batchSelectedHotspotIds]);
+  }
+
+  function undoDraftChange() {
+    if (!canEdit || !undoStackRef.current.length) {
+      return;
+    }
+
+    clearHistoryGroup();
+    const entry = undoStackRef.current[undoStackRef.current.length - 1];
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    redoStackRef.current = [
+      ...redoStackRef.current,
+      {
+        draft: cloneEditorDraftState(draftState),
+        selectedHotspotId,
+        batchSelectedHotspotIds: [...batchSelectedHotspotIds],
+        label: entry.label,
+      },
+    ].slice(-50);
+    restoreDraftHistoryEntry(entry);
+    syncHistoryState(entry.label);
+    showEditorNotice({
+      tone: "success",
+      title: "已撤销",
+      detail: `已恢复到“${entry.label}”之前的草稿状态。`,
+    });
+  }
+
+  function redoDraftChange() {
+    if (!canEdit || !redoStackRef.current.length) {
+      return;
+    }
+
+    clearHistoryGroup();
+    const entry = redoStackRef.current[redoStackRef.current.length - 1];
+    redoStackRef.current = redoStackRef.current.slice(0, -1);
+    undoStackRef.current = [
+      ...undoStackRef.current,
+      {
+        draft: cloneEditorDraftState(draftState),
+        selectedHotspotId,
+        batchSelectedHotspotIds: [...batchSelectedHotspotIds],
+        label: entry.label,
+      },
+    ].slice(-50);
+    restoreDraftHistoryEntry(entry);
+    syncHistoryState(entry.label);
+    showEditorNotice({
+      tone: "success",
+      title: "已重做",
+      detail: `已重新应用“${entry.label}”。`,
+    });
+  }
 
   function selectSingleHotspot(hotspotId: string, options?: { keepBatch?: boolean }) {
     setSelectedHotspotId(hotspotId);
@@ -977,7 +1184,7 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setDraftState((current) => {
+    updateDraftStateWithHistory((current) => {
       const nextHotspots = current.hotspots.map((hotspot) => {
         if (hotspot.id !== selectedHotspotId) {
           return hotspot;
@@ -1015,7 +1222,7 @@ export function EditorWorkbenchWorkspace() {
         hotspots:
           field === "structureOrder" ? resequenceHotspots(nextHotspots) : nextHotspots,
       };
-    });
+    }, "修改热点属性", field === "label" || field === "deviceId" ? `field-${field}` : undefined);
   }
 
   async function handleUploadBackground(file: File) {
@@ -1027,11 +1234,11 @@ export function EditorWorkbenchWorkspace() {
     setIsUploadingBackground(true);
     try {
       const uploaded = await uploadFloorplanAsset({ file, replaceCurrent: false });
-      setDraftState((current) => ({
+      updateDraftStateWithHistory((current) => ({
         ...current,
         backgroundAssetId: uploaded.asset_id,
         backgroundImageUrl: uploaded.background_image_url,
-      }));
+      }), "更新背景图");
       showEditorNotice({
         tone: "success",
         title: "背景图已更新",
@@ -1049,11 +1256,11 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setDraftState((current) => ({
+    updateDraftStateWithHistory((current) => ({
       ...current,
       backgroundAssetId: null,
       backgroundImageUrl: null,
-    }));
+    }), "清除背景图");
     showEditorNotice({
       tone: "success",
       title: "背景图已清除",
@@ -1066,23 +1273,24 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setDraftState((current) => ({
+    updateDraftStateWithHistory((current) => ({
       ...current,
       hotspots: current.hotspots.map((hotspot) =>
         hotspot.id === selectedHotspotId ? { ...hotspot, isVisible: visible } : hotspot,
       ),
-    }));
+    }), "切换热点显示");
   }
 
   function updateBatchHotspots(
     updater: (hotspot: EditorHotspotViewModel, selected: EditorHotspotViewModel[]) => EditorHotspotViewModel,
+    label = "批量编辑热点",
   ) {
     if (!canEdit || !batchSelectedHotspotIds.length) {
       return;
     }
 
     const selectedSet = new Set(batchSelectedHotspotIds);
-    setDraftState((current) => {
+    updateDraftStateWithHistory((current) => {
       const selected = sortHotspots(current.hotspots.filter((hotspot) => selectedSet.has(hotspot.id)));
       if (!selected.length) {
         return current;
@@ -1094,7 +1302,7 @@ export function EditorWorkbenchWorkspace() {
           selectedSet.has(hotspot.id) ? updater(hotspot, selected) : hotspot,
         ),
       };
-    });
+    }, label);
   }
 
   function alignBatchHotspots(action: EditorBulkAlignAction) {
@@ -1125,7 +1333,7 @@ export function EditorWorkbenchWorkspace() {
         x: clampPosition(targetX),
         y: clampPosition(targetY),
       };
-    });
+    }, "批量对齐热点");
   }
 
   function distributeBatchHotspots(action: EditorBulkDistributeAction) {
@@ -1134,7 +1342,7 @@ export function EditorWorkbenchWorkspace() {
     }
 
     const selectedSet = new Set(batchSelectedHotspotIds);
-    setDraftState((current) => {
+    updateDraftStateWithHistory((current) => {
       const selected = current.hotspots
         .filter((hotspot) => selectedSet.has(hotspot.id))
         .sort((left, right) => (action === "horizontal" ? left.x - right.x : left.y - right.y));
@@ -1162,31 +1370,75 @@ export function EditorWorkbenchWorkspace() {
           return action === "horizontal" ? { ...hotspot, x: target } : { ...hotspot, y: target };
         }),
       };
-    });
+    }, "批量等距分布");
   }
 
-  function setBatchVisibility(visible: boolean) {
-    updateBatchHotspots((hotspot) => ({ ...hotspot, isVisible: visible }));
+  function setBatchPosition(axis: "x" | "y", value: string) {
+    const next = Number(value);
+    if (!Number.isFinite(next)) {
+      return;
+    }
+    const position = clampPosition(next / 100);
+    updateBatchHotspots((hotspot) => ({ ...hotspot, [axis]: position }), "批量设置坐标");
   }
 
-  function setBatchIconType(iconType: string) {
-    updateBatchHotspots((hotspot) => ({ ...hotspot, iconType }));
-  }
-
-  function setBatchLabelMode(labelMode: string) {
-    updateBatchHotspots((hotspot) => ({ ...hotspot, labelMode }));
-  }
-
-  function nudgeSelectedHotspot(direction: "left" | "right" | "up" | "down") {
-    if (!selectedHotspotId || !canEdit) {
+  function distributeBatchHotspotsByStep(axis: "x" | "y", value: string) {
+    const stepValue = Number(value);
+    if (!Number.isFinite(stepValue) || stepValue <= 0 || batchSelectedHotspotIds.length < 2) {
       return;
     }
 
-    const delta = 0.01;
-    setDraftState((current) => ({
+    const step = stepValue / 100;
+    const selectedSet = new Set(batchSelectedHotspotIds);
+    updateDraftStateWithHistory((current) => {
+      const selected = current.hotspots
+        .filter((hotspot) => selectedSet.has(hotspot.id))
+        .sort((left, right) => left[axis] - right[axis]);
+      if (selected.length < 2) {
+        return current;
+      }
+
+      const start = selected[0][axis];
+      const targetById = new Map(
+        selected.map((hotspot, index) => [hotspot.id, clampPosition(start + step * index)]),
+      );
+      return {
+        ...current,
+        hotspots: current.hotspots.map((hotspot) => {
+          const target = targetById.get(hotspot.id);
+          return target === undefined ? hotspot : { ...hotspot, [axis]: target };
+        }),
+      };
+    }, "按数值分布热点");
+  }
+
+  function setBatchVisibility(visible: boolean) {
+    updateBatchHotspots((hotspot) => ({ ...hotspot, isVisible: visible }), "批量切换显示");
+  }
+
+  function setBatchIconType(iconType: string) {
+    updateBatchHotspots((hotspot) => ({ ...hotspot, iconType }), "批量设置图标");
+  }
+
+  function setBatchLabelMode(labelMode: string) {
+    updateBatchHotspots((hotspot) => ({ ...hotspot, labelMode }), "批量设置标签模式");
+  }
+
+  function nudgeSelectedHotspot(direction: "left" | "right" | "up" | "down", delta = 0.01) {
+    const targetIds = batchSelectedHotspotIds.length
+      ? batchSelectedHotspotIds
+      : selectedHotspotId
+        ? [selectedHotspotId]
+        : [];
+    if (!targetIds.length || !canEdit) {
+      return;
+    }
+
+    const targetSet = new Set(targetIds);
+    updateDraftStateWithHistory((current) => ({
       ...current,
       hotspots: current.hotspots.map((hotspot) => {
-        if (hotspot.id !== selectedHotspotId) {
+        if (!targetSet.has(hotspot.id)) {
           return hotspot;
         }
         const xDelta = direction === "left" ? -delta : direction === "right" ? delta : 0;
@@ -1197,7 +1449,7 @@ export function EditorWorkbenchWorkspace() {
           y: Math.min(Math.max(hotspot.y + yDelta, 0), 1),
         };
       }),
-    }));
+    }), "移动热点", "nudge-hotspots");
   }
 
   function duplicateSelectedHotspot() {
@@ -1214,10 +1466,10 @@ export function EditorWorkbenchWorkspace() {
       structureOrder: draftState.hotspots.length,
     };
 
-    setDraftState((current) => ({
+    updateDraftStateWithHistory((current) => ({
       ...current,
       hotspots: resequenceHotspots([...current.hotspots, duplicatedHotspot]),
-    }));
+    }), "复制热点");
     setSelectedHotspotId(duplicatedHotspot.id);
     setBatchSelectedHotspotIds([]);
   }
@@ -1228,12 +1480,12 @@ export function EditorWorkbenchWorkspace() {
     }
 
     setSelectedHotspotId(hotspotId);
-    setDraftState((current) => ({
+    updateDraftStateWithHistory((current) => ({
       ...current,
       hotspots: current.hotspots.map((hotspot) =>
         hotspot.id === hotspotId ? { ...hotspot, x, y } : hotspot,
       ),
-    }));
+    }), "拖动热点", "drag-hotspots");
   }
 
   function moveHotspotGroup(updates: Array<{ hotspotId: string; x: number; y: number }>) {
@@ -1244,13 +1496,13 @@ export function EditorWorkbenchWorkspace() {
     const updatesById = new Map(
       updates.map((update) => [update.hotspotId, { x: update.x, y: update.y }]),
     );
-    setDraftState((current) => ({
+    updateDraftStateWithHistory((current) => ({
       ...current,
       hotspots: current.hotspots.map((hotspot) => {
         const next = updatesById.get(hotspot.id);
         return next ? { ...hotspot, x: next.x, y: next.y } : hotspot;
       }),
-    }));
+    }), "拖动热点", "drag-hotspots");
   }
 
   function addHotspot() {
@@ -1270,10 +1522,10 @@ export function EditorWorkbenchWorkspace() {
       structureOrder: draftState.hotspots.length,
     };
 
-    setDraftState((current) => ({
+    updateDraftStateWithHistory((current) => ({
       ...current,
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
-    }));
+    }), "新增热点");
     setSelectedHotspotId(newHotspot.id);
     setBatchSelectedHotspotIds([]);
   }
@@ -1304,10 +1556,10 @@ export function EditorWorkbenchWorkspace() {
       structureOrder: draftState.hotspots.length,
     };
 
-    setDraftState((current) => ({
+    updateDraftStateWithHistory((current) => ({
       ...current,
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
-    }));
+    }), "添加设备热点");
     setSelectedHotspotId(newHotspot.id);
     setBatchSelectedHotspotIds([]);
     showEditorNotice({
@@ -1323,16 +1575,16 @@ export function EditorWorkbenchWorkspace() {
     }
 
     const deletedHotspotId = selectedHotspotId;
-    setDraftState((current) => {
+    updateDraftStateWithHistory((current) => {
       const nextHotspots = resequenceHotspots(
         current.hotspots.filter((hotspot) => hotspot.id !== deletedHotspotId),
       );
-      setSelectedHotspotId(nextHotspots[0]?.id ?? null);
       return {
         ...current,
         hotspots: nextHotspots,
       };
-    });
+    }, "删除热点");
+    setSelectedHotspotId((current) => (current === deletedHotspotId ? null : current));
     setBatchSelectedHotspotIds((current) =>
       current.filter((hotspotId) => hotspotId !== deletedHotspotId),
     );
@@ -1343,7 +1595,7 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setDraftState((current) => {
+    updateDraftStateWithHistory((current) => {
       const ordered = sortHotspots(current.hotspots);
       const currentIndex = ordered.findIndex((hotspot) => hotspot.id === selectedHotspotId);
       if (currentIndex === -1) {
@@ -1363,8 +1615,109 @@ export function EditorWorkbenchWorkspace() {
         ...current,
         hotspots: next.map((hotspot, index) => ({ ...hotspot, structureOrder: index })),
       };
-    });
+    }, "调整热点排序");
   }
+
+  useEffect(() => {
+    function handleEditorShortcut(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      const hasCommandModifier = event.metaKey || event.ctrlKey;
+      const isTyping = isTextEditingTarget(event.target);
+
+      if (hasCommandModifier && key === "s") {
+        event.preventDefault();
+        if (canEdit && !isSavingDraft) {
+          void handleSaveDraft();
+        }
+        return;
+      }
+
+      if (isTyping) {
+        return;
+      }
+
+      if (hasCommandModifier && key === "enter") {
+        event.preventDefault();
+        if (canEdit && !isPublishingDraft) {
+          void handlePublishDraft();
+        }
+        return;
+      }
+
+      if (hasCommandModifier && key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redoDraftChange();
+        } else {
+          undoDraftChange();
+        }
+        return;
+      }
+
+      if (hasCommandModifier && key === "y") {
+        event.preventDefault();
+        redoDraftChange();
+        return;
+      }
+
+      if (hasCommandModifier && key === "a") {
+        event.preventDefault();
+        selectAllVisibleHotspots();
+        return;
+      }
+
+      if (hasCommandModifier && key === "d") {
+        event.preventDefault();
+        duplicateSelectedHotspot();
+        return;
+      }
+
+      if (key === "escape") {
+        clearBatchSelection();
+        return;
+      }
+
+      if (key === "delete" || key === "backspace") {
+        if (selectedHotspotId) {
+          event.preventDefault();
+          deleteSelectedHotspot();
+        }
+        return;
+      }
+
+      const direction =
+        key === "arrowleft"
+          ? "left"
+          : key === "arrowright"
+            ? "right"
+            : key === "arrowup"
+              ? "up"
+              : key === "arrowdown"
+                ? "down"
+                : null;
+      if (direction) {
+        event.preventDefault();
+        const delta = event.shiftKey ? 0.05 : event.altKey ? 0.001 : 0.01;
+        nudgeSelectedHotspot(direction, delta);
+      }
+    }
+
+    window.addEventListener("keydown", handleEditorShortcut);
+    return () => {
+      window.removeEventListener("keydown", handleEditorShortcut);
+    };
+  }, [
+    batchSelectedHotspotIds,
+    canEdit,
+    canRedo,
+    canUndo,
+    draftState,
+    historyState,
+    isPublishingDraft,
+    isSavingDraft,
+    selectedHotspotId,
+    visibleHotspots,
+  ]);
 
   useEffect(() => {
     const pendingEvents: WsEvent[] = [];
@@ -1803,17 +2156,22 @@ export function EditorWorkbenchWorkspace() {
         canAcquire={canAcquire}
         canSave={canEdit}
         canPublish={canEdit}
+        canRedo={canRedo}
         canTakeover={canTakeover}
+        canUndo={canUndo}
         canDiscard={canDiscard}
         helperText={viewModel.helperText}
+        historyLabel={historyState.lastAction}
         hotspotCount={draftState.hotspots.length}
         modeLabel={viewModel.modeLabel}
         onAddHotspot={addHotspot}
         onAcquire={() => void handleAcquireLock()}
         onDiscardDraft={() => void handleDiscardDraft()}
         onPublishDraft={() => void handlePublishDraft()}
+        onRedo={redoDraftChange}
         onSaveDraft={() => void handleSaveDraft()}
         onTakeover={() => void handleTakeover()}
+        onUndo={undoDraftChange}
         discardBusy={isDiscardingDraft}
         publishBusy={isPublishingDraft}
         rows={viewModel.commandRows}
@@ -1868,12 +2226,18 @@ export function EditorWorkbenchWorkspace() {
           isUploadingBackground={isUploadingBackground}
           onBulkAlign={alignBatchHotspots}
           onBulkDistribute={distributeBatchHotspots}
+          onBulkDistributeByStep={distributeBatchHotspotsByStep}
+          onBulkSetPosition={setBatchPosition}
           onBulkSetIconType={setBatchIconType}
           onBulkSetLabelMode={setBatchLabelMode}
           onBulkSetVisibility={setBatchVisibility}
           onChangeHotspot={updateHotspotField}
           onChangeLayoutMeta={(value) =>
-            setDraftState((current) => ({ ...current, layoutMetaText: value }))
+            updateDraftStateWithHistory(
+              (current) => ({ ...current, layoutMetaText: value }),
+              "修改布局元数据",
+              "layout-meta",
+            )
           }
           onClearBackground={handleClearBackground}
           onClearBatchSelection={clearBatchSelection}

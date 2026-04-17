@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { EditorHotspotViewModel } from "../../view-models/editor";
 import { DeviceListItemDto } from "../../api/types";
 
@@ -44,6 +45,8 @@ interface EditorInspectorProps {
   onMoveHotspot: (direction: "up" | "down") => void;
   onBulkAlign: (action: EditorBulkAlignAction) => void;
   onBulkDistribute: (action: EditorBulkDistributeAction) => void;
+  onBulkSetPosition: (axis: "x" | "y", value: string) => void;
+  onBulkDistributeByStep: (axis: "x" | "y", value: string) => void;
   onBulkSetVisibility: (visible: boolean) => void;
   onBulkSetIconType: (value: string) => void;
   onBulkSetLabelMode: (value: string) => void;
@@ -73,6 +76,8 @@ export function EditorInspector({
   onMoveHotspot,
   onBulkAlign,
   onBulkDistribute,
+  onBulkSetPosition,
+  onBulkDistributeByStep,
   onBulkSetVisibility,
   onBulkSetIconType,
   onBulkSetLabelMode,
@@ -85,6 +90,10 @@ export function EditorInspector({
     .map((item) => item.label)
     .join("、");
   const hasBatchSelection = batchHotspots.length > 0;
+  const [batchX, setBatchX] = useState("");
+  const [batchY, setBatchY] = useState("");
+  const [batchHorizontalGap, setBatchHorizontalGap] = useState("");
+  const [batchVerticalGap, setBatchVerticalGap] = useState("");
 
   return (
     <aside className="utility-card editor-inspector">
@@ -185,6 +194,94 @@ export function EditorInspector({
               type="button"
             >
               纵向等距
+            </button>
+          </div>
+          <div className="settings-form-grid">
+            <label className="form-field">
+              <span>统一 X (%)</span>
+              <input
+                className="control-input"
+                disabled={!canEdit}
+                max="100"
+                min="0"
+                onChange={(event) => setBatchX(event.target.value)}
+                placeholder="例如 35"
+                type="number"
+                value={batchX}
+              />
+            </label>
+            <label className="form-field">
+              <span>统一 Y (%)</span>
+              <input
+                className="control-input"
+                disabled={!canEdit}
+                max="100"
+                min="0"
+                onChange={(event) => setBatchY(event.target.value)}
+                placeholder="例如 45"
+                type="number"
+                value={batchY}
+              />
+            </label>
+            <label className="form-field">
+              <span>横向间距 (%)</span>
+              <input
+                className="control-input"
+                disabled={!canEdit || batchHotspots.length < 2}
+                max="100"
+                min="0"
+                onChange={(event) => setBatchHorizontalGap(event.target.value)}
+                placeholder="例如 8"
+                type="number"
+                value={batchHorizontalGap}
+              />
+            </label>
+            <label className="form-field">
+              <span>纵向间距 (%)</span>
+              <input
+                className="control-input"
+                disabled={!canEdit || batchHotspots.length < 2}
+                max="100"
+                min="0"
+                onChange={(event) => setBatchVerticalGap(event.target.value)}
+                placeholder="例如 8"
+                type="number"
+                value={batchVerticalGap}
+              />
+            </label>
+          </div>
+          <div className="settings-module-card__actions">
+            <button
+              className="button button--ghost"
+              disabled={!canEdit || !batchX}
+              onClick={() => onBulkSetPosition("x", batchX)}
+              type="button"
+            >
+              应用 X
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!canEdit || !batchY}
+              onClick={() => onBulkSetPosition("y", batchY)}
+              type="button"
+            >
+              应用 Y
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!canEdit || batchHotspots.length < 2 || !batchHorizontalGap}
+              onClick={() => onBulkDistributeByStep("x", batchHorizontalGap)}
+              type="button"
+            >
+              套用横向间距
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!canEdit || batchHotspots.length < 2 || !batchVerticalGap}
+              onClick={() => onBulkDistributeByStep("y", batchVerticalGap)}
+              type="button"
+            >
+              套用纵向间距
             </button>
           </div>
           <div className="settings-form-grid">

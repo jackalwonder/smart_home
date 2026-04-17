@@ -570,6 +570,12 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   });
   await page.mouse.up();
   await page.getByRole("button", { name: "左对齐" }).click();
+  await page.getByLabel("统一 X (%)").fill("40");
+  await page.getByRole("button", { name: "应用 X" }).click();
+  await page.keyboard.press("Control+Z");
+  await expect(page.getByText("已撤销")).toBeVisible();
+  await page.keyboard.press("Control+Y");
+  await expect(page.getByText("已重做")).toBeVisible();
   await page.getByLabel("统一标签模式").selectOption("ALWAYS");
   await expect(page.getByLabel("发布前变更摘要")).toContainText("新增热点");
   await expect(page.getByLabel("发布前变更摘要")).toContainText("背景图更新");
