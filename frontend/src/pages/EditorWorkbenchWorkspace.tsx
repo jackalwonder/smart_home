@@ -103,11 +103,111 @@ function formatInvalidFieldList(details: Record<string, unknown> | undefined) {
         return null;
       }
       const value = (field as { field?: unknown }).field;
-      return typeof value === "string" && value.length ? value : null;
+      return typeof value === "string" && value.length ? translateEditorFieldPath(value) : null;
     })
     .filter((value): value is string => Boolean(value))
     .slice(0, 3);
   return labels.length ? labels.join("、") : null;
+}
+
+function asDetailRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asDetailString(value: unknown) {
+  return typeof value === "string" && value.length ? value : null;
+}
+
+function translateEditorFieldPath(field: string) {
+  const normalized = field
+    .replace(/^body\./, "")
+    .replace(/^data\./, "")
+    .replace(/^query\./, "");
+  const parts = normalized.split(".");
+  const hotspotIndex = parts.findIndex((part) => part === "hotspots");
+  if (hotspotIndex >= 0) {
+    const index = Number(parts[hotspotIndex + 1]);
+    const target = parts[hotspotIndex + 2] ?? "";
+    const label =
+      target === "x"
+        ? "横向位置"
+        : target === "y"
+          ? "纵向位置"
+          : target === "device_id"
+            ? "设备 ID"
+            : target === "hotspot_id"
+              ? "热点 ID"
+              : target === "structure_order"
+                ? "排序"
+                : "字段";
+    return Number.isFinite(index) ? `第 ${index + 1} 个热点的${label}` : `热点列表的${label}`;
+  }
+
+  const fieldLabels: Record<string, string> = {
+    lease_id: "编辑租约",
+    draft_version: "草稿版本",
+    base_layout_version: "基线布局版本",
+    background_asset_id: "背景资源",
+    layout_meta: "布局元数据",
+    home_id: "家庭 ID",
+    terminal_id: "终端 ID",
+    member_id: "成员 ID",
+  };
+  return fieldLabels[normalized] ?? normalized;
+}
+
+function formatVersionConflictDetail(
+  details: Record<string, unknown> | undefined,
+  action: EditorActionKind,
+) {
+  const submitted = asDetailRecord(details?.submitted);
+  const current = asDetailRecord(details?.current);
+  const submittedDraftVersion = asDetailString(submitted?.draft_version);
+  const currentDraftVersion = asDetailString(current?.draft_version);
+  const submittedBaseVersion = asDetailString(submitted?.base_layout_version);
+  const currentBaseVersion = asDetailString(current?.base_layout_version);
+
+  const versionParts = [
+    currentDraftVersion && submittedDraftVersion
+      ? `当前草稿版本为 ${currentDraftVersion}，本次提交基于 ${submittedDraftVersion}`
+      : null,
+    currentBaseVersion && submittedBaseVersion && currentBaseVersion !== submittedBaseVersion
+      ? `当前基线布局为 ${currentBaseVersion}，本次提交基于 ${submittedBaseVersion}`
+      : null,
+  ].filter(Boolean);
+
+  const prefix = action === "publish" ? "发布前草稿已经变化" : "保存前草稿已经变化";
+  return versionParts.length
+    ? `${prefix}：${versionParts.join("；")}。页面已刷新到最新草稿，请确认后重试。`
+    : `${prefix}。页面已刷新到最新草稿，请确认后重试。`;
+}
+
+function formatLockLostDetail(details: Record<string, unknown> | undefined) {
+  const reason = asDetailString(details?.reason);
+  const activeLease = asDetailRecord(details?.active_lease);
+  const activeTerminalId = asDetailString(activeLease?.terminal_id);
+  const leaseExpiresAt = asDetailString(activeLease?.lease_expires_at);
+
+  switch (reason) {
+    case "LEASE_NOT_FOUND":
+      return "当前编辑租约已经不存在，页面已刷新为只读草稿。请重新申请编辑后再继续。";
+    case "LEASE_INACTIVE":
+      return "当前编辑租约已经释放，页面已刷新为只读草稿。请重新申请编辑后再继续。";
+    case "TERMINAL_MISMATCH":
+      return activeTerminalId
+        ? `当前编辑锁属于终端 ${activeTerminalId}，本终端不能继续写入。请确认后接管当前锁。`
+        : "当前编辑锁属于其他终端，本终端不能继续写入。请确认后接管当前锁。";
+    case "LEASE_EXPIRED":
+      return leaseExpiresAt
+        ? `当前编辑租约已在 ${leaseExpiresAt} 过期，页面已刷新为只读草稿。请重新申请编辑后再继续。`
+        : "当前编辑租约已过期，页面已刷新为只读草稿。请重新申请编辑后再继续。";
+    case "DRAFT_MISSING":
+      return "后端草稿上下文已经不存在，页面已刷新为只读状态。请重新申请编辑后再继续。";
+    default:
+      return "当前会话已经失去编辑锁。请先刷新草稿，再重新申请编辑或接管其他终端的锁。";
+  }
 }
 
 function buildEditorErrorNotice(
@@ -353,20 +453,33 @@ export function EditorWorkbenchWorkspace() {
       showEditorNotice({
         tone: "warning",
         title: action === "publish" ? "发布前草稿版本已更新" : "保存前草稿版本已更新",
-        detail: "后端草稿版本已经变化，页面已刷新到最新草稿，请确认变更后重试。",
+        detail: formatVersionConflictDetail(apiError.details, action),
         actions: [action === "publish" ? "retry-publish" : "retry-save"],
       });
       return;
     }
 
     if (apiError.code === "DRAFT_LOCK_LOST" || apiError.code === "DRAFT_LOCK_TAKEN_OVER") {
-      appStore.setEditorSession({
-        lockStatus: "READ_ONLY",
-        leaseId: null,
-        leaseExpiresAt: null,
-        heartbeatIntervalSeconds: null,
-        lockedByTerminalId: null,
-      });
+      const activeLease = asDetailRecord(apiError.details?.active_lease);
+      const activeLeaseId = asDetailString(activeLease?.lease_id);
+      const activeTerminalId = asDetailString(activeLease?.terminal_id);
+      if (apiError.details?.reason === "TERMINAL_MISMATCH" && activeLeaseId && activeTerminalId) {
+        appStore.setEditorSession({
+          lockStatus: "LOCKED_BY_OTHER",
+          leaseId: activeLeaseId,
+          leaseExpiresAt: asDetailString(activeLease?.lease_expires_at),
+          heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds,
+          lockedByTerminalId: activeTerminalId,
+        });
+      } else {
+        appStore.setEditorSession({
+          lockStatus: "READ_ONLY",
+          leaseId: null,
+          leaseExpiresAt: null,
+          heartbeatIntervalSeconds: null,
+          lockedByTerminalId: null,
+        });
+      }
       try {
         await refreshDraft();
       } catch (refreshError) {
@@ -386,8 +499,8 @@ export function EditorWorkbenchWorkspace() {
             : action === "save"
               ? "保存前失去编辑租约"
               : "编辑租约已失效",
-        detail: "当前会话已经失去编辑锁。请先刷新草稿，再重新申请编辑或接管其他终端的锁。",
-        actions: ["refresh", "acquire"],
+        detail: formatLockLostDetail(apiError.details),
+        actions: apiError.details?.reason === "TERMINAL_MISMATCH" ? ["refresh", "takeover"] : ["refresh", "acquire"],
       });
       return;
     }

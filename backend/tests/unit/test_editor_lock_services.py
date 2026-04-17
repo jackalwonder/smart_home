@@ -6,7 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.modules.editor.services.EditorDraftService import EditorDraftInput, EditorDraftService
+from src.modules.editor.services.EditorDraftService import (
+    EditorDraftInput,
+    EditorDraftSaveInput,
+    EditorDraftService,
+)
+from src.modules.editor.services.EditorPublishService import EditorPublishInput, EditorPublishService
 from src.modules.editor.services.EditorSessionService import (
     HEARTBEAT_INTERVAL_SECONDS,
     LEASE_TTL_SECONDS,
@@ -15,6 +20,7 @@ from src.modules.editor.services.EditorSessionService import (
 )
 from src.repositories.query.editor.EditorLeaseQueryRepository import EditorLeaseContextReadModel
 from src.repositories.read_models.index import DraftLeaseReadModel, EditorDraftReadModel
+from src.shared.errors.AppError import AppError
 
 
 class _Clock:
@@ -104,6 +110,14 @@ class _DraftLeaseRepository:
         return 1
 
 
+class _DraftLeaseLookupRepository:
+    def __init__(self, lease):
+        self._lease = lease
+
+    async def find_by_lease_id(self, *_args, **_kwargs):
+        return self._lease
+
+
 class _DraftLayoutRepository:
     def __init__(self, draft):
         self._draft = draft
@@ -144,6 +158,35 @@ def _build_draft_service(draft):
         draft_lease_repository=SimpleNamespace(),
         management_pin_guard=_NoopPinGuard(),
         version_token_generator=_VersionTokenGenerator(),
+        clock=_Clock(),
+    )
+
+
+def _build_draft_command_service(*, draft, lease):
+    return EditorDraftService(
+        unit_of_work=_NoopUnitOfWork(),
+        editor_draft_query_repository=_EditorDraftQueryRepository(None),
+        draft_layout_repository=_DraftLayoutRepository(draft),
+        draft_hotspot_repository=_NoopDraftHotspotRepository(),
+        draft_lease_repository=_DraftLeaseLookupRepository(lease),
+        management_pin_guard=_NoopPinGuard(),
+        version_token_generator=_VersionTokenGenerator(),
+        clock=_Clock(),
+    )
+
+
+def _build_publish_service(*, draft, lease):
+    return EditorPublishService(
+        unit_of_work=_NoopUnitOfWork(),
+        draft_layout_repository=_DraftLayoutRepository(draft),
+        draft_hotspot_repository=_NoopDraftHotspotRepository(),
+        draft_lease_repository=_DraftLeaseLookupRepository(lease),
+        layout_version_repository=SimpleNamespace(),
+        layout_hotspot_repository=SimpleNamespace(),
+        ws_event_outbox_repository=_NoopWsEventOutboxRepository(),
+        management_pin_guard=_NoopPinGuard(),
+        version_token_generator=SimpleNamespace(next_layout_version=lambda: "lv-new"),
+        event_id_generator=_EventIdGenerator(),
         clock=_Clock(),
     )
 
@@ -215,6 +258,133 @@ async def test_get_draft_distinguishes_granted_locked_and_read_only():
     assert readonly_same_terminal.readonly is True
     assert locked_by_other.lock_status == "LOCKED_BY_OTHER"
     assert locked_by_other.readonly is True
+
+
+@pytest.mark.asyncio
+async def test_save_draft_version_conflict_includes_current_and_submitted_versions():
+    lease = DraftLeaseReadModel(
+        lease_id="lease-1",
+        terminal_id="terminal-1",
+        member_id=None,
+        lease_status="ACTIVE",
+        is_active=True,
+        lease_expires_at="2026-04-14T10:01:00+00:00",
+        last_heartbeat_at="2026-04-14T09:59:40+00:00",
+    )
+    draft = SimpleNamespace(
+        id="draft-1",
+        draft_version="dv-current",
+        base_layout_version="lv-current",
+    )
+    service = _build_draft_command_service(draft=draft, lease=lease)
+
+    with pytest.raises(AppError) as error:
+        await service.save_draft(
+            EditorDraftSaveInput(
+                home_id="home-1",
+                terminal_id="terminal-1",
+                lease_id="lease-1",
+                draft_version="dv-stale",
+                base_layout_version="lv-stale",
+                background_asset_id=None,
+                layout_meta={},
+                hotspots=[],
+            )
+        )
+
+    assert error.value.details == {
+        "reason": "DRAFT_VERSION_MISMATCH",
+        "submitted": {
+            "draft_version": "dv-stale",
+            "base_layout_version": "lv-stale",
+        },
+        "current": {
+            "draft_version": "dv-current",
+            "base_layout_version": "lv-current",
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_save_draft_lock_error_includes_active_lease_details():
+    lease = DraftLeaseReadModel(
+        lease_id="lease-2",
+        terminal_id="terminal-2",
+        member_id=None,
+        lease_status="ACTIVE",
+        is_active=True,
+        lease_expires_at="2026-04-14T10:01:00+00:00",
+        last_heartbeat_at="2026-04-14T09:59:40+00:00",
+    )
+    service = _build_draft_command_service(draft=None, lease=lease)
+
+    with pytest.raises(AppError) as error:
+        await service.save_draft(
+            EditorDraftSaveInput(
+                home_id="home-1",
+                terminal_id="terminal-1",
+                lease_id="lease-2",
+                draft_version="dv-1",
+                base_layout_version="lv-1",
+                background_asset_id=None,
+                layout_meta={},
+                hotspots=[],
+            )
+        )
+
+    assert error.value.details == {
+        "reason": "TERMINAL_MISMATCH",
+        "lease_id": "lease-2",
+        "terminal_id": "terminal-1",
+        "active_lease": {
+            "lease_id": "lease-2",
+            "terminal_id": "terminal-2",
+            "lease_status": "ACTIVE",
+            "lease_expires_at": "2026-04-14T10:01:00+00:00",
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_publish_version_conflict_includes_current_and_submitted_versions():
+    lease = DraftLeaseReadModel(
+        lease_id="lease-1",
+        terminal_id="terminal-1",
+        member_id=None,
+        lease_status="ACTIVE",
+        is_active=True,
+        lease_expires_at="2026-04-14T10:01:00+00:00",
+        last_heartbeat_at="2026-04-14T09:59:40+00:00",
+    )
+    draft = SimpleNamespace(
+        id="draft-1",
+        draft_version="dv-current",
+        base_layout_version="lv-current",
+    )
+    service = _build_publish_service(draft=draft, lease=lease)
+
+    with pytest.raises(AppError) as error:
+        await service.publish(
+            EditorPublishInput(
+                home_id="home-1",
+                terminal_id="terminal-1",
+                lease_id="lease-1",
+                draft_version="dv-stale",
+                base_layout_version="lv-stale",
+            )
+        )
+
+    assert error.value.details == {
+        "reason": "DRAFT_VERSION_MISMATCH",
+        "submitted": {
+            "draft_version": "dv-stale",
+            "base_layout_version": "lv-stale",
+        },
+        "current": {
+            "draft_version": "dv-current",
+            "base_layout_version": "lv-current",
+        },
+    }
 
 
 @pytest.mark.asyncio
