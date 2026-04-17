@@ -15,7 +15,7 @@ interface BackupManagementPanelProps {
   onCreateBackup: () => void;
   onRefresh: () => void;
   onRefreshAudits: () => void;
-  onRestoreBackup: (backupId: string) => void;
+  onRestoreBackup: (backup: BackupListItemDto) => void;
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -59,6 +59,33 @@ function formatRestoreFailure(audit: BackupRestoreAuditItemDto) {
     return "备份快照结构不完整";
   }
   return audit.error_message ?? audit.error_code ?? "恢复失败";
+}
+
+function formatSnapshotVersion(
+  snapshotVersion: string | null | undefined,
+  currentVersion: string | null | undefined,
+  matchesCurrent: boolean,
+) {
+  if (!snapshotVersion) {
+    return "无版本";
+  }
+  if (!currentVersion) {
+    return snapshotVersion;
+  }
+  if (matchesCurrent) {
+    return `${snapshotVersion}，与当前一致`;
+  }
+  return `${snapshotVersion}，当前为 ${currentVersion}`;
+}
+
+function formatSnapshotStatus(status: string) {
+  if (status === "READY") {
+    return "可预览";
+  }
+  if (status === "INVALID") {
+    return "快照异常";
+  }
+  return status;
 }
 
 export function BackupManagementPanel({
@@ -126,6 +153,48 @@ export function BackupManagementPanel({
                 <strong>{backup.backup_id}</strong>
                 <span>{backup.note || "无备注"}</span>
               </div>
+              <div className="backup-snapshot" aria-label={`快照摘要 ${backup.backup_id}`}>
+                <div className="backup-snapshot__header">
+                  <strong>快照摘要</strong>
+                  <span>{formatSnapshotStatus(backup.summary.snapshot_status)}</span>
+                </div>
+                <dl className="backup-snapshot__grid">
+                  <div>
+                    <dt>设置版本</dt>
+                    <dd>
+                      {formatSnapshotVersion(
+                        backup.summary.settings_version,
+                        backup.comparison.current_settings_version,
+                        backup.comparison.settings_matches_current,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>布局版本</dt>
+                    <dd>
+                      {formatSnapshotVersion(
+                        backup.summary.layout_version,
+                        backup.comparison.current_layout_version,
+                        backup.comparison.layout_matches_current,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>内容数量</dt>
+                    <dd>
+                      收藏 {backup.summary.favorite_count}，热点 {backup.summary.hotspot_count}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>包含内容</dt>
+                    <dd>
+                      页面设置 {backup.summary.has_page_settings ? "有" : "无"}，功能设置{" "}
+                      {backup.summary.has_function_settings ? "有" : "无"}，背景图{" "}
+                      {backup.summary.has_background_asset ? "有" : "无"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
               <dl className="backup-list__meta">
                 <div>
                   <dt>创建时间</dt>
@@ -146,8 +215,13 @@ export function BackupManagementPanel({
               </dl>
               <button
                 className="button button--ghost"
-                disabled={!canEdit || restoreBusyId !== null || backup.status !== "READY"}
-                onClick={() => onRestoreBackup(backup.backup_id)}
+                disabled={
+                  !canEdit ||
+                  restoreBusyId !== null ||
+                  backup.status !== "READY" ||
+                  backup.summary.snapshot_status !== "READY"
+                }
+                onClick={() => onRestoreBackup(backup)}
                 type="button"
               >
                 {restoreBusyId === backup.backup_id ? "恢复中..." : "恢复此备份"}

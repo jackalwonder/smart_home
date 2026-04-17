@@ -673,6 +673,7 @@ export interface components {
         BackupListItemResponse: {
             /** Backup Id */
             backup_id: string;
+            comparison: components["schemas"]["BackupSnapshotComparisonResponse"];
             /** Created At */
             created_at: string;
             /** Created By */
@@ -683,6 +684,7 @@ export interface components {
             restored_at?: string | null;
             /** Status */
             status: string;
+            summary: components["schemas"]["BackupSnapshotSummaryResponse"];
         };
         /** BackupListResponse */
         BackupListResponse: {
@@ -754,6 +756,36 @@ export interface components {
             restored: boolean;
             /** Settings Version */
             settings_version: string;
+        };
+        /** BackupSnapshotComparisonResponse */
+        BackupSnapshotComparisonResponse: {
+            /** Current Layout Version */
+            current_layout_version?: string | null;
+            /** Current Settings Version */
+            current_settings_version?: string | null;
+            /** Layout Matches Current */
+            layout_matches_current: boolean;
+            /** Settings Matches Current */
+            settings_matches_current: boolean;
+        };
+        /** BackupSnapshotSummaryResponse */
+        BackupSnapshotSummaryResponse: {
+            /** Favorite Count */
+            favorite_count: number;
+            /** Has Background Asset */
+            has_background_asset: boolean;
+            /** Has Function Settings */
+            has_function_settings: boolean;
+            /** Has Page Settings */
+            has_page_settings: boolean;
+            /** Hotspot Count */
+            hotspot_count: number;
+            /** Layout Version */
+            layout_version?: string | null;
+            /** Settings Version */
+            settings_version?: string | null;
+            /** Snapshot Status */
+            snapshot_status: string;
         };
         /** BindMediaBody */
         BindMediaBody: {

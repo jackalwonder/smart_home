@@ -180,6 +180,9 @@
             "title": "Backup Id",
             "type": "string"
           },
+          "comparison": {
+            "$ref": "#/components/schemas/BackupSnapshotComparisonResponse"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -220,12 +223,17 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/BackupSnapshotSummaryResponse"
           }
         },
         "required": [
           "backup_id",
           "created_at",
-          "status"
+          "status",
+          "summary",
+          "comparison"
         ],
         "title": "BackupListItemResponse",
         "type": "object"
@@ -467,6 +475,108 @@
           "message"
         ],
         "title": "BackupRestoreResponse",
+        "type": "object"
+      },
+      "BackupSnapshotComparisonResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current_layout_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Layout Version"
+          },
+          "current_settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Settings Version"
+          },
+          "layout_matches_current": {
+            "title": "Layout Matches Current",
+            "type": "boolean"
+          },
+          "settings_matches_current": {
+            "title": "Settings Matches Current",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "settings_matches_current",
+          "layout_matches_current"
+        ],
+        "title": "BackupSnapshotComparisonResponse",
+        "type": "object"
+      },
+      "BackupSnapshotSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "favorite_count": {
+            "title": "Favorite Count",
+            "type": "integer"
+          },
+          "has_background_asset": {
+            "title": "Has Background Asset",
+            "type": "boolean"
+          },
+          "has_function_settings": {
+            "title": "Has Function Settings",
+            "type": "boolean"
+          },
+          "has_page_settings": {
+            "title": "Has Page Settings",
+            "type": "boolean"
+          },
+          "hotspot_count": {
+            "title": "Hotspot Count",
+            "type": "integer"
+          },
+          "layout_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout Version"
+          },
+          "settings_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Version"
+          },
+          "snapshot_status": {
+            "title": "Snapshot Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_status",
+          "favorite_count",
+          "hotspot_count",
+          "has_page_settings",
+          "has_function_settings",
+          "has_background_asset"
+        ],
+        "title": "BackupSnapshotSummaryResponse",
         "type": "object"
       },
       "BindMediaBody": {

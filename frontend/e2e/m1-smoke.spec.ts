@@ -150,6 +150,7 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await page.getByRole("button", { name: "创建备份" }).click();
   await expect(page.getByText(/备份 bk_/)).toBeVisible();
   await expect(page.getByText("e2e smoke backup").first()).toBeVisible();
+  await expect(page.getByText("快照摘要").first()).toBeVisible();
 });
 
 test("settings save emits realtime settings_updated event", async ({ page, request }) => {
