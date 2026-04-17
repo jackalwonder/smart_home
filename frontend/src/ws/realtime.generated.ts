@@ -123,6 +123,7 @@ export type EventId11 = string;
 export type EventType10 = "backup_restore_completed";
 export type HomeId12 = string;
 export type OccurredAt10 = string;
+export type AuditId = string;
 export type BackupId = string;
 export type EffectiveAt2 = string;
 export type LayoutVersion1 = string;
@@ -307,6 +308,7 @@ export interface BackupRestoreCompletedEvent {
   snapshot_required: SnapshotRequired10;
 }
 export interface BackupRestoreCompletedPayload {
+  audit_id: AuditId;
   backup_id: BackupId;
   effective_at: EffectiveAt2;
   layout_version: LayoutVersion1;

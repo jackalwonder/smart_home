@@ -257,6 +257,7 @@ class BackupService:
             SELECT
                 sb.backup_id,
                 sb.created_at::text AS created_at,
+                sb.restored_at::text AS restored_at,
                 sb.status,
                 sb.note,
                 m.display_name AS created_by
@@ -274,6 +275,7 @@ class BackupService:
                 {
                     "backup_id": row["backup_id"],
                     "created_at": row["created_at"],
+                    "restored_at": row["restored_at"],
                     "created_by": row["created_by"],
                     "status": row["status"],
                     "note": row["note"],

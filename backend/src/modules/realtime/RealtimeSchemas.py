@@ -79,6 +79,7 @@ class BackupRestoreCompletedPayload(ApiSchema):
     backup_id: str
     settings_version: str
     layout_version: str
+    audit_id: str
     effective_at: str
     restored_by_terminal_id: str
 
