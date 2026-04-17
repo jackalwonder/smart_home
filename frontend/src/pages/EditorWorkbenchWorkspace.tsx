@@ -29,6 +29,15 @@ interface EditorDraftState {
   hotspots: EditorHotspotViewModel[];
 }
 
+type EditorHotspotField =
+  | "label"
+  | "deviceId"
+  | "iconType"
+  | "labelMode"
+  | "x"
+  | "y"
+  | "structureOrder";
+
 type EditorNoticeAction =
   | "refresh"
   | "retry-save"
@@ -326,6 +335,21 @@ function getNextHotspotPosition(index: number) {
   return {
     x: Math.min(0.2 + column * 0.2, 0.8),
     y: Math.min(0.25 + row * 0.16, 0.85),
+  };
+}
+
+function buildLayoutMetaWithHotspotLabels(
+  layoutMeta: Record<string, unknown>,
+  hotspots: EditorHotspotViewModel[],
+) {
+  return {
+    ...layoutMeta,
+    hotspot_labels: Object.fromEntries(
+      hotspots.map((hotspot) => [
+        hotspot.id,
+        hotspot.label.trim() || hotspot.deviceId.trim() || hotspot.id,
+      ]),
+    ),
   };
 }
 
@@ -637,7 +661,7 @@ export function EditorWorkbenchWorkspace() {
   const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
 
   function updateHotspotField(
-    field: "deviceId" | "iconType" | "labelMode" | "x" | "y" | "structureOrder",
+    field: EditorHotspotField,
     value: string,
   ) {
     if (!selectedHotspotId) {
@@ -663,6 +687,10 @@ export function EditorWorkbenchWorkspace() {
               ? Math.max(0, Math.round(next))
               : hotspot.structureOrder,
           };
+        }
+
+        if (field === "label") {
+          return { ...hotspot, label: value };
         }
 
         if (field === "deviceId") {
@@ -735,6 +763,50 @@ export function EditorWorkbenchWorkspace() {
         hotspot.id === selectedHotspotId ? { ...hotspot, isVisible: visible } : hotspot,
       ),
     }));
+  }
+
+  function nudgeSelectedHotspot(direction: "left" | "right" | "up" | "down") {
+    if (!selectedHotspotId || !canEdit) {
+      return;
+    }
+
+    const delta = 0.01;
+    setDraftState((current) => ({
+      ...current,
+      hotspots: current.hotspots.map((hotspot) => {
+        if (hotspot.id !== selectedHotspotId) {
+          return hotspot;
+        }
+        const xDelta = direction === "left" ? -delta : direction === "right" ? delta : 0;
+        const yDelta = direction === "up" ? -delta : direction === "down" ? delta : 0;
+        return {
+          ...hotspot,
+          x: Math.min(Math.max(hotspot.x + xDelta, 0), 1),
+          y: Math.min(Math.max(hotspot.y + yDelta, 0), 1),
+        };
+      }),
+    }));
+  }
+
+  function duplicateSelectedHotspot() {
+    if (!selectedHotspot || !canEdit) {
+      return;
+    }
+
+    const duplicatedHotspot: EditorHotspotViewModel = {
+      ...selectedHotspot,
+      id: `${selectedHotspot.id}-copy-${Date.now()}`,
+      label: `${selectedHotspot.label} 副本`,
+      x: Math.min(selectedHotspot.x + 0.04, 1),
+      y: Math.min(selectedHotspot.y + 0.04, 1),
+      structureOrder: draftState.hotspots.length,
+    };
+
+    setDraftState((current) => ({
+      ...current,
+      hotspots: resequenceHotspots([...current.hotspots, duplicatedHotspot]),
+    }));
+    setSelectedHotspotId(duplicatedHotspot.id);
   }
 
   function moveHotspot(hotspotId: string, x: number, y: number) {
@@ -1052,13 +1124,20 @@ export function EditorWorkbenchWorkspace() {
     }
 
     try {
-      const layoutMeta = JSON.parse(draftState.layoutMetaText || "{}");
+      const parsedLayoutMeta = JSON.parse(draftState.layoutMetaText || "{}");
+      const layoutMeta =
+        parsedLayoutMeta && typeof parsedLayoutMeta === "object" && !Array.isArray(parsedLayoutMeta)
+          ? buildLayoutMetaWithHotspotLabels(
+              parsedLayoutMeta as Record<string, unknown>,
+              draftState.hotspots,
+            )
+          : buildLayoutMetaWithHotspotLabels({}, draftState.hotspots);
       await saveEditorDraft({
         lease_id: editor.leaseId,
         draft_version: editor.draftVersion,
         base_layout_version: editor.baseLayoutVersion,
         background_asset_id: draftState.backgroundAssetId,
-        layout_meta: layoutMeta && typeof layoutMeta === "object" ? layoutMeta : {},
+        layout_meta: layoutMeta,
         hotspots: draftState.hotspots.map((hotspot, index) => ({
           hotspot_id: hotspot.id,
           device_id: hotspot.deviceId.trim(),
@@ -1355,7 +1434,9 @@ export function EditorWorkbenchWorkspace() {
           }
           onClearBackground={handleClearBackground}
           onDeleteHotspot={deleteSelectedHotspot}
+          onDuplicateHotspot={duplicateSelectedHotspot}
           onMoveHotspot={moveSelectedHotspot}
+          onNudgeHotspot={nudgeSelectedHotspot}
           onUploadBackground={(file) => void handleUploadBackground(file)}
           onToggleVisibility={updateHotspotVisibility}
           rows={viewModel.commandRows}

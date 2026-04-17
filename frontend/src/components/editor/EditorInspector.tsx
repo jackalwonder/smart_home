@@ -1,6 +1,25 @@
 import { EditorHotspotViewModel } from "../../view-models/editor";
 import { DeviceListItemDto } from "../../api/types";
 
+type EditorHotspotField =
+  | "label"
+  | "deviceId"
+  | "iconType"
+  | "labelMode"
+  | "x"
+  | "y"
+  | "structureOrder";
+
+const ICON_TYPE_OPTIONS = [
+  { value: "device", label: "通用设备" },
+  { value: "light", label: "灯光" },
+  { value: "fan", label: "风扇" },
+  { value: "climate", label: "空调" },
+  { value: "curtain", label: "窗帘" },
+  { value: "sensor", label: "传感器" },
+  { value: "media", label: "媒体" },
+];
+
 interface EditorInspectorProps {
   hotspot: EditorHotspotViewModel | null;
   canEdit: boolean;
@@ -10,11 +29,10 @@ interface EditorInspectorProps {
   layoutMetaText: string;
   rows: Array<{ label: string; value: string }>;
   isUploadingBackground: boolean;
-  onChangeHotspot: (
-    field: "deviceId" | "iconType" | "labelMode" | "x" | "y" | "structureOrder",
-    value: string,
-  ) => void;
+  onChangeHotspot: (field: EditorHotspotField, value: string) => void;
   onClearBackground: () => void;
+  onDuplicateHotspot: () => void;
+  onNudgeHotspot: (direction: "left" | "right" | "up" | "down") => void;
   onUploadBackground: (file: File) => void;
   onToggleVisibility: (visible: boolean) => void;
   onChangeLayoutMeta: (value: string) => void;
@@ -35,6 +53,8 @@ export function EditorInspector({
   isUploadingBackground,
   onChangeHotspot,
   onClearBackground,
+  onDuplicateHotspot,
+  onNudgeHotspot,
   onUploadBackground,
   onToggleVisibility,
   onChangeLayoutMeta,
@@ -72,7 +92,13 @@ export function EditorInspector({
         <div className="settings-form-grid">
           <label className="form-field">
             <span>显示名称</span>
-            <input className="control-input" readOnly value={hotspot.label} />
+            <input
+              className="control-input"
+              disabled={!canEdit}
+              maxLength={64}
+              onChange={(event) => onChangeHotspot("label", event.target.value)}
+              value={hotspot.label}
+            />
           </label>
           <label className="form-field">
             <span>绑定设备</span>
@@ -104,12 +130,21 @@ export function EditorInspector({
           </label>
           <label className="form-field">
             <span>图标类型</span>
-            <input
+            <select
               className="control-input"
               disabled={!canEdit}
               onChange={(event) => onChangeHotspot("iconType", event.target.value)}
               value={hotspot.iconType}
-            />
+            >
+              {ICON_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              {hotspot.iconType && !ICON_TYPE_OPTIONS.some((option) => option.value === hotspot.iconType) ? (
+                <option value={hotspot.iconType}>{hotspot.iconType}</option>
+              ) : null}
+            </select>
           </label>
           <label className="form-field">
             <span>标签模式</span>
@@ -168,6 +203,48 @@ export function EditorInspector({
             <span>在画布中显示</span>
           </label>
           <div className="settings-module-card__actions form-field--full">
+            <button
+              className="button button--ghost"
+              disabled={!canEdit}
+              onClick={() => onNudgeHotspot("left")}
+              type="button"
+            >
+              左移 1%
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!canEdit}
+              onClick={() => onNudgeHotspot("right")}
+              type="button"
+            >
+              右移 1%
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!canEdit}
+              onClick={() => onNudgeHotspot("up")}
+              type="button"
+            >
+              上移 1%
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!canEdit}
+              onClick={() => onNudgeHotspot("down")}
+              type="button"
+            >
+              下移 1%
+            </button>
+          </div>
+          <div className="settings-module-card__actions form-field--full">
+            <button
+              className="button button--ghost"
+              disabled={!canEdit}
+              onClick={onDuplicateHotspot}
+              type="button"
+            >
+              复制热点
+            </button>
             <button
               className="button button--ghost"
               disabled={!canEdit || !canMoveUp}

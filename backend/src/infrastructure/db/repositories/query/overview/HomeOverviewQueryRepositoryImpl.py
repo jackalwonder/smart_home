@@ -70,7 +70,10 @@ class HomeOverviewQueryRepositoryImpl:
                         SELECT
                             layout_hotspots.hotspot_id,
                             layout_hotspots.device_id::text AS device_id,
-                            d.display_name,
+                            COALESCE(
+                                lv.layout_meta_json -> 'hotspot_labels' ->> layout_hotspots.hotspot_id,
+                                d.display_name
+                            ) AS display_name,
                             d.device_type,
                             layout_hotspots.x::float8 AS x,
                             layout_hotspots.y::float8 AS y,
@@ -85,6 +88,8 @@ class HomeOverviewQueryRepositoryImpl:
                             COALESCE(drs.status_summary_json, '{}'::jsonb) AS status_summary_json,
                             layout_hotspots.display_policy::text AS display_policy
                         FROM layout_hotspots
+                        JOIN layout_versions lv
+                          ON lv.id = layout_hotspots.layout_version_id
                         JOIN devices d
                           ON d.id = layout_hotspots.device_id
                         LEFT JOIN device_runtime_states drs

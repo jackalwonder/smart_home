@@ -1265,6 +1265,8 @@ export interface components {
         EditorDraftHotspotResponse: {
             /** Device Id */
             device_id: string;
+            /** Display Name */
+            display_name?: string | null;
             /** Hotspot Id */
             hotspot_id: string;
             /** Icon Type */

@@ -239,7 +239,7 @@ class EditorSessionService:
                         draft_version=self._version_token_generator.next_draft_version(),
                         base_layout_version=base_layout_version,
                         background_asset_id=current_layout.background_asset_id if current_layout is not None else None,
-                        layout_meta_json={},
+                        layout_meta_json=current_layout.layout_meta_json if current_layout is not None else {},
                         readonly_snapshot_json=None,
                         updated_by_member_id=input.member_id,
                         updated_by_terminal_id=input.terminal_id,

@@ -63,6 +63,7 @@ type EditorDraft = {
     hotspots: Array<{
       hotspot_id: string;
       device_id: string;
+      display_name?: string | null;
       x: number;
       y: number;
       icon_type: string | null;
@@ -79,6 +80,19 @@ async function expectEnvelope<T>(response: APIResponse): Promise<T> {
   expect(envelope.success, envelope.error?.message).toBe(true);
   expect(envelope.data).toBeTruthy();
   return envelope.data;
+}
+
+function toEditorSaveHotspots(hotspots: NonNullable<EditorDraft["layout"]>["hotspots"]) {
+  return hotspots.map((hotspot) => ({
+    hotspot_id: hotspot.hotspot_id,
+    device_id: hotspot.device_id,
+    x: hotspot.x,
+    y: hotspot.y,
+    icon_type: hotspot.icon_type,
+    label_mode: hotspot.label_mode,
+    is_visible: hotspot.is_visible,
+    structure_order: hotspot.structure_order,
+  }));
 }
 
 async function bootstrapSession(request: APIRequestContext, terminalId = TERMINAL_ID) {
@@ -294,13 +308,18 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   const deviceSelect = page.getByLabel("绑定设备");
   const deviceOptionText = (await deviceSelect.locator("option").nth(1).textContent())?.trim() ?? "";
   const deviceLabel = deviceOptionText.split(" · ")[0];
+  const customLabel = `E2E 热点 ${Date.now()}`;
   await deviceSelect.selectOption({ index: 1 });
+  await page.getByLabel("显示名称").fill(customLabel);
+  await page.getByLabel("图标类型").selectOption("light");
   await page.getByLabel("X (%)").fill("35");
   await page.getByLabel("Y (%)").fill("45");
-  await expect(page.getByText(deviceLabel).first()).toBeVisible();
+  await page.getByRole("button", { name: "右移 1%" }).click();
+  await page.getByRole("button", { name: "下移 1%" }).click();
+  await expect(page.getByText(customLabel).first()).toBeVisible();
   await page.getByRole("button", { name: "首页预览" }).click();
   await expect(page.getByText("首页预览仅显示可见热点。")).toBeVisible();
-  await expect(page.getByRole("button", { name: deviceLabel }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: customLabel }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
@@ -312,7 +331,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
 
   await page.getByRole("link", { name: "总览" }).click();
   await expect(page.getByAltText("家庭户型图")).toBeVisible();
-  await expect(page.getByRole("button", { name: deviceLabel }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: customLabel }).first()).toBeVisible();
 });
 
 test("editor downgrades to readonly after takeover and can recover", async ({ page, request }) => {
@@ -367,7 +386,7 @@ test("editor save surfaces version conflict and retries after refresh", async ({
         base_layout_version: draft.base_layout_version,
         background_asset_id: draft.layout?.background_asset_id,
         layout_meta: draft.layout?.layout_meta ?? {},
-        hotspots: draft.layout?.hotspots ?? [],
+        hotspots: toEditorSaveHotspots(draft.layout?.hotspots ?? []),
       },
     }),
   );
@@ -402,7 +421,7 @@ test("editor publish surfaces version conflict and retries after refresh", async
         base_layout_version: draft.base_layout_version,
         background_asset_id: draft.layout?.background_asset_id,
         layout_meta: draft.layout?.layout_meta ?? {},
-        hotspots: draft.layout?.hotspots ?? [],
+        hotspots: toEditorSaveHotspots(draft.layout?.hotspots ?? []),
       },
     }),
   );
@@ -497,7 +516,7 @@ test("editor draft can be saved and published through M1 contract", async ({ req
         base_layout_version: draft.base_layout_version,
         background_asset_id: layout.background_asset_id,
         layout_meta: layout.layout_meta ?? {},
-        hotspots: layout.hotspots ?? [],
+        hotspots: toEditorSaveHotspots(layout.hotspots ?? []),
       },
     }),
   );
