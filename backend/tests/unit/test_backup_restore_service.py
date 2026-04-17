@@ -52,9 +52,18 @@ class _MappingsResult:
 class _BackupSession:
     def __init__(self, row):
         self._row = row
+        self.failure_audit_params = None
+        self.commits = 0
 
-    async def execute(self, *_args, **_kwargs):
+    async def execute(self, stmt, params=None):
+        sql = str(stmt)
+        if "INSERT INTO audit_logs" in sql:
+            self.failure_audit_params = params
+            return _MappingsResult(None)
         return _MappingsResult(self._row)
+
+    async def commit(self):
+        self.commits += 1
 
 
 class _AuditSession:
@@ -215,6 +224,9 @@ async def test_list_restore_audits_returns_bounded_history(monkeypatch):
                 "settings_version": "sv_restored",
                 "layout_version": "lv_restored",
                 "result_status": "SUCCESS",
+                "error_code": None,
+                "error_message": None,
+                "failure_reason": None,
             }
         ]
     )
@@ -236,39 +248,102 @@ async def test_list_restore_audits_returns_bounded_history(monkeypatch):
     assert result[0].backup_id == "bk_1"
     assert result[0].settings_version == "sv_restored"
     assert result[0].layout_version == "lv_restored"
+    assert result[0].error_code is None
+
+
+@pytest.mark.asyncio
+async def test_list_restore_audits_includes_failure_details(monkeypatch):
+    audit_session = _AuditSession(
+        [
+            {
+                "audit_id": "audit-2",
+                "backup_id": "bk_2",
+                "restored_at": "2026-04-17T10:01:00+00:00",
+                "operator_id": "member-1",
+                "operator_name": "Operator",
+                "terminal_id": "terminal-1",
+                "before_version": "bk_2",
+                "settings_version": None,
+                "layout_version": None,
+                "result_status": "FAILED",
+                "error_code": "INVALID_PARAMS",
+                "error_message": "backup snapshot is invalid",
+                "failure_reason": "invalid_json",
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        restore_module,
+        "session_scope",
+        lambda _database: _SessionScope(audit_session),
+    )
+    service = _build_service(_UnitOfWork())
+
+    result = await service.list_restore_audits(
+        home_id="home-1",
+        terminal_id="terminal-1",
+    )
+
+    assert result[0].result_status == "FAILED"
+    assert result[0].error_code == "INVALID_PARAMS"
+    assert result[0].error_message == "backup snapshot is invalid"
+    assert result[0].failure_reason == "invalid_json"
 
 
 @pytest.mark.asyncio
 async def test_restore_rejects_non_ready_backup_before_transaction(monkeypatch):
     unit_of_work = _UnitOfWork()
+    backup_session = _BackupSession({"status": "FAILED", "snapshot_blob": _valid_snapshot_blob()})
+    monkeypatch.setattr(
+        restore_module,
+        "session_scope",
+        lambda _database: _SessionScope(backup_session),
+    )
+    service = _build_service(unit_of_work)
 
     with pytest.raises(AppError) as exc_info:
-        await _restore(
-            monkeypatch,
-            {"status": "FAILED", "snapshot_blob": _valid_snapshot_blob()},
-            unit_of_work,
+        await service.restore_backup(
+            home_id="home-1",
+            backup_id="bk_1",
+            terminal_id="terminal-1",
+            operator_id="member-1",
         )
 
     assert exc_info.value.code == ErrorCode.INVALID_PARAMS
     assert exc_info.value.details["fields"][0]["reason"] == "status_not_ready"
     assert exc_info.value.details["fields"][0]["status"] == "FAILED"
+    assert backup_session.failure_audit_params["result_status"] == "FAILED"
+    assert backup_session.failure_audit_params["target_id"] == "bk_1"
+    assert backup_session.failure_audit_params["error_code"] == "INVALID_PARAMS"
+    assert backup_session.commits == 1
     assert unit_of_work.calls == 0
 
 
 @pytest.mark.asyncio
 async def test_restore_rejects_corrupt_snapshot_before_transaction(monkeypatch):
     unit_of_work = _UnitOfWork()
+    backup_session = _BackupSession({"status": "READY", "snapshot_blob": b"{not-json"})
+    monkeypatch.setattr(
+        restore_module,
+        "session_scope",
+        lambda _database: _SessionScope(backup_session),
+    )
+    service = _build_service(unit_of_work)
 
     with pytest.raises(AppError) as exc_info:
-        await _restore(
-            monkeypatch,
-            {"status": "READY", "snapshot_blob": b"{not-json"},
-            unit_of_work,
+        await service.restore_backup(
+            home_id="home-1",
+            backup_id="bk_1",
+            terminal_id="terminal-1",
+            operator_id="member-1",
         )
 
     assert exc_info.value.code == ErrorCode.INVALID_PARAMS
     assert exc_info.value.details["fields"][0]["field"] == "snapshot_blob"
     assert exc_info.value.details["fields"][0]["reason"] == "invalid_json"
+    assert backup_session.failure_audit_params["result_status"] == "FAILED"
+    assert backup_session.failure_audit_params["target_id"] == "bk_1"
+    assert backup_session.commits == 1
     assert unit_of_work.calls == 0
 
 
@@ -303,6 +378,32 @@ async def test_restore_rejects_invalid_hotspot_snapshot_before_transaction(monke
     assert exc_info.value.code == ErrorCode.INVALID_PARAMS
     assert exc_info.value.details["fields"][0]["field"] == "layout.hotspots.0.y"
     assert exc_info.value.details["fields"][0]["reason"] == "must_be_number"
+    assert unit_of_work.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_restore_rejects_missing_backup_with_failure_audit(monkeypatch):
+    unit_of_work = _UnitOfWork()
+    backup_session = _BackupSession(None)
+    monkeypatch.setattr(
+        restore_module,
+        "session_scope",
+        lambda _database: _SessionScope(backup_session),
+    )
+    service = _build_service(unit_of_work)
+
+    with pytest.raises(AppError) as exc_info:
+        await service.restore_backup(
+            home_id="home-1",
+            backup_id="bk_missing",
+            terminal_id="terminal-1",
+            operator_id="member-1",
+        )
+
+    assert exc_info.value.code == ErrorCode.INVALID_PARAMS
+    assert backup_session.failure_audit_params["target_id"] == "bk_missing"
+    assert backup_session.failure_audit_params["result_status"] == "FAILED"
+    assert backup_session.commits == 1
     assert unit_of_work.calls == 0
 
 

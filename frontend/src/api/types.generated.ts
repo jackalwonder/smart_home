@@ -697,6 +697,12 @@ export interface components {
             backup_id: string;
             /** Before Version */
             before_version?: string | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Failure Reason */
+            failure_reason?: string | null;
             /** Layout Version */
             layout_version?: string | null;
             /** Operator Id */

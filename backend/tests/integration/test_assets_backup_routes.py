@@ -63,6 +63,9 @@ class FakeBackupRestoreService:
                 settings_version="sv_1",
                 layout_version="lv_1",
                 result_status="SUCCESS",
+                error_code=None,
+                error_message=None,
+                failure_reason=None,
             )
         ]
 
@@ -122,6 +125,7 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
     assert audit_response.json()["data"]["items"][0]["audit_id"] == "audit-1"
     assert audit_response.json()["data"]["items"][0]["backup_id"] == "bk_1"
     assert audit_response.json()["data"]["items"][0]["settings_version"] == "sv_1"
+    assert audit_response.json()["data"]["items"][0]["error_code"] is None
 
     assert restore_response.status_code == 200
     assert restore_response.json()["data"]["restored"] is True
