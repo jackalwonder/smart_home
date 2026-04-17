@@ -6,10 +6,14 @@ interface EditorToolboxProps {
   unplacedDevices: DeviceListItemDto[];
   searchValue: string;
   selectedHotspotId: string | null;
+  batchSelectedHotspotIds: string[];
   canEdit: boolean;
   devicesLoading: boolean;
   onSearchChange: (value: string) => void;
   onSelectHotspot: (hotspotId: string) => void;
+  onToggleBatchHotspot: (hotspotId: string) => void;
+  onSelectAllHotspots: () => void;
+  onClearBatchSelection: () => void;
   onAddDeviceHotspot: (device: DeviceListItemDto) => void;
 }
 
@@ -18,12 +22,18 @@ export function EditorToolbox({
   unplacedDevices,
   searchValue,
   selectedHotspotId,
+  batchSelectedHotspotIds,
   canEdit,
   devicesLoading,
   onSearchChange,
   onSelectHotspot,
+  onToggleBatchHotspot,
+  onSelectAllHotspots,
+  onClearBatchSelection,
   onAddDeviceHotspot,
 }: EditorToolboxProps) {
+  const batchSelectedSet = new Set(batchSelectedHotspotIds);
+
   return (
     <aside className="utility-card editor-toolbox">
       <span className="card-eyebrow">工具箱</span>
@@ -36,26 +46,58 @@ export function EditorToolbox({
           value={searchValue}
         />
       </label>
+      <div className="editor-toolbox__bulk-actions">
+        <span>{batchSelectedHotspotIds.length} 个已选</span>
+        <button
+          className="button button--ghost"
+          disabled={!hotspots.length}
+          onClick={onSelectAllHotspots}
+          type="button"
+        >
+          全选当前
+        </button>
+        <button
+          className="button button--ghost"
+          disabled={!batchSelectedHotspotIds.length}
+          onClick={onClearBatchSelection}
+          type="button"
+        >
+          清空
+        </button>
+      </div>
       <div className="editor-toolbox__list">
         {hotspots.length ? (
           hotspots.map((hotspot) => (
-            <button
+            <div
               key={hotspot.id}
               className={
                 hotspot.id === selectedHotspotId
-                  ? "editor-toolbox__item is-active"
+                  ? "editor-toolbox__item editor-toolbox__item--selectable is-active"
                   : !hotspot.isVisible
-                    ? "editor-toolbox__item is-muted"
-                    : "editor-toolbox__item"
+                    ? "editor-toolbox__item editor-toolbox__item--selectable is-muted"
+                    : "editor-toolbox__item editor-toolbox__item--selectable"
               }
-              disabled={!canEdit && hotspot.id !== selectedHotspotId}
-              onClick={() => onSelectHotspot(hotspot.id)}
-              type="button"
             >
-              <strong>{hotspot.label}</strong>
-              <span>{`#${hotspot.structureOrder} · ${hotspot.deviceId || "未绑定"}`}</span>
-              <span>{`${Math.round(hotspot.x * 100)}%, ${Math.round(hotspot.y * 100)}%`}</span>
-            </button>
+              <label className="editor-toolbox__batch-toggle">
+                <input
+                  checked={batchSelectedSet.has(hotspot.id)}
+                  disabled={!canEdit}
+                  onChange={() => onToggleBatchHotspot(hotspot.id)}
+                  type="checkbox"
+                />
+                <span>批量</span>
+              </label>
+              <button
+                className="editor-toolbox__item-button"
+                disabled={!canEdit && hotspot.id !== selectedHotspotId}
+                onClick={() => onSelectHotspot(hotspot.id)}
+                type="button"
+              >
+                <strong>{hotspot.label}</strong>
+                <span>{`#${hotspot.structureOrder} · ${hotspot.deviceId || "未绑定"}`}</span>
+                <span>{`${Math.round(hotspot.x * 100)}%, ${Math.round(hotspot.y * 100)}%`}</span>
+              </button>
+            </div>
           ))
         ) : (
           <p className="muted-copy">当前草稿里还没有可用热点。</p>

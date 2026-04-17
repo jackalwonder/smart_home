@@ -13,6 +13,44 @@
   grid-column: 1 / -1;
 }
 
+.editor-publish-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.editor-publish-summary h3 {
+  margin-bottom: 6px;
+}
+
+.editor-publish-summary__list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.editor-publish-summary__list div {
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 185, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.editor-publish-summary__list dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editor-publish-summary__list dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .editor-recovery {
   display: grid;
   gap: 12px;
@@ -67,6 +105,18 @@
   gap: 8px;
 }
 
+.editor-toolbox__bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.editor-toolbox__bulk-actions span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .editor-toolbox__item,
 .editor-realtime-feed__item {
   display: grid;
@@ -77,6 +127,39 @@
   border: 1px solid rgba(128, 185, 255, 0.1);
   text-align: left;
   color: inherit;
+}
+
+.editor-toolbox__item--selectable {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.editor-toolbox__batch-toggle {
+  display: inline-grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.editor-toolbox__batch-toggle input {
+  margin: 0;
+}
+
+.editor-toolbox__item-button {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.editor-toolbox__item-button:disabled {
+  cursor: not-allowed;
 }
 
 .editor-toolbox__item span,
@@ -189,6 +272,24 @@
   object-fit: cover;
 }
 
+.editor-inspector__bulk {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 185, 255, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.editor-inspector__bulk h4 {
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+
+.editor-inspector__bulk p {
+  margin: 4px 0 0;
+}
+
 .editor-inspector__meta {
   display: grid;
   gap: 14px;
@@ -206,6 +307,11 @@
   }
 
   .editor-command-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-publish-summary,
+  .editor-publish-summary__list {
     grid-template-columns: 1fr;
   }
 }

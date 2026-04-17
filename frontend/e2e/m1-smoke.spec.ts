@@ -316,6 +316,13 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByLabel("Y (%)").fill("45");
   await page.getByRole("button", { name: "右移 1%" }).click();
   await page.getByRole("button", { name: "下移 1%" }).click();
+  await page.getByRole("button", { name: "复制热点" }).click();
+  await page.getByRole("button", { name: "全选当前" }).click();
+  await expect(page.getByText("2 个热点已选")).toBeVisible();
+  await page.getByRole("button", { name: "左对齐" }).click();
+  await page.getByLabel("统一标签模式").selectOption("ALWAYS");
+  await expect(page.getByLabel("发布前变更摘要")).toContainText("新增热点");
+  await expect(page.getByLabel("发布前变更摘要")).toContainText("背景图更新");
   await expect(page.getByText(customLabel).first()).toBeVisible();
   await page.getByRole("button", { name: "首页预览" }).click();
   await expect(page.getByText("首页预览仅显示可见热点。")).toBeVisible();
@@ -323,6 +330,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
 
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
+  await expect(page.getByLabel("发布前变更摘要")).toContainText("新增热点");
 
   await expect(page.getByRole("button", { name: "发布草稿" })).toBeEnabled();
   await page.getByRole("button", { name: "发布草稿" }).click();
