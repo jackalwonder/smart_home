@@ -11,12 +11,16 @@ import { formatRealtimeEvent } from "../ws/eventPresentation";
 
 
 export function HomeDashboardPage() {
+  const session = useAppStore((state) => state.session);
   const home = useAppStore((state) => state.home);
   const realtime = useAppStore((state) => state.realtime);
   const events = useAppStore((state) => state.wsEvents);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (session.status !== "success") {
+      return;
+    }
     let active = true;
 
     void (async () => {
@@ -38,7 +42,7 @@ export function HomeDashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [session.data?.accessToken, session.status]);
 
   const viewModel = mapHomeOverviewViewModel(home.data);
 

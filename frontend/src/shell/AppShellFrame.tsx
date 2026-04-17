@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { ControlTopBar } from "../components/layout/ControlTopBar";
+import { RealtimeNoticeBar } from "../components/layout/RealtimeNoticeBar";
 import { AppBootstrap } from "../system/AppBootstrap";
 
 export function AppShellFrame() {
@@ -7,6 +8,7 @@ export function AppShellFrame() {
     <AppBootstrap>
       <div className="control-shell">
         <ControlTopBar />
+        <RealtimeNoticeBar />
         <main className="control-shell__content">
           <Outlet />
         </main>

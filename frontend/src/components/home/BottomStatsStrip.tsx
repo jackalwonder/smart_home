@@ -11,13 +11,15 @@ export function BottomStatsStrip({ stats, events, connectionStatus }: BottomStat
   const connectionTone =
     normalizedStatus === "connected"
       ? "is-online"
-      : normalizedStatus === "connecting"
+      : normalizedStatus === "connecting" || normalizedStatus === "reconnecting"
         ? "is-warming"
         : "is-offline";
   const connectionLabel =
     normalizedStatus === "connected"
       ? "已连接"
-      : normalizedStatus === "connecting"
+      : normalizedStatus === "reconnecting"
+        ? "重连中"
+        : normalizedStatus === "connecting"
         ? "连接中"
         : "未连接";
 

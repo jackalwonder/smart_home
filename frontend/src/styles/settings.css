@@ -180,6 +180,12 @@
   gap: 14px;
 }
 
+.settings-textarea {
+  min-height: 120px;
+  resize: vertical;
+  font-family: inherit;
+}
+
 .favorite-editor {
   display: grid;
   gap: 14px;

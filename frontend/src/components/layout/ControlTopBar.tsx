@@ -33,7 +33,16 @@ export function ControlTopBar() {
     energy_enabled: false,
     editor_enabled: false,
   };
-  const realtimeConnected = realtime.connectionStatus.toLowerCase() === "connected";
+  const normalizedRealtimeStatus = realtime.connectionStatus.toLowerCase();
+  const realtimeConnected = normalizedRealtimeStatus === "connected";
+  const realtimeLabel =
+    normalizedRealtimeStatus === "connected"
+      ? "HA Connected"
+      : normalizedRealtimeStatus === "reconnecting"
+        ? `HA Retry ${Math.max(realtime.reconnectAttempt, 1)}`
+        : normalizedRealtimeStatus === "connecting"
+          ? "HA Connecting"
+          : "HA Waiting";
 
   return (
     <header className="control-top-bar">
@@ -48,9 +57,15 @@ export function ControlTopBar() {
           <span>家庭智能中控</span>
         </div>
         <span
-          className={realtimeConnected ? "control-top-bar__ha-pill is-online" : "control-top-bar__ha-pill"}
+          className={
+            realtimeConnected
+              ? "control-top-bar__ha-pill is-online"
+              : normalizedRealtimeStatus === "reconnecting"
+                ? "control-top-bar__ha-pill is-warning"
+                : "control-top-bar__ha-pill"
+          }
         >
-          {realtimeConnected ? "HA Connected" : "HA Waiting"}
+          {realtimeLabel}
         </span>
       </div>
 

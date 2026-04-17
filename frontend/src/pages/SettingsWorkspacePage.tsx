@@ -5,6 +5,9 @@ import {
   fetchBackups,
   restoreBackup,
 } from "../api/backupsApi";
+import { fetchDevices } from "../api/devicesApi";
+import { clearEnergyBinding, fetchEnergy, refreshEnergy, saveEnergyBinding } from "../api/energyApi";
+import { bindDefaultMedia, fetchDefaultMedia, unbindDefaultMedia } from "../api/mediaApi";
 import { fetchSettings, saveSettings } from "../api/settingsApi";
 import {
   fetchSystemConnections,
@@ -15,12 +18,17 @@ import {
 import {
   BackupListItemDto,
   BackupRestoreAuditItemDto,
+  DefaultMediaDto,
+  DeviceListItemDto,
+  EnergyDto,
   SystemConnectionsEnvelopeDto,
 } from "../api/types";
 import { normalizeApiError } from "../api/httpClient";
 import { PinAccessCard } from "../components/auth/PinAccessCard";
 import { PageFrame } from "../components/layout/PageFrame";
 import { BackupManagementPanel } from "../components/settings/BackupManagementPanel";
+import { DefaultMediaPanel } from "../components/settings/DefaultMediaPanel";
+import { EnergyBindingPanel } from "../components/settings/EnergyBindingPanel";
 import { FavoritesDevicePanel } from "../components/settings/FavoritesDevicePanel";
 import { FunctionSettingsPanel } from "../components/settings/FunctionSettingsPanel";
 import { PageSettingsPanel } from "../components/settings/PageSettingsPanel";
@@ -73,6 +81,16 @@ interface SystemConnectionDraftState {
   lastTestResult: string | null;
   lastSyncAt: string | null;
   lastSyncResult: string | null;
+}
+
+function isMediaCandidateDevice(device: DeviceListItemDto) {
+  const source = `${device.device_type} ${device.display_name} ${device.raw_name ?? ""}`.toLowerCase();
+  return (
+    source.includes("media") ||
+    source.includes("speaker") ||
+    source.includes("tv") ||
+    source.includes("player")
+  );
 }
 
 let policyEntryCounter = 0;
@@ -213,6 +231,7 @@ export function SettingsWorkspacePage() {
   const session = useAppStore((state) => state.session);
   const pin = useAppStore((state) => state.pin);
   const settings = useAppStore((state) => state.settings);
+  const latestWsEvent = useAppStore((state) => state.wsEvents[0] ?? null);
   const [activeSection, setActiveSection] = useState<SettingsSectionViewModel["key"]>("favorites");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -227,6 +246,19 @@ export function SettingsWorkspacePage() {
   const [systemSaveBusy, setSystemSaveBusy] = useState(false);
   const [systemTestBusy, setSystemTestBusy] = useState(false);
   const [systemSyncBusy, setSystemSyncBusy] = useState(false);
+  const [energyState, setEnergyState] = useState<EnergyDto | null>(null);
+  const [energyPayloadText, setEnergyPayloadText] = useState('{\n  "account_id": "demo",\n  "provider": "utility"\n}');
+  const [energyMessage, setEnergyMessage] = useState<string | null>(null);
+  const [energySaveBusy, setEnergySaveBusy] = useState(false);
+  const [energyClearBusy, setEnergyClearBusy] = useState(false);
+  const [energyRefreshBusy, setEnergyRefreshBusy] = useState(false);
+  const [mediaState, setMediaState] = useState<DefaultMediaDto | null>(null);
+  const [mediaMessage, setMediaMessage] = useState<string | null>(null);
+  const [mediaBindBusy, setMediaBindBusy] = useState(false);
+  const [mediaUnbindBusy, setMediaUnbindBusy] = useState(false);
+  const [mediaCandidateLoading, setMediaCandidateLoading] = useState(false);
+  const [mediaCandidates, setMediaCandidates] = useState<DeviceListItemDto[]>([]);
+  const [selectedMediaDeviceId, setSelectedMediaDeviceId] = useState("");
   const [backupItems, setBackupItems] = useState<BackupListItemDto[]>([]);
   const [backupNote, setBackupNote] = useState("");
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
@@ -239,6 +271,34 @@ export function SettingsWorkspacePage() {
   async function loadSystemConnection() {
     const response = await fetchSystemConnections();
     setSystemDraft(createSystemDraft(response));
+  }
+
+  async function loadEnergyState() {
+    const response = await fetchEnergy();
+    setEnergyState(response);
+  }
+
+  async function loadMediaState() {
+    const response = await fetchDefaultMedia();
+    setMediaState(response);
+    setSelectedMediaDeviceId((current) => current || response.device_id || "");
+  }
+
+  async function loadMediaCandidates() {
+    setMediaCandidateLoading(true);
+    try {
+      const response = await fetchDevices({ page: 1, page_size: 200 });
+      const candidates = response.items.filter((device) => !device.is_readonly_device);
+      const preferredCandidates = candidates.filter(isMediaCandidateDevice);
+      const nextCandidates = (preferredCandidates.length ? preferredCandidates : candidates).sort((left, right) =>
+        left.display_name.localeCompare(right.display_name, "zh-CN"),
+      );
+      setMediaCandidates(nextCandidates);
+    } catch (error) {
+      setMediaMessage(normalizeApiError(error).message);
+    } finally {
+      setMediaCandidateLoading(false);
+    }
   }
 
   async function loadSettings() {
@@ -297,7 +357,20 @@ export function SettingsWorkspacePage() {
       return;
     }
     void loadSettings();
+    void loadEnergyState().catch((error) => {
+      setEnergyMessage(normalizeApiError(error).message);
+    });
+    void loadMediaState().catch((error) => {
+      setMediaMessage(normalizeApiError(error).message);
+    });
   }, [session.data?.accessToken, session.status]);
+
+  useEffect(() => {
+    if (session.status !== "success" || activeSection !== "system") {
+      return;
+    }
+    void loadMediaCandidates();
+  }, [activeSection, session.data?.accessToken, session.status]);
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -321,10 +394,47 @@ export function SettingsWorkspacePage() {
     setDraftSourceSettingsVersion(nextVersion);
   }, [draftSourceSettingsVersion, isSaving, settings.data]);
 
+  useEffect(() => {
+    if (!latestWsEvent) {
+      return;
+    }
+
+    switch (latestWsEvent.event_type) {
+      case "backup_restore_completed":
+        void Promise.all([
+          loadSettings(),
+          loadSystemConnection(),
+          loadEnergyState(),
+          loadMediaState(),
+          loadBackups(),
+          loadBackupRestoreAudits(),
+        ]);
+        break;
+      case "energy_refresh_completed":
+      case "energy_refresh_failed":
+        void Promise.all([loadEnergyState(), loadSettings()]);
+        break;
+      case "ha_sync_degraded":
+      case "ha_sync_recovered":
+        void loadSystemConnection();
+        break;
+      case "media_state_changed":
+        void Promise.all([loadMediaState(), loadSettings()]);
+        break;
+      case "settings_updated":
+        void loadSettings();
+        break;
+      default:
+        break;
+    }
+  }, [latestWsEvent]);
+
   const viewModel = mapSettingsViewModel(settings.data);
   const overviewRows = [
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
+    { label: "能耗状态", value: energyState?.binding_status ?? "-" },
+    { label: "默认媒体", value: mediaState?.display_name ?? mediaState?.binding_status ?? "-" },
     { label: "备份", value: `${backupItems.length} 条` },
     { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
   ];
@@ -656,6 +766,118 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function handleSaveEnergyBinding() {
+    if (!pin.active) {
+      setEnergyMessage("保存能耗绑定前，请先验证管理 PIN。");
+      return;
+    }
+
+    let payload: Record<string, unknown> = {};
+    try {
+      payload = JSON.parse(energyPayloadText || "{}") as Record<string, unknown>;
+    } catch {
+      setEnergyMessage("绑定负载必须是有效 JSON。");
+      return;
+    }
+
+    setEnergyMessage(null);
+    setEnergySaveBusy(true);
+    try {
+      const response = await saveEnergyBinding({ payload });
+      setEnergyMessage(response.message);
+      await Promise.all([loadEnergyState(), loadSettings()]);
+    } catch (error) {
+      setEnergyMessage(normalizeApiError(error).message);
+    } finally {
+      setEnergySaveBusy(false);
+    }
+  }
+
+  async function handleClearEnergyBinding() {
+    if (!pin.active) {
+      setEnergyMessage("清除能耗绑定前，请先验证管理 PIN。");
+      return;
+    }
+
+    setEnergyMessage(null);
+    setEnergyClearBusy(true);
+    try {
+      const response = await clearEnergyBinding();
+      setEnergyMessage(response.message);
+      await Promise.all([loadEnergyState(), loadSettings()]);
+    } catch (error) {
+      setEnergyMessage(normalizeApiError(error).message);
+    } finally {
+      setEnergyClearBusy(false);
+    }
+  }
+
+  async function handleRefreshEnergy() {
+    if (!pin.active) {
+      setEnergyMessage("刷新能耗前，请先验证管理 PIN。");
+      return;
+    }
+
+    setEnergyMessage(null);
+    setEnergyRefreshBusy(true);
+    try {
+      const response = await refreshEnergy();
+      setEnergyMessage(`刷新任务已受理，状态 ${response.refresh_status}。`);
+      await Promise.all([loadEnergyState(), loadSettings()]);
+    } catch (error) {
+      setEnergyMessage(normalizeApiError(error).message);
+    } finally {
+      setEnergyRefreshBusy(false);
+    }
+  }
+
+  async function handleBindDefaultMedia() {
+    if (!pin.active) {
+      setMediaMessage("绑定默认媒体前，请先验证管理 PIN。");
+      return;
+    }
+    if (!selectedMediaDeviceId) {
+      setMediaMessage("请先选择一个媒体设备。");
+      return;
+    }
+
+    setMediaMessage(null);
+    setMediaBindBusy(true);
+    try {
+      const response = await bindDefaultMedia({ device_id: selectedMediaDeviceId });
+      setMediaMessage(
+        response.display_name
+          ? `默认媒体已切换为 ${response.display_name}。`
+          : "默认媒体已更新。",
+      );
+      await Promise.all([loadMediaState(), loadSettings()]);
+    } catch (error) {
+      setMediaMessage(normalizeApiError(error).message);
+    } finally {
+      setMediaBindBusy(false);
+    }
+  }
+
+  async function handleUnbindDefaultMedia() {
+    if (!pin.active) {
+      setMediaMessage("清除默认媒体前，请先验证管理 PIN。");
+      return;
+    }
+
+    setMediaMessage(null);
+    setMediaUnbindBusy(true);
+    try {
+      await unbindDefaultMedia();
+      setSelectedMediaDeviceId("");
+      setMediaMessage("默认媒体已清除。");
+      await Promise.all([loadMediaState(), loadSettings()]);
+    } catch (error) {
+      setMediaMessage(normalizeApiError(error).message);
+    } finally {
+      setMediaUnbindBusy(false);
+    }
+  }
+
   async function handleRestoreBackup(backup: BackupListItemDto) {
     if (!pin.active) {
       setBackupMessage("恢复备份前，请先验证管理 PIN。");
@@ -700,19 +922,48 @@ export function SettingsWorkspacePage() {
   );
   if (activeSection === "system") {
     sectionPanel = (
-      <SystemConnectionPanel
-        canEdit={pin.active}
-        draft={systemDraft}
-        message={systemMessage}
-        onChange={updateSystemDraft}
-        onSave={() => void handleSaveSystemConnection()}
-        onSyncDevices={() => void handleSyncHomeAssistantDevices()}
-        onTestCandidate={() => void handleTestSystemConnection(false)}
-        onTestSaved={() => void handleTestSystemConnection(true)}
-        saveBusy={systemSaveBusy}
-        syncBusy={systemSyncBusy}
-        testBusy={systemTestBusy}
-      />
+      <>
+        <SystemConnectionPanel
+          canEdit={pin.active}
+          draft={systemDraft}
+          message={systemMessage}
+          onChange={updateSystemDraft}
+          onSave={() => void handleSaveSystemConnection()}
+          onSyncDevices={() => void handleSyncHomeAssistantDevices()}
+          onTestCandidate={() => void handleTestSystemConnection(false)}
+          onTestSaved={() => void handleTestSystemConnection(true)}
+          saveBusy={systemSaveBusy}
+          syncBusy={systemSyncBusy}
+          testBusy={systemTestBusy}
+        />
+        <EnergyBindingPanel
+          canEdit={pin.active}
+          clearBusy={energyClearBusy}
+          draftPayloadText={energyPayloadText}
+          energy={energyState}
+          message={energyMessage}
+          onChangePayload={setEnergyPayloadText}
+          onClear={() => void handleClearEnergyBinding()}
+          onRefresh={() => void handleRefreshEnergy()}
+          onSave={() => void handleSaveEnergyBinding()}
+          refreshBusy={energyRefreshBusy}
+          saveBusy={energySaveBusy}
+        />
+        <DefaultMediaPanel
+          availableDevices={mediaCandidates}
+          bindBusy={mediaBindBusy}
+          canEdit={pin.active}
+          loadingCandidates={mediaCandidateLoading}
+          media={mediaState}
+          message={mediaMessage}
+          onBind={() => void handleBindDefaultMedia()}
+          onRefresh={() => void loadMediaState()}
+          onSelectDeviceId={setSelectedMediaDeviceId}
+          onUnbind={() => void handleUnbindDefaultMedia()}
+          selectedDeviceId={selectedMediaDeviceId}
+          unbindBusy={mediaUnbindBusy}
+        />
+      </>
     );
   } else if (activeSection === "page") {
     sectionPanel = (

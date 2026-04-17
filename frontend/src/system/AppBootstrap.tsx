@@ -51,6 +51,8 @@ export function AppBootstrap({ children }: PropsWithChildren) {
         connectionStatus: "idle",
         lastEventType: null,
         lastSequence: null,
+        reconnectAttempt: 0,
+        notice: null,
       });
     };
   }, []);
