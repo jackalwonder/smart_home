@@ -37,9 +37,36 @@ function translateLockStatus(value: string | null) {
   return value ?? "-";
 }
 
+function formatLeaseExpiry(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function formatHeartbeatInterval(value: number | null) {
+  return value ? `${value} 秒` : "-";
+}
+
 export function mapEditorViewModel(input: {
   lockStatus: string | null;
   leaseId: string | null;
+  leaseExpiresAt: string | null;
+  heartbeatIntervalSeconds: number | null;
+  lockedByTerminalId: string | null;
   draft: Record<string, unknown> | null;
   draftVersion: string | null;
   baseLayoutVersion: string | null;
@@ -72,7 +99,9 @@ export function mapEditorViewModel(input: {
     helperText = "当前终端已持有草稿租约，可以继续编辑并在确认后发布。";
   } else if (input.lockStatus === "LOCKED_BY_OTHER") {
     modeLabel = "被其他终端占用";
-    helperText = "当前草稿被其他终端占用，你可以先查看，再决定是否接管。";
+    helperText = input.lockedByTerminalId
+      ? `当前草稿被终端 ${input.lockedByTerminalId} 占用，你可以先查看，再决定是否接管。`
+      : "当前草稿被其他终端占用，你可以先查看，再决定是否接管。";
   } else if (input.pinActive) {
     helperText = "PIN 已验证，编辑器正在等待可写租约。";
   }
@@ -81,6 +110,9 @@ export function mapEditorViewModel(input: {
     commandRows: [
       { label: "锁状态", value: translateLockStatus(input.lockStatus) },
       { label: "租约 ID", value: asString(input.leaseId ?? "-") },
+      { label: "占用终端", value: asString(input.lockedByTerminalId ?? "-") },
+      { label: "租约过期", value: formatLeaseExpiry(input.leaseExpiresAt) },
+      { label: "续租间隔", value: formatHeartbeatInterval(input.heartbeatIntervalSeconds) },
       { label: "草稿版本", value: asString(input.draftVersion ?? "-") },
       { label: "基线布局", value: asString(input.baseLayoutVersion ?? "-") },
       { label: "PIN 会话", value: input.pinActive ? "已验证" : "待验证" },

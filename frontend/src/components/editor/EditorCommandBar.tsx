@@ -4,12 +4,18 @@ interface EditorCommandBarProps {
   helperText: string;
   canSave: boolean;
   canPublish: boolean;
+  canTakeover: boolean;
+  canDiscard: boolean;
   saveBusy: boolean;
   publishBusy: boolean;
+  takeoverBusy: boolean;
+  discardBusy: boolean;
   hotspotCount: number;
   onAddHotspot: () => void;
   onSaveDraft: () => void;
   onPublishDraft: () => void;
+  onTakeover: () => void;
+  onDiscardDraft: () => void;
 }
 
 export function EditorCommandBar({
@@ -18,12 +24,18 @@ export function EditorCommandBar({
   helperText,
   canSave,
   canPublish,
+  canTakeover,
+  canDiscard,
   saveBusy,
   publishBusy,
+  takeoverBusy,
+  discardBusy,
   hotspotCount,
   onAddHotspot,
   onSaveDraft,
   onPublishDraft,
+  onTakeover,
+  onDiscardDraft,
 }: EditorCommandBarProps) {
   return (
     <header className="panel editor-command-bar">
@@ -50,6 +62,22 @@ export function EditorCommandBar({
           type="button"
         >
           {saveBusy ? "保存中..." : "保存草稿"}
+        </button>
+        <button
+          className="button button--ghost"
+          disabled={!canTakeover || takeoverBusy}
+          onClick={onTakeover}
+          type="button"
+        >
+          {takeoverBusy ? "接管中..." : "接管编辑"}
+        </button>
+        <button
+          className="button button--ghost button--danger"
+          disabled={!canDiscard || discardBusy}
+          onClick={onDiscardDraft}
+          type="button"
+        >
+          {discardBusy ? "丢弃中..." : "丢弃草稿"}
         </button>
         <button
           className="button button--ghost"

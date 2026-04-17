@@ -183,6 +183,11 @@ export type EditorSessionDto = RequireFields<
   "lease_id" | "lease_expires_at" | "heartbeat_interval_seconds" | "draft_version" | "current_layout_version"
 >;
 
+export type EditorSessionInput = Omit<
+  Schema<"EditorSessionRequestBody">,
+  "home_id" | "terminal_id" | "member_id"
+>;
+
 export type EditorDraftDto = RequireFields<
   Schema<"EditorDraftResponse">,
   "draft_version" | "base_layout_version" | "layout"
@@ -197,12 +202,23 @@ export type EditorDraftSaveInput = RequireFields<
 
 export type EditorDraftSaveDto = Schema<"EditorDraftSaveResponse">;
 
+export type EditorDraftDiscardInput = Omit<
+  Schema<"EditorDraftDeleteRequestBody">,
+  "home_id" | "terminal_id"
+>;
+
+export type EditorDraftDiscardDto = Schema<"EditorDraftDiscardResponse">;
+
 export type EditorPublishInput = Omit<
   Schema<"EditorPublishRequestBody">,
   "home_id" | "terminal_id" | "member_id"
 >;
 
 export type EditorPublishDto = Schema<"EditorPublishResponse">;
+
+export type EditorHeartbeatDto = Schema<"EditorHeartbeatResponse">;
+
+export type EditorTakeoverDto = Schema<"EditorTakeoverResponse">;
 
 export type PinVerifyInput = Omit<Schema<"PinVerifyRequestBody">, "member_id">;
 

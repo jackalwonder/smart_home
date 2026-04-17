@@ -6,9 +6,12 @@ import { EditorRealtimeFeed } from "../components/editor/EditorRealtimeFeed";
 import { EditorToolbox } from "../components/editor/EditorToolbox";
 import {
   createEditorSession,
+  discardEditorDraft,
   fetchEditorDraft,
+  heartbeatEditorSession,
   publishEditorDraft,
   saveEditorDraft,
+  takeoverEditorSession,
 } from "../api/editorApi";
 import { fetchDevices } from "../api/devicesApi";
 import { normalizeApiError } from "../api/httpClient";
@@ -71,6 +74,24 @@ export function EditorWorkbenchWorkspace() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishingDraft, setIsPublishingDraft] = useState(false);
+  const [isTakingOver, setIsTakingOver] = useState(false);
+  const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
+
+  function applyEditorSession(input: {
+    lock_status: string | null;
+    lease_id?: string | null;
+    lease_expires_at?: string | null;
+    heartbeat_interval_seconds?: number | null;
+    locked_by?: { terminal_id?: string | null } | null;
+  }) {
+    appStore.setEditorSession({
+      lockStatus: input.lock_status,
+      leaseId: input.lease_id ?? null,
+      leaseExpiresAt: input.lease_expires_at ?? null,
+      heartbeatIntervalSeconds: input.heartbeat_interval_seconds ?? null,
+      lockedByTerminalId: input.locked_by?.terminal_id ?? null,
+    });
+  }
 
   useEffect(() => {
     if (!terminalId) {
@@ -89,10 +110,7 @@ export function EditorWorkbenchWorkspace() {
           if (!active) {
             return;
           }
-          appStore.setEditorSession({
-            lockStatus: lease.lock_status,
-            leaseId: lease.lease_id,
-          });
+          applyEditorSession(lease);
 
           const draft = await fetchEditorDraft(lease.lease_id);
           if (!active) {
@@ -115,6 +133,9 @@ export function EditorWorkbenchWorkspace() {
         appStore.setEditorSession({
           lockStatus: draft.lock_status,
           leaseId: null,
+          leaseExpiresAt: null,
+          heartbeatIntervalSeconds: null,
+          lockedByTerminalId: null,
         });
         appStore.setEditorDraftData({
           draft: draft.layout ?? null,
@@ -167,6 +188,9 @@ export function EditorWorkbenchWorkspace() {
   const viewModel = mapEditorViewModel({
     lockStatus: editor.lockStatus,
     leaseId: editor.leaseId,
+    leaseExpiresAt: editor.leaseExpiresAt,
+    heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds,
+    lockedByTerminalId: editor.lockedByTerminalId,
     draft: editor.draft,
     draftVersion: editor.draftVersion,
     baseLayoutVersion: editor.baseLayoutVersion,
@@ -200,6 +224,8 @@ export function EditorWorkbenchWorkspace() {
     draftState.hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ??
     null;
   const canEdit = !editor.readonly && editor.lockStatus === "GRANTED";
+  const canTakeover = pin.active && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
+  const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
 
   function updateHotspotField(
     field: "deviceId" | "iconType" | "labelMode" | "x" | "y" | "structureOrder",
@@ -382,6 +408,60 @@ export function EditorWorkbenchWorkspace() {
     return refreshed;
   }
 
+  useEffect(() => {
+    if (editor.lockStatus !== "GRANTED" || !editor.leaseId) {
+      return;
+    }
+
+    const intervalSeconds = editor.heartbeatIntervalSeconds ?? 20;
+    const heartbeatDelayMs = Math.max(5_000, Math.floor(intervalSeconds * 750));
+    let active = true;
+
+    async function renewLease() {
+      if (!editor.leaseId) {
+        return;
+      }
+
+      try {
+        const heartbeat = await heartbeatEditorSession(editor.leaseId);
+        if (!active) {
+          return;
+        }
+        appStore.setEditorSession({
+          lockStatus: heartbeat.lock_status,
+          leaseId: heartbeat.lease_id,
+          leaseExpiresAt: heartbeat.lease_expires_at,
+          lockedByTerminalId: null,
+        });
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        appStore.setEditorError(normalizeApiError(error).message);
+        appStore.setEditorSession({
+          lockStatus: "READ_ONLY",
+          leaseId: null,
+          leaseExpiresAt: null,
+          heartbeatIntervalSeconds: null,
+          lockedByTerminalId: null,
+        });
+        await refreshDraft().catch((refreshError) => {
+          appStore.setEditorError(normalizeApiError(refreshError).message);
+        });
+        setSaveMessage("编辑租约已失效，已切换为只读。");
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void renewLease();
+    }, heartbeatDelayMs);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [editor.heartbeatIntervalSeconds, editor.leaseId, editor.lockStatus]);
+
   async function persistDraft(options?: { silent?: boolean }) {
     if (!editor.leaseId || !editor.draftVersion || !editor.baseLayoutVersion || !canEdit) {
       return null;
@@ -449,6 +529,9 @@ export function EditorWorkbenchWorkspace() {
       appStore.setEditorSession({
         lockStatus: "READ_ONLY",
         leaseId: null,
+        leaseExpiresAt: null,
+        heartbeatIntervalSeconds: null,
+        lockedByTerminalId: null,
       });
       await refreshDraft();
       setSelectedHotspotId(null);
@@ -457,6 +540,69 @@ export function EditorWorkbenchWorkspace() {
       appStore.setEditorError(normalizeApiError(error).message);
     } finally {
       setIsPublishingDraft(false);
+    }
+  }
+
+  async function handleTakeover() {
+    if (!editor.leaseId || !canTakeover) {
+      return;
+    }
+
+    setSaveMessage(null);
+    setIsTakingOver(true);
+    try {
+      const takeover = await takeoverEditorSession(editor.leaseId);
+      if (!takeover.taken_over || !takeover.new_lease_id) {
+        setSaveMessage("接管未完成，请刷新锁状态后再试。");
+        return;
+      }
+
+      appStore.setEditorSession({
+        lockStatus: "GRANTED",
+        leaseId: takeover.new_lease_id,
+        leaseExpiresAt: takeover.lease_expires_at ?? null,
+        heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds ?? 20,
+        lockedByTerminalId: null,
+      });
+      await refreshDraft(takeover.new_lease_id);
+      setSaveMessage(
+        takeover.previous_terminal_id
+          ? `已接管终端 ${takeover.previous_terminal_id} 的编辑租约。`
+          : "已接管编辑租约。",
+      );
+    } catch (error) {
+      appStore.setEditorError(normalizeApiError(error).message);
+    } finally {
+      setIsTakingOver(false);
+    }
+  }
+
+  async function handleDiscardDraft() {
+    if (!editor.leaseId || !canDiscard) {
+      return;
+    }
+
+    setSaveMessage(null);
+    setIsDiscardingDraft(true);
+    try {
+      await discardEditorDraft({
+        lease_id: editor.leaseId,
+        draft_version: editor.draftVersion,
+      });
+      appStore.setEditorSession({
+        lockStatus: "READ_ONLY",
+        leaseId: null,
+        leaseExpiresAt: null,
+        heartbeatIntervalSeconds: null,
+        lockedByTerminalId: null,
+      });
+      await refreshDraft();
+      setSelectedHotspotId(null);
+      setSaveMessage("草稿已丢弃，编辑租约已释放。");
+    } catch (error) {
+      appStore.setEditorError(normalizeApiError(error).message);
+    } finally {
+      setIsDiscardingDraft(false);
     }
   }
 
@@ -472,15 +618,21 @@ export function EditorWorkbenchWorkspace() {
       <EditorCommandBar
         canSave={canEdit}
         canPublish={canEdit}
+        canTakeover={canTakeover}
+        canDiscard={canDiscard}
         helperText={viewModel.helperText}
         hotspotCount={draftState.hotspots.length}
         modeLabel={viewModel.modeLabel}
         onAddHotspot={addHotspot}
+        onDiscardDraft={() => void handleDiscardDraft()}
         onPublishDraft={() => void handlePublishDraft()}
         onSaveDraft={() => void handleSaveDraft()}
+        onTakeover={() => void handleTakeover()}
+        discardBusy={isDiscardingDraft}
         publishBusy={isPublishingDraft}
         rows={viewModel.commandRows}
         saveBusy={isSavingDraft}
+        takeoverBusy={isTakingOver}
       />
       <div className="editor-workbench">
         <EditorToolbox
