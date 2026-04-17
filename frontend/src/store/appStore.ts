@@ -266,6 +266,14 @@ export const appStore = {
         error: message,
       },
     })),
+  clearEditorError: () =>
+    setState((current) => ({
+      ...current,
+      editor: {
+        ...current.editor,
+        error: null,
+      },
+    })),
 };
 
 export function useAppStore<T>(selector: (state: AppState) => T) {

@@ -31,6 +31,11 @@
   border-color: rgba(255, 198, 106, 0.26);
 }
 
+.editor-recovery--success {
+  background: rgba(92, 224, 163, 0.12);
+  border-color: rgba(92, 224, 163, 0.24);
+}
+
 .editor-recovery--error {
   background: rgba(255, 123, 141, 0.12);
   border-color: rgba(255, 123, 141, 0.24);

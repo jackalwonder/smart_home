@@ -27,10 +27,21 @@ interface EditorDraftState {
   hotspots: EditorHotspotViewModel[];
 }
 
-interface RecoveryNoticeState {
-  tone: "warning" | "error";
+type EditorNoticeAction =
+  | "refresh"
+  | "retry-save"
+  | "retry-publish"
+  | "retry-acquire"
+  | "retry-takeover"
+  | "retry-discard"
+  | "acquire"
+  | "takeover";
+
+interface EditorNoticeState {
+  tone: "success" | "warning" | "error";
   title: string;
   detail: string;
+  actions?: EditorNoticeAction[];
 }
 
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
@@ -94,8 +105,7 @@ export function EditorWorkbenchWorkspace() {
   });
   const [deviceCatalog, setDeviceCatalog] = useState<DeviceListItemDto[]>([]);
   const [deviceCatalogLoading, setDeviceCatalogLoading] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [recoveryNotice, setRecoveryNotice] = useState<RecoveryNoticeState | null>(null);
+  const [editorNotice, setEditorNotice] = useState<EditorNoticeState | null>(null);
   const handledRealtimeEventIdRef = useRef<string | null>(null);
   const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -104,13 +114,29 @@ export function EditorWorkbenchWorkspace() {
   const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
 
   function setLockConflictNotice(conflictTerminalId?: string | null) {
-    setRecoveryNotice({
+    appStore.clearEditorError();
+    setEditorNotice({
       tone: "warning",
       title: "编辑租约已被其他终端占用",
       detail: conflictTerminalId
         ? `终端 ${conflictTerminalId} 当前持有编辑锁。你可以先刷新只读草稿，确认后再接管。`
         : "当前编辑锁已经转移到其他终端。你可以先刷新只读草稿，确认后再接管。",
+      actions: ["refresh", "takeover"],
     });
+  }
+
+  function clearEditorFeedback() {
+    appStore.clearEditorError();
+    setEditorNotice(null);
+  }
+
+  function showEditorNotice(input: EditorNoticeState) {
+    if (input.tone === "error") {
+      appStore.setEditorError(input.detail);
+    } else {
+      appStore.clearEditorError();
+    }
+    setEditorNotice(input);
   }
 
   function applyEditorSession(input: {
@@ -150,42 +176,61 @@ export function EditorWorkbenchWorkspace() {
     applyEditorSession(lease);
     const draft = await fetchEditorDraft(lease.lease_id);
     applyEditorDraft(draft);
+    appStore.clearEditorError();
 
     if (lease.lock_status === "LOCKED_BY_OTHER") {
-      setSaveMessage(null);
       setLockConflictNotice(lease.locked_by?.terminal_id);
     } else {
-      setRecoveryNotice(null);
+      setEditorNotice(null);
       if (!options?.silent) {
-        setSaveMessage("已获取编辑租约，可以继续修改当前草稿。");
+        showEditorNotice({
+          tone: "success",
+          title: "已获取编辑租约",
+          detail: "当前终端已进入可编辑状态，可以继续修改当前草稿。",
+        });
       }
     }
 
     return { lease, draft };
   }
 
-  async function handleEditorActionError(error: unknown) {
+  async function handleEditorActionError(
+    error: unknown,
+    action:
+      | "save"
+      | "publish"
+      | "acquire"
+      | "takeover"
+      | "discard",
+  ) {
     const apiError = normalizeApiError(error);
 
     if (apiError.code === "VERSION_CONFLICT") {
       try {
         await refreshDraft(editor.leaseId);
       } catch (refreshError) {
-        appStore.setEditorError(normalizeApiError(refreshError).message);
+        showEditorNotice({
+          tone: "error",
+          title: "刷新草稿失败",
+          detail: normalizeApiError(refreshError).message,
+          actions: ["refresh"],
+        });
+        return;
       }
       appStore.setEditorSession({
         lockStatus: editor.lockStatus,
         leaseId: editor.leaseId,
       });
-      setRecoveryNotice({
+      showEditorNotice({
         tone: "warning",
-        title: "草稿版本已更新",
+        title: action === "publish" ? "发布前草稿版本已更新" : "保存前草稿版本已更新",
         detail: "后端草稿版本已经变化，页面已刷新到最新草稿，请确认变更后重试。",
+        actions: [action === "publish" ? "retry-publish" : "retry-save"],
       });
       return;
     }
 
-    if (apiError.code === "DRAFT_LOCK_LOST") {
+    if (apiError.code === "DRAFT_LOCK_LOST" || apiError.code === "DRAFT_LOCK_TAKEN_OVER") {
       appStore.setEditorSession({
         lockStatus: "READ_ONLY",
         leaseId: null,
@@ -196,21 +241,54 @@ export function EditorWorkbenchWorkspace() {
       try {
         await refreshDraft();
       } catch (refreshError) {
-        appStore.setEditorError(normalizeApiError(refreshError).message);
+        showEditorNotice({
+          tone: "error",
+          title: "刷新草稿失败",
+          detail: normalizeApiError(refreshError).message,
+          actions: ["refresh"],
+        });
+        return;
       }
-      setRecoveryNotice({
+      showEditorNotice({
         tone: "warning",
-        title: "编辑租约已失效",
+        title:
+          action === "publish"
+            ? "发布前失去编辑租约"
+            : action === "save"
+              ? "保存前失去编辑租约"
+              : "编辑租约已失效",
         detail: "当前会话已经失去编辑锁。请先刷新草稿，再重新申请编辑或接管其他终端的锁。",
+        actions: ["refresh", "acquire"],
       });
       return;
     }
 
-    appStore.setEditorError(apiError.message);
-    setRecoveryNotice({
+    const actionLabel =
+      action === "save"
+        ? "保存草稿"
+        : action === "publish"
+          ? "发布草稿"
+          : action === "acquire"
+            ? "申请编辑"
+            : action === "takeover"
+              ? "接管编辑"
+              : "丢弃草稿";
+    const retryAction =
+      action === "save"
+        ? "retry-save"
+        : action === "publish"
+          ? "retry-publish"
+          : action === "acquire"
+            ? "retry-acquire"
+            : action === "takeover"
+              ? "retry-takeover"
+              : "retry-discard";
+
+    showEditorNotice({
       tone: "error",
-      title: "编辑操作失败",
+      title: `${actionLabel}失败`,
       detail: apiError.message,
+      actions: ["refresh", retryAction],
     });
   }
 
@@ -246,12 +324,12 @@ export function EditorWorkbenchWorkspace() {
           lockedByTerminalId: null,
         });
         applyEditorDraft(draft);
-        setRecoveryNotice(null);
+        clearEditorFeedback();
       } catch (error) {
         if (!active) {
           return;
         }
-        await handleEditorActionError(error);
+        await handleEditorActionError(error, "acquire");
       }
     })();
 
@@ -453,7 +531,11 @@ export function EditorWorkbenchWorkspace() {
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
     }));
     setSelectedHotspotId(newHotspot.id);
-    setSaveMessage("设备已加入当前草稿。保存草稿后写入后端草稿，发布后进入首页布局。");
+    showEditorNotice({
+      tone: "success",
+      title: "草稿已更新",
+      detail: "设备已加入当前草稿。保存草稿后会写入后端，发布后进入首页布局。",
+    });
   }
 
   function deleteSelectedHotspot() {
@@ -536,10 +618,14 @@ export function EditorWorkbenchWorkspace() {
         readonly: true,
         lockStatus: "LOCKED_BY_OTHER",
       });
-      setSaveMessage(null);
       setLockConflictNotice(takeoverEvent.payload.new_terminal_id);
       void refreshDraft(takeoverEvent.payload.new_lease_id).catch((error) => {
-        appStore.setEditorError(normalizeApiError(error).message);
+        showEditorNotice({
+          tone: "error",
+          title: "刷新草稿失败",
+          detail: normalizeApiError(error).message,
+          actions: ["refresh"],
+        });
       });
       return;
     }
@@ -550,6 +636,41 @@ export function EditorWorkbenchWorkspace() {
     );
 
     if (lostEvent) {
+      const correlatedTakeoverEvent =
+        lostEvent.payload.lost_reason === "TAKEN_OVER"
+          ? events.find(
+              (event): event is DraftTakenOverEvent =>
+                isDraftTakenOverEvent(event) && event.payload.previous_terminal_id === terminalId,
+            )
+          : undefined;
+
+      if (correlatedTakeoverEvent) {
+        appStore.setEditorSession({
+          lockStatus: "LOCKED_BY_OTHER",
+          leaseId: correlatedTakeoverEvent.payload.new_lease_id,
+          leaseExpiresAt: null,
+          heartbeatIntervalSeconds: null,
+          lockedByTerminalId: correlatedTakeoverEvent.payload.new_terminal_id,
+        });
+        appStore.setEditorDraftData({
+          draft: editor.draft,
+          draftVersion: editor.draftVersion,
+          baseLayoutVersion: editor.baseLayoutVersion,
+          readonly: true,
+          lockStatus: "LOCKED_BY_OTHER",
+        });
+        setLockConflictNotice(correlatedTakeoverEvent.payload.new_terminal_id);
+        void refreshDraft(correlatedTakeoverEvent.payload.new_lease_id).catch((error) => {
+          showEditorNotice({
+            tone: "error",
+            title: "刷新草稿失败",
+            detail: normalizeApiError(error).message,
+            actions: ["refresh"],
+          });
+        });
+        return;
+      }
+
       appStore.setEditorSession({
         lockStatus: "READ_ONLY",
         leaseId: null,
@@ -564,17 +685,22 @@ export function EditorWorkbenchWorkspace() {
         readonly: true,
         lockStatus: "READ_ONLY",
       });
-      setSaveMessage(null);
-      setRecoveryNotice({
+      showEditorNotice({
         tone: "warning",
         title: "编辑租约已失效",
         detail:
           lostEvent.payload.lost_reason === "TAKEN_OVER"
             ? "另一台终端已经接管当前草稿，页面已切换为只读。"
             : "当前编辑租约已经过期，页面已切换为只读，请重新申请编辑。",
+        actions: ["refresh", "acquire"],
       });
       void refreshDraft().catch((error) => {
-        appStore.setEditorError(normalizeApiError(error).message);
+        showEditorNotice({
+          tone: "error",
+          title: "刷新草稿失败",
+          detail: normalizeApiError(error).message,
+          actions: ["refresh"],
+        });
       });
       return;
     }
@@ -584,10 +710,11 @@ export function EditorWorkbenchWorkspace() {
     );
 
     if (versionConflictEvent) {
-      setRecoveryNotice({
+      showEditorNotice({
         tone: "warning",
         title: "实时快照已重新同步",
         detail: "连接恢复时检测到事件间隙，页面已经刷新到最新快照，请确认当前草稿状态。",
+        actions: ["refresh"],
       });
     }
   }, [
@@ -628,8 +755,7 @@ export function EditorWorkbenchWorkspace() {
         if (!active) {
           return;
         }
-        await handleEditorActionError(error);
-        setSaveMessage("编辑租约已失效，已切换为只读。");
+        await handleEditorActionError(error, "acquire");
       }
     }
 
@@ -643,7 +769,10 @@ export function EditorWorkbenchWorkspace() {
     };
   }, [editor.heartbeatIntervalSeconds, editor.leaseId, editor.lockStatus]);
 
-  async function persistDraft(options?: { silent?: boolean }) {
+  async function persistDraft(options?: {
+    silent?: boolean;
+    errorAction?: "save" | "publish";
+  }) {
     if (!editor.leaseId || !editor.draftVersion || !editor.baseLayoutVersion || !canEdit) {
       return null;
     }
@@ -676,18 +805,21 @@ export function EditorWorkbenchWorkspace() {
         lockedByTerminalId: null,
       });
       if (!options?.silent) {
-        setRecoveryNotice(null);
-        setSaveMessage("草稿已保存到后端。");
+        showEditorNotice({
+          tone: "success",
+          title: "草稿已保存",
+          detail: "当前修改已经写入后端草稿。",
+        });
       }
       return refreshed;
     } catch (error) {
-      await handleEditorActionError(error);
+      await handleEditorActionError(error, options?.errorAction ?? "save");
       return null;
     }
   }
 
   async function handleSaveDraft() {
-    setSaveMessage(null);
+    clearEditorFeedback();
     setIsSavingDraft(true);
     try {
       await persistDraft();
@@ -701,10 +833,10 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setSaveMessage(null);
+    clearEditorFeedback();
     setIsPublishingDraft(true);
     try {
-      const refreshed = await persistDraft({ silent: true });
+      const refreshed = await persistDraft({ silent: true, errorAction: "publish" });
       if (!refreshed?.draft_version || !refreshed.base_layout_version) {
         return;
       }
@@ -724,10 +856,13 @@ export function EditorWorkbenchWorkspace() {
       });
       await refreshDraft();
       setSelectedHotspotId(null);
-      setRecoveryNotice(null);
-      setSaveMessage(`草稿已发布，布局版本为 ${published.layout_version}。`);
+      showEditorNotice({
+        tone: "success",
+        title: "草稿已发布",
+        detail: `布局版本已更新为 ${published.layout_version}。`,
+      });
     } catch (error) {
-      await handleEditorActionError(error);
+      await handleEditorActionError(error, "publish");
     } finally {
       setIsPublishingDraft(false);
     }
@@ -738,12 +873,12 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setSaveMessage(null);
+    clearEditorFeedback();
     setIsAcquiringLock(true);
     try {
       await openEditableSession();
     } catch (error) {
-      await handleEditorActionError(error);
+      await handleEditorActionError(error, "acquire");
     } finally {
       setIsAcquiringLock(false);
     }
@@ -754,12 +889,17 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setSaveMessage(null);
+    clearEditorFeedback();
     setIsTakingOver(true);
     try {
       const takeover = await takeoverEditorSession(editor.leaseId);
       if (!takeover.taken_over || !takeover.new_lease_id) {
-        setSaveMessage("接管未完成，请刷新锁状态后再试。");
+        showEditorNotice({
+          tone: "warning",
+          title: "接管未完成",
+          detail: "请刷新锁状态后再试。",
+          actions: ["refresh", "retry-takeover"],
+        });
         return;
       }
 
@@ -771,14 +911,15 @@ export function EditorWorkbenchWorkspace() {
         lockedByTerminalId: null,
       });
       await refreshDraft(takeover.new_lease_id);
-      setSaveMessage(
-        takeover.previous_terminal_id
-          ? `已接管终端 ${takeover.previous_terminal_id} 的编辑租约。`
-          : "已接管编辑租约。",
-      );
-      setRecoveryNotice(null);
+      showEditorNotice({
+        tone: "success",
+        title: "已接管编辑租约",
+        detail: takeover.previous_terminal_id
+          ? `当前终端已接管终端 ${takeover.previous_terminal_id} 的编辑租约。`
+          : "当前终端已接管编辑租约。",
+      });
     } catch (error) {
-      await handleEditorActionError(error);
+      await handleEditorActionError(error, "takeover");
     } finally {
       setIsTakingOver(false);
     }
@@ -789,7 +930,7 @@ export function EditorWorkbenchWorkspace() {
       return;
     }
 
-    setSaveMessage(null);
+    clearEditorFeedback();
     setIsDiscardingDraft(true);
     try {
       await discardEditorDraft({
@@ -805,10 +946,13 @@ export function EditorWorkbenchWorkspace() {
       });
       await refreshDraft();
       setSelectedHotspotId(null);
-      setRecoveryNotice(null);
-      setSaveMessage("草稿已丢弃，编辑租约已释放。");
+      showEditorNotice({
+        tone: "success",
+        title: "草稿已丢弃",
+        detail: "编辑租约已释放，页面已回到只读快照。",
+      });
     } catch (error) {
-      await handleEditorActionError(error);
+      await handleEditorActionError(error, "discard");
     } finally {
       setIsDiscardingDraft(false);
     }
@@ -819,40 +963,61 @@ export function EditorWorkbenchWorkspace() {
     ? orderedHotspots.findIndex((hotspot) => hotspot.id === selectedHotspot.id)
     : -1;
 
+  function renderNoticeAction(action: EditorNoticeAction) {
+    switch (action) {
+      case "refresh":
+        return (
+          <button className="button button--ghost" onClick={() => void refreshDraft()} type="button">
+            刷新草稿
+          </button>
+        );
+      case "retry-save":
+        return (
+          <button className="button button--primary" onClick={() => void handleSaveDraft()} type="button">
+            重新保存
+          </button>
+        );
+      case "retry-publish":
+        return (
+          <button className="button button--primary" onClick={() => void handlePublishDraft()} type="button">
+            重新发布
+          </button>
+        );
+      case "retry-acquire":
+      case "acquire":
+        return canAcquire ? (
+          <button className="button button--ghost" onClick={() => void handleAcquireLock()} type="button">
+            重新申请编辑
+          </button>
+        ) : null;
+      case "retry-takeover":
+      case "takeover":
+        return canTakeover ? (
+          <button className="button button--primary" onClick={() => void handleTakeover()} type="button">
+            接管当前锁
+          </button>
+        ) : null;
+      case "retry-discard":
+        return (
+          <button className="button button--ghost" onClick={() => void handleDiscardDraft()} type="button">
+            重新丢弃
+          </button>
+        );
+    }
+  }
+
   return (
     <section className="page page--editor">
-      {editor.error ? <p className="inline-error">{editor.error}</p> : null}
-      {saveMessage ? <p className="inline-success">{saveMessage}</p> : null}
-      {recoveryNotice ? (
-        <section className={`editor-recovery editor-recovery--${recoveryNotice.tone}`}>
+      {editorNotice ? (
+        <section className={`editor-recovery editor-recovery--${editorNotice.tone}`}>
           <div>
-            <strong>{recoveryNotice.title}</strong>
-            <p>{recoveryNotice.detail}</p>
+            <strong>{editorNotice.title}</strong>
+            <p>{editorNotice.detail}</p>
           </div>
           <div className="badge-row">
-            <button className="button button--ghost" onClick={() => void refreshDraft()} type="button">
-              刷新草稿
-            </button>
-            {canAcquire ? (
-              <button
-                className="button button--ghost"
-                disabled={isAcquiringLock}
-                onClick={() => void handleAcquireLock()}
-                type="button"
-              >
-                {isAcquiringLock ? "申请中..." : "重新申请编辑"}
-              </button>
-            ) : null}
-            {canTakeover ? (
-              <button
-                className="button button--primary"
-                disabled={isTakingOver}
-                onClick={() => void handleTakeover()}
-                type="button"
-              >
-                {isTakingOver ? "接管中..." : "接管当前锁"}
-              </button>
-            ) : null}
+            {editorNotice.actions?.map((action) => (
+              <span key={action}>{renderNoticeAction(action)}</span>
+            ))}
           </div>
         </section>
       ) : null}
