@@ -65,6 +65,9 @@ class BackupRestoreAuditView:
     settings_version: str | None
     layout_version: str | None
     result_status: str
+    error_code: str | None
+    error_message: str | None
+    failure_reason: str | None
 
 
 def _invalid_backup_snapshot(reason: str, field: str = "snapshot_blob") -> AppError:
@@ -183,6 +186,17 @@ def _decode_snapshot_blob(snapshot_blob: Any) -> dict[str, Any]:
     return snapshot
 
 
+def _first_field_reason(error: AppError) -> str | None:
+    fields = (error.details or {}).get("fields")
+    if not isinstance(fields, list) or not fields:
+        return None
+    first = fields[0]
+    if not isinstance(first, dict):
+        return None
+    reason = first.get("reason")
+    return reason if isinstance(reason, str) and reason else None
+
+
 class BackupRestoreService:
     def __init__(
         self,
@@ -235,7 +249,10 @@ class BackupRestoreService:
                 al.before_version,
                 COALESCE(al.payload_json ->> 'settings_version', al.after_version) AS settings_version,
                 al.payload_json ->> 'layout_version' AS layout_version,
-                al.result_status
+                al.result_status,
+                al.error_code,
+                al.payload_json ->> 'error_message' AS error_message,
+                al.payload_json ->> 'failure_reason' AS failure_reason
             FROM audit_logs al
             LEFT JOIN members m
               ON m.id = al.operator_id
@@ -269,9 +286,80 @@ class BackupRestoreService:
                 settings_version=row["settings_version"],
                 layout_version=row["layout_version"],
                 result_status=row["result_status"],
+                error_code=row["error_code"],
+                error_message=row["error_message"],
+                failure_reason=row["failure_reason"],
             )
             for row in rows
         ]
+
+    async def _write_restore_failure_audit(
+        self,
+        *,
+        home_id: str,
+        backup_id: str,
+        terminal_id: str,
+        operator_id: str | None,
+        error: AppError,
+    ) -> None:
+        now_iso = self._clock.now().isoformat()
+        failure_reason = _first_field_reason(error)
+        stmt = text(
+            """
+            INSERT INTO audit_logs (
+                home_id,
+                operator_id,
+                terminal_id,
+                action_type,
+                target_type,
+                target_id,
+                before_version,
+                result_status,
+                error_code,
+                payload_json,
+                created_at
+            ) VALUES (
+                :home_id,
+                :operator_id,
+                :terminal_id,
+                :action_type,
+                :target_type,
+                :target_id,
+                :before_version,
+                :result_status,
+                :error_code,
+                :payload_json,
+                :created_at
+            )
+            """
+        )
+        async with session_scope(self._database) as (session, owned):
+            await session.execute(
+                stmt,
+                {
+                    "home_id": home_id,
+                    "operator_id": operator_id,
+                    "terminal_id": terminal_id,
+                    "action_type": "BACKUP_RESTORE",
+                    "target_type": "SYSTEM_BACKUP",
+                    "target_id": backup_id,
+                    "before_version": backup_id,
+                    "result_status": "FAILED",
+                    "error_code": error.code.value,
+                    "payload_json": to_jsonb(
+                        {
+                            "backup_id": backup_id,
+                            "error_message": error.message,
+                            "failure_reason": failure_reason,
+                            "details": error.details or {},
+                            "restored_by_terminal_id": terminal_id,
+                        }
+                    ),
+                    "created_at": now_iso,
+                },
+            )
+            if owned:
+                await session.commit()
 
     async def restore_backup(
         self,
@@ -297,13 +385,21 @@ class BackupRestoreService:
                 )
             ).mappings().one_or_none()
         if backup_row is None or backup_row["snapshot_blob"] is None:
-            raise AppError(
+            error = AppError(
                 ErrorCode.INVALID_PARAMS,
                 "backup_id is invalid",
                 details={"fields": [{"field": "backup_id", "reason": "not_found"}]},
             )
+            await self._write_restore_failure_audit(
+                home_id=home_id,
+                backup_id=backup_id,
+                terminal_id=terminal_id,
+                operator_id=operator_id,
+                error=error,
+            )
+            raise error
         if backup_row["status"] != "READY":
-            raise AppError(
+            error = AppError(
                 ErrorCode.INVALID_PARAMS,
                 "backup is not ready to restore",
                 details={
@@ -316,8 +412,26 @@ class BackupRestoreService:
                     ]
                 },
             )
+            await self._write_restore_failure_audit(
+                home_id=home_id,
+                backup_id=backup_id,
+                terminal_id=terminal_id,
+                operator_id=operator_id,
+                error=error,
+            )
+            raise error
 
-        snapshot = _decode_snapshot_blob(backup_row["snapshot_blob"])
+        try:
+            snapshot = _decode_snapshot_blob(backup_row["snapshot_blob"])
+        except AppError as error:
+            await self._write_restore_failure_audit(
+                home_id=home_id,
+                backup_id=backup_id,
+                terminal_id=terminal_id,
+                operator_id=operator_id,
+                error=error,
+            )
+            raise
         settings_snapshot = snapshot.get("settings") or {}
         layout_snapshot = snapshot.get("layout") or {}
         next_settings_version = self._version_token_generator.next_settings_version()

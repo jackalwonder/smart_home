@@ -88,6 +88,9 @@ class BackupRestoreAuditItemResponse(ApiSchema):
     settings_version: str | None = None
     layout_version: str | None = None
     result_status: str
+    error_code: str | None = None
+    error_message: str | None = None
+    failure_reason: str | None = None
 
 
 class BackupRestoreAuditListResponse(ApiSchema):

@@ -32,6 +32,35 @@ function formatDateTime(value: string | null | undefined) {
   });
 }
 
+function formatRestoreResult(status: string) {
+  if (status === "SUCCESS") {
+    return "成功";
+  }
+  if (status === "FAILED") {
+    return "失败";
+  }
+  return status;
+}
+
+function formatRestoreFailure(audit: BackupRestoreAuditItemDto) {
+  if (audit.result_status === "SUCCESS") {
+    return "-";
+  }
+  if (audit.failure_reason === "not_found") {
+    return "备份不存在或快照缺失";
+  }
+  if (audit.failure_reason === "status_not_ready") {
+    return "备份状态不允许恢复";
+  }
+  if (audit.failure_reason === "invalid_json") {
+    return "备份快照不是有效 JSON";
+  }
+  if (audit.failure_reason?.startsWith("must_be_")) {
+    return "备份快照结构不完整";
+  }
+  return audit.error_message ?? audit.error_code ?? "恢复失败";
+}
+
 export function BackupManagementPanel({
   auditLoading,
   backups,
@@ -178,7 +207,11 @@ export function BackupManagementPanel({
                   </div>
                   <div>
                     <dt>结果</dt>
-                    <dd>{audit.result_status}</dd>
+                    <dd>{formatRestoreResult(audit.result_status)}</dd>
+                  </div>
+                  <div>
+                    <dt>失败原因</dt>
+                    <dd>{formatRestoreFailure(audit)}</dd>
                   </div>
                 </dl>
               </article>

@@ -675,6 +675,7 @@ export function SettingsWorkspacePage() {
       await Promise.all([loadSettings(), loadBackups(), loadBackupRestoreAudits()]);
     } catch (error) {
       setBackupMessage(normalizeApiError(error).message);
+      await loadBackupRestoreAudits();
     } finally {
       setBackupRestoreBusyId(null);
     }
