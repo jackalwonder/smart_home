@@ -4,6 +4,8 @@ interface EditorCommandBarProps {
   helperText: string;
   canSave: boolean;
   canPublish: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   canAcquire: boolean;
   canTakeover: boolean;
   canDiscard: boolean;
@@ -13,10 +15,13 @@ interface EditorCommandBarProps {
   takeoverBusy: boolean;
   discardBusy: boolean;
   hotspotCount: number;
+  historyLabel: string | null;
   onAddHotspot: () => void;
   onAcquire: () => void;
   onSaveDraft: () => void;
   onPublishDraft: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onTakeover: () => void;
   onDiscardDraft: () => void;
 }
@@ -27,6 +32,8 @@ export function EditorCommandBar({
   helperText,
   canSave,
   canPublish,
+  canUndo,
+  canRedo,
   canAcquire,
   canTakeover,
   canDiscard,
@@ -36,10 +43,13 @@ export function EditorCommandBar({
   takeoverBusy,
   discardBusy,
   hotspotCount,
+  historyLabel,
   onAddHotspot,
   onAcquire,
   onSaveDraft,
   onPublishDraft,
+  onUndo,
+  onRedo,
   onTakeover,
   onDiscardDraft,
 }: EditorCommandBarProps) {
@@ -53,6 +63,7 @@ export function EditorCommandBar({
       <div className="badge-row">
         <span className="state-chip">{modeLabel}</span>
         <span className="state-chip">{hotspotCount} 个热点</span>
+        <span className="state-chip">{historyLabel ? `最近：${historyLabel}` : "无本地历史"}</span>
         <button
           className="button button--ghost"
           disabled={!canSave}
@@ -79,6 +90,22 @@ export function EditorCommandBar({
         </button>
         <button
           className="button button--ghost"
+          disabled={!canUndo}
+          onClick={onUndo}
+          type="button"
+        >
+          撤销
+        </button>
+        <button
+          className="button button--ghost"
+          disabled={!canRedo}
+          onClick={onRedo}
+          type="button"
+        >
+          重做
+        </button>
+        <button
+          className="button button--ghost"
           disabled={!canTakeover || takeoverBusy}
           onClick={onTakeover}
           type="button"
@@ -102,6 +129,9 @@ export function EditorCommandBar({
           {publishBusy ? "发布中..." : "发布草稿"}
         </button>
       </div>
+      <p className="editor-command-bar__shortcuts">
+        快捷键：⌘/Ctrl+S 保存，⌘/Ctrl+Enter 发布，⌘/Ctrl+Z 撤销，Shift+⌘/Ctrl+Z 或 Ctrl+Y 重做，方向键移动，Shift+方向键移动 5%。
+      </p>
       <dl className="field-grid">
         {rows.map((row) => (
           <div key={row.label}>
