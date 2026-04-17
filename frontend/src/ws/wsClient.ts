@@ -13,6 +13,15 @@ interface ConnectOptions {
 class WsClient {
   private socket: WebSocket | null = null;
   private lastEventId: string | null = null;
+  private seenEventIds: string[] = [];
+
+  private rememberEvent(eventId: string) {
+    if (this.seenEventIds.includes(eventId)) {
+      return false;
+    }
+    this.seenEventIds = [eventId, ...this.seenEventIds].slice(0, 200);
+    return true;
+  }
 
   private send(message: WsClientMessage) {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
@@ -46,11 +55,14 @@ class WsClient {
       try {
         const event = JSON.parse(message.data) as WsEvent;
         this.lastEventId = event.event_id;
-        appStore.pushWsEvent(event);
         this.send({ type: "ack", event_id: event.event_id });
+        if (!this.rememberEvent(event.event_id)) {
+          return;
+        }
+        appStore.pushWsEvent(event);
         options.onEvent?.(event);
       } catch {
-        // Ignore malformed events in the initial scaffold.
+        // Malformed events are ignored because the server will resend unacked rows.
       }
     });
 

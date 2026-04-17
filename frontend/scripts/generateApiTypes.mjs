@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,7 @@ const require = createRequire(import.meta.url);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const frontendDir = resolve(scriptDir, "..");
 const backendDir = resolve(frontendDir, "..", "backend");
+const backendVenvPython = resolve(backendDir, ".venv", "bin", "python");
 const exportOpenapiScript = resolve(backendDir, "scripts", "export_openapi.py");
 const exportRealtimeSchemaScript = resolve(backendDir, "scripts", "export_realtime_schema.py");
 const openapiPath = resolve(backendDir, "openapi.json");
@@ -27,6 +29,31 @@ const jsonSchemaToTypescriptCli = resolve(
   "cli.js",
 );
 
+function commandExists(command) {
+  const result = spawnSync(command, ["--version"], {
+    stdio: "ignore",
+  });
+  return result.status === 0;
+}
+
+function resolvePythonCommand() {
+  if (existsSync(backendVenvPython)) {
+    return backendVenvPython;
+  }
+  const configured = process.env.PYTHON?.trim();
+  if (configured) {
+    return configured;
+  }
+  if (commandExists("python")) {
+    return "python";
+  }
+  if (commandExists("python3")) {
+    return "python3";
+  }
+  console.error("Python is required to export backend OpenAPI and realtime schemas.");
+  process.exit(1);
+}
+
 function run(command, args) {
   const result = spawnSync(command, args, {
     cwd: frontendDir,
@@ -38,8 +65,10 @@ function run(command, args) {
   }
 }
 
-run("python", [exportOpenapiScript]);
-run("python", [exportRealtimeSchemaScript]);
+const pythonCommand = resolvePythonCommand();
+
+run(pythonCommand, [exportOpenapiScript]);
+run(pythonCommand, [exportRealtimeSchemaScript]);
 run(process.execPath, [openapiTypescriptCli, openapiPath, "-o", apiOutputPath]);
 run(process.execPath, [
   jsonSchemaToTypescriptCli,
