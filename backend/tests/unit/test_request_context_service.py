@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from types import MethodType
 
 import pytest
@@ -26,6 +27,15 @@ def _service() -> RequestContextService:
     return RequestContextService(
         database=object(),  # type: ignore[arg-type]
         access_token_resolver=_resolver(),
+    )
+
+
+def _request(*, query_params=None, headers=None, cookies=None):
+    return SimpleNamespace(
+        query_params=query_params or {},
+        headers=headers or {},
+        cookies=cookies or {},
+        state=SimpleNamespace(),
     )
 
 
@@ -99,6 +109,63 @@ async def test_strict_invalid_bearer_does_not_fall_back_to_legacy_cookie():
 
     assert exc_info.value.code == ErrorCode.UNAUTHORIZED
     assert exc_info.value.message == "invalid access token"
+
+
+@pytest.mark.asyncio
+async def test_http_runtime_requires_authorization_bearer_by_default():
+    service = _service()
+
+    with pytest.raises(AppError) as exc_info:
+        await service.resolve_http_request(
+            _request(
+                query_params={
+                    "home_id": "home-1",
+                    "terminal_id": "terminal-1",
+                    "token": "pin-session-1",
+                },
+            ),
+            require_home=True,
+            require_terminal=True,
+        )
+
+    assert exc_info.value.code == ErrorCode.UNAUTHORIZED
+    assert exc_info.value.message == "access token is required"
+
+
+@pytest.mark.asyncio
+async def test_http_runtime_rejects_query_access_token_transport():
+    resolver = _resolver()
+    token = resolver.issue(home_id="home-1", terminal_id="terminal-1", scope=("api", "ws"))
+    service = RequestContextService(
+        database=object(),  # type: ignore[arg-type]
+        access_token_resolver=resolver,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await service.resolve_http_request(
+            _request(query_params={"access_token": token}),
+            require_home=True,
+            require_terminal=True,
+        )
+
+    assert exc_info.value.code == ErrorCode.UNAUTHORIZED
+    assert exc_info.value.message == "access token is required"
+
+
+@pytest.mark.asyncio
+async def test_auth_bootstrap_can_still_use_legacy_context_when_bearer_not_required():
+    service = _service()
+
+    context = await service.resolve_http_request(
+        _request(query_params={"home_id": "home-1", "terminal_id": "terminal-1"}),
+        require_home=True,
+        require_terminal=True,
+        require_bearer=False,
+    )
+
+    assert context.home_id == "home-1"
+    assert context.terminal_id == "terminal-1"
+    assert context.auth_mode == "legacy_context"
 
 
 @pytest.mark.asyncio

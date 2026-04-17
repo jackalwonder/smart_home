@@ -1,5 +1,4 @@
 import { ApiEnvelope, ApiError, ApiErrorPayload } from "./types";
-import { getRequestContext } from "../config/requestContext";
 import { getAccessToken } from "../auth/accessToken";
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "";
@@ -9,7 +8,7 @@ const API_BASE_URL =
   (typeof window !== "undefined" ? window.location.origin : "http://localhost:8000");
 
 interface ApiRequestOptions extends RequestInit {
-  includeLegacyContext?: boolean;
+  useAccessToken?: boolean;
 }
 
 export async function apiRequest<T>(
@@ -18,17 +17,7 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = new URL(`${API_BASE_URL}${input}`);
   const accessToken = getAccessToken();
-  const includeLegacyContext = init?.includeLegacyContext ?? false;
-
-  if (includeLegacyContext) {
-    const { homeId, terminalId } = getRequestContext();
-    if (!url.searchParams.has("home_id")) {
-      url.searchParams.set("home_id", homeId);
-    }
-    if (!url.searchParams.has("terminal_id")) {
-      url.searchParams.set("terminal_id", terminalId);
-    }
-  }
+  const useAccessToken = init?.useAccessToken ?? true;
 
   const headers = new Headers(init?.headers ?? undefined);
   const body = init?.body;
@@ -36,7 +25,7 @@ export async function apiRequest<T>(
   if (!headers.has("Content-Type") && !hasFormDataBody) {
     headers.set("Content-Type", "application/json");
   }
-  if (accessToken) {
+  if (accessToken && useAccessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 

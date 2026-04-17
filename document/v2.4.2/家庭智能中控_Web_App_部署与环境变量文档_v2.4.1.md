@@ -137,12 +137,16 @@ volumes:
 4. `JWT_SECRET_KEY`（HS 模式）
 5. `JWT_PUBLIC_KEY`、`JWT_PRIVATE_KEY`（RS 模式）
 6. `ACCESS_TOKEN_TTL_SECONDS`
-7. `CONNECTION_SECRET_ENCRYPTION_KEY`（系统连接敏感信息加密）
-8. `PIN_HASH_ALGORITHM`（推荐 `argon2id`）
-9. `PIN_HASH_PEPPER`
-10. `PIN_MAX_RETRY`
-11. `PIN_LOCK_MINUTES`
-12. `PIN_SESSION_TTL_SECONDS`
+7. `BOOTSTRAP_TOKEN_SECRET`
+8. `BOOTSTRAP_TOKEN_TTL_SECONDS`
+9. `BOOTSTRAP_TOKEN_LEEWAY_SECONDS`
+10. `VITE_BOOTSTRAP_TOKEN`（仅本地/测试构建可用；生产建议通过受控终端存储写入）
+11. `CONNECTION_SECRET_ENCRYPTION_KEY`（系统连接敏感信息加密）
+12. `PIN_HASH_ALGORITHM`（推荐 `argon2id`）
+13. `PIN_HASH_PEPPER`
+14. `PIN_MAX_RETRY`
+15. `PIN_LOCK_MINUTES`
+16. `PIN_SESSION_TTL_SECONDS`
 
 ### 5.5 Home Assistant / 能力开关 / CORS
 
@@ -184,6 +188,10 @@ JWT_AUDIENCE=smart-home-web-app
 JWT_ALGORITHM=HS256
 JWT_SECRET_KEY=replace_with_very_long_random_secret
 ACCESS_TOKEN_TTL_SECONDS=86400
+BOOTSTRAP_TOKEN_SECRET=replace_with_different_very_long_random_secret
+BOOTSTRAP_TOKEN_TTL_SECONDS=2592000
+BOOTSTRAP_TOKEN_LEEWAY_SECONDS=0
+VITE_BOOTSTRAP_TOKEN=
 
 # ===== Encryption / PIN =====
 CONNECTION_SECRET_ENCRYPTION_KEY=replace_with_32_byte_base64_key
@@ -255,6 +263,7 @@ FEATURE_EDITOR_ENABLED=true
 2. `GET /api/v1/home/overview`
 3. `POST /api/v1/device-controls`（可用测试设备）
 4. WebSocket 建连与事件接收
+5. 新终端首次打开时，如未配置 `VITE_BOOTSTRAP_TOKEN` 且本地没有 `smart_home.bootstrap_token`，应进入终端激活页；粘贴管理端签发的 bootstrap token 后，应成功进入中控 shell。
 
 ---
 

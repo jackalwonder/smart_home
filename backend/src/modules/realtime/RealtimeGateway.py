@@ -6,6 +6,11 @@ from src.app.container import get_realtime_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.realtime.RealtimeService import RealtimeService
 from src.shared.errors.AppError import AppError
+from src.shared.observability import (
+    collect_ws_legacy_context_fields,
+    get_observability_metrics,
+    log_structured_event,
+)
 
 router = APIRouter(tags=["realtime"])
 
@@ -13,10 +18,6 @@ router = APIRouter(tags=["realtime"])
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    home_id: str | None = Query(default=None, deprecated=True),
-    terminal_id: str | None = Query(default=None, deprecated=True),
-    access_token: str | None = Query(default=None),
-    token: str | None = Query(default=None, deprecated=True),
     last_event_id: str | None = Query(default=None),
     service: RealtimeService = Depends(get_realtime_service),
     request_context_service: RequestContextService = Depends(get_request_context_service),
@@ -24,16 +25,76 @@ async def websocket_endpoint(
     try:
         context = await request_context_service.resolve_websocket_request(
             websocket,
-            explicit_home_id=home_id,
-            explicit_terminal_id=terminal_id,
-            explicit_token=access_token or token,
             require_home=True,
             require_terminal=True,
             require_session_auth=True,
         )
-    except AppError:
+    except AppError as exc:
+        legacy_context_fields = collect_ws_legacy_context_fields(
+            query_params=websocket.query_params,
+            headers=websocket.headers,
+            cookies=websocket.cookies,
+        )
+        get_observability_metrics().record_ws_rejection(
+            reason="auth_error",
+            legacy_context_fields=legacy_context_fields,
+        )
+        log_structured_event(
+            "websocket_rejected",
+            {
+                "reason": "auth_error",
+                "error_code": str(exc.code),
+                "legacy_context_fields": legacy_context_fields,
+                "has_last_event_id": last_event_id is not None,
+            },
+        )
         await websocket.close(code=4401)
         return
+    if context.auth_mode != "bearer":
+        legacy_context_fields = collect_ws_legacy_context_fields(
+            query_params=websocket.query_params,
+            headers=websocket.headers,
+            cookies=websocket.cookies,
+        )
+        get_observability_metrics().record_ws_rejection(
+            reason="legacy_auth_mode",
+            legacy_context_fields=legacy_context_fields,
+        )
+        log_structured_event(
+            "websocket_rejected",
+            {
+                "reason": "legacy_auth_mode",
+                "auth_mode": context.auth_mode,
+                "home_id": context.home_id,
+                "terminal_id": context.terminal_id,
+                "operator_id": context.operator_id,
+                "legacy_context_fields": legacy_context_fields,
+                "has_last_event_id": last_event_id is not None,
+            },
+        )
+        await websocket.close(code=4401)
+        return
+    legacy_context_fields = collect_ws_legacy_context_fields(
+        query_params=websocket.query_params,
+        headers=websocket.headers,
+        cookies=websocket.cookies,
+    )
+    get_observability_metrics().record_ws_connection(
+        auth_mode=context.auth_mode,
+        legacy_context_fields=legacy_context_fields,
+        has_last_event_id=last_event_id is not None,
+    )
+    log_structured_event(
+        "websocket_connection",
+        {
+            "auth_mode": context.auth_mode,
+            "home_id": context.home_id,
+            "terminal_id": context.terminal_id,
+            "operator_id": context.operator_id,
+            "legacy_context_fields": legacy_context_fields,
+            "has_last_event_id": last_event_id is not None,
+        },
+    )
     await service.handle_connection(
         websocket,
         context.home_id,

@@ -36,9 +36,14 @@ def test_openapi_contains_bearer_scheme_and_key_paths(client):
     assert "BearerAuth" in schemes
     assert schemes["BearerAuth"]["type"] == "http"
     assert schemes["BearerAuth"]["scheme"] == "bearer"
+    assert "BootstrapAuth" in schemes
+    assert schemes["BootstrapAuth"]["type"] == "apiKey"
+    assert schemes["BootstrapAuth"]["name"] == "Authorization"
 
     expected_paths = {
         "/api/v1/auth/session",
+        "/api/v1/auth/session/bootstrap",
+        "/api/v1/terminals/{terminal_id}/bootstrap-token",
         "/api/v1/home/overview",
         "/api/v1/devices/{device_id}",
         "/api/v1/device-controls",
@@ -48,12 +53,13 @@ def test_openapi_contains_bearer_scheme_and_key_paths(client):
     }
     assert expected_paths.issubset(set(openapi["paths"].keys()))
 
-    pin_session_parameters = openapi["paths"]["/api/v1/auth/pin/session"]["get"]["parameters"]
-    parameter_flags = {
-        parameter["name"]: parameter.get("deprecated", False) for parameter in pin_session_parameters
-    }
-    assert parameter_flags["home_id"] is True
-    assert parameter_flags["terminal_id"] is True
+    pin_session_operation = openapi["paths"]["/api/v1/auth/pin/session"]["get"]
+    pin_session_parameters = pin_session_operation.get("parameters", [])
+    assert {parameter["name"] for parameter in pin_session_parameters}.isdisjoint(
+        {"home_id", "terminal_id"}
+    )
+    bootstrap_operation = openapi["paths"]["/api/v1/auth/session/bootstrap"]["post"]
+    assert bootstrap_operation["security"] == [{"BootstrapAuth": []}]
 
 
 def test_all_http_api_routes_declare_response_model(app):

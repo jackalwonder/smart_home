@@ -83,6 +83,9 @@ class RequestContextService:
         headers: Mapping[str, str],
         cookies: Mapping[str, str],
         explicit_token: str | None = None,
+        allow_query_access_token: bool = True,
+        allow_cookie_access_token: bool = True,
+        allow_explicit_token: bool = True,
     ) -> _AccessTokenCandidate | None:
         authorization = _header(headers, "authorization")
         if authorization is not None and authorization.lower().startswith("bearer "):
@@ -91,15 +94,18 @@ class RequestContextService:
         protocol_token = _websocket_protocol_bearer(headers)
         if protocol_token is not None:
             return _AccessTokenCandidate(token=protocol_token, strict=True)
-        query_access_token = _query(query_params, "access_token")
-        if query_access_token is not None:
-            return _AccessTokenCandidate(token=query_access_token, strict=True)
-        cookie_access_token = _cookie(cookies, "access_token")
-        if cookie_access_token is not None:
-            return _AccessTokenCandidate(token=cookie_access_token, strict=True)
-        token = _normalize(explicit_token)
-        if token is not None:
-            return _AccessTokenCandidate(token=token, strict=False)
+        if allow_query_access_token:
+            query_access_token = _query(query_params, "access_token")
+            if query_access_token is not None:
+                return _AccessTokenCandidate(token=query_access_token, strict=True)
+        if allow_cookie_access_token:
+            cookie_access_token = _cookie(cookies, "access_token")
+            if cookie_access_token is not None:
+                return _AccessTokenCandidate(token=cookie_access_token, strict=True)
+        if allow_explicit_token:
+            token = _normalize(explicit_token)
+            if token is not None:
+                return _AccessTokenCandidate(token=token, strict=False)
         return None
 
     def _resolve_legacy_session_token(
@@ -126,12 +132,18 @@ class RequestContextService:
         cookies: Mapping[str, str],
         explicit_token: str | None = None,
         required_scope: str | None = None,
+        allow_query_access_token: bool = True,
+        allow_cookie_access_token: bool = True,
+        allow_explicit_token: bool = True,
     ) -> AccessTokenClaims | None:
         candidate = self._resolve_access_token_candidate(
             query_params=query_params,
             headers=headers,
             cookies=cookies,
             explicit_token=explicit_token,
+            allow_query_access_token=allow_query_access_token,
+            allow_cookie_access_token=allow_cookie_access_token,
+            allow_explicit_token=allow_explicit_token,
         )
         if candidate is None:
             return None
@@ -292,8 +304,12 @@ class RequestContextService:
         fallback_home_id: str | None = None,
         require_home: bool = False,
         require_terminal: bool = False,
+        require_bearer: bool = False,
         require_session_auth: bool = False,
         required_access_scope: str | None = None,
+        allow_query_access_token: bool = True,
+        allow_cookie_access_token: bool = True,
+        allow_explicit_token: bool = True,
     ) -> RequestContext:
         bearer_claims = self._resolve_bearer_claims(
             query_params=query_params,
@@ -301,7 +317,12 @@ class RequestContextService:
             cookies=cookies,
             explicit_token=explicit_token,
             required_scope=required_access_scope,
+            allow_query_access_token=allow_query_access_token,
+            allow_cookie_access_token=allow_cookie_access_token,
+            allow_explicit_token=allow_explicit_token,
         )
+        if require_bearer and bearer_claims is None:
+            raise AppError(ErrorCode.UNAUTHORIZED, "access token is required")
         session_token = (
             None
             if bearer_claims is not None
@@ -401,6 +422,7 @@ class RequestContextService:
         fallback_home_id: str | None = None,
         require_home: bool = False,
         require_terminal: bool = False,
+        require_bearer: bool = True,
         require_session_auth: bool = False,
     ) -> RequestContext:
         context = await self._resolve_context(
@@ -413,11 +435,18 @@ class RequestContextService:
             fallback_home_id=fallback_home_id,
             require_home=require_home,
             require_terminal=require_terminal,
+            require_bearer=require_bearer,
             require_session_auth=require_session_auth,
             required_access_scope="api",
+            allow_query_access_token=False,
+            allow_cookie_access_token=False,
+            allow_explicit_token=False,
         )
         request.state.auth_mode = context.auth_mode
         request.state.access_token_jti = context.access_token_jti
+        request.state.home_id = context.home_id
+        request.state.terminal_id = context.terminal_id
+        request.state.operator_id = context.operator_id
         return context
 
     async def resolve_websocket_request(
@@ -442,9 +471,13 @@ class RequestContextService:
             fallback_home_id=fallback_home_id,
             require_home=require_home,
             require_terminal=require_terminal,
+            require_bearer=False,
             require_session_auth=require_session_auth,
             required_access_scope="ws",
         )
         websocket.state.auth_mode = context.auth_mode
         websocket.state.access_token_jti = context.access_token_jti
+        websocket.state.home_id = context.home_id
+        websocket.state.terminal_id = context.terminal_id
+        websocket.state.operator_id = context.operator_id
         return context

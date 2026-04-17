@@ -79,6 +79,13 @@ interface EditorHistoryGroup {
   timer: number | null;
 }
 
+interface EditorSnapshotKey {
+  leaseId: string | null;
+  draftVersion: string | null;
+  baseLayoutVersion: string | null;
+  lockStatus: string | null;
+}
+
 type EditorDraftStateUpdater = (current: EditorDraftState) => EditorDraftState;
 
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
@@ -616,6 +623,9 @@ export function EditorWorkbenchWorkspace() {
   const [editorNotice, setEditorNotice] = useState<EditorNoticeState | null>(null);
   const handledRealtimeEventIdRef = useRef<string | null>(null);
   const publishBaselineLeaseIdRef = useRef<string | null>(null);
+  const draftStateRef = useRef(draftState);
+  const publishBaselineRef = useRef(publishBaseline);
+  const appliedEditorSnapshotRef = useRef<EditorSnapshotKey | null>(null);
   const undoStackRef = useRef<EditorHistoryEntry[]>([]);
   const redoStackRef = useRef<EditorHistoryEntry[]>([]);
   const historyGroupRef = useRef<EditorHistoryGroup | null>(null);
@@ -876,6 +886,14 @@ export function EditorWorkbenchWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    draftStateRef.current = draftState;
+  }, [draftState]);
+
+  useEffect(() => {
+    publishBaselineRef.current = publishBaseline;
+  }, [publishBaseline]);
+
   const viewModel = mapEditorViewModel({
     lockStatus: editor.lockStatus,
     leaseId: editor.leaseId,
@@ -897,8 +915,36 @@ export function EditorWorkbenchWorkspace() {
       layoutMetaText: stringifyLayoutMeta(viewModel.layoutMeta),
       hotspots: resequenceHotspots(viewModel.hotspots),
     };
+    const snapshotKey: EditorSnapshotKey = {
+      leaseId: editor.leaseId,
+      draftVersion: editor.draftVersion,
+      baseLayoutVersion: editor.baseLayoutVersion,
+      lockStatus: editor.lockStatus,
+    };
+    const lastSnapshotKey = appliedEditorSnapshotRef.current;
+    const isSameSnapshot =
+      lastSnapshotKey?.leaseId === snapshotKey.leaseId &&
+      lastSnapshotKey?.draftVersion === snapshotKey.draftVersion &&
+      lastSnapshotKey?.baseLayoutVersion === snapshotKey.baseLayoutVersion &&
+      lastSnapshotKey?.lockStatus === snapshotKey.lockStatus;
+    const localBaseline = publishBaselineRef.current;
+    const hasUnsavedLocalDraft =
+      localBaseline !== null &&
+      !areEditorDraftStatesEqual(draftStateRef.current, localBaseline);
+
+    if (
+      isSameSnapshot &&
+      editor.lockStatus === "GRANTED" &&
+      editor.leaseId &&
+      hasUnsavedLocalDraft
+    ) {
+      return;
+    }
+
     const nextHotspotIds = new Set(nextDraftState.hotspots.map((hotspot) => hotspot.id));
     setDraftState(nextDraftState);
+    draftStateRef.current = nextDraftState;
+    appliedEditorSnapshotRef.current = snapshotKey;
     clearHistoryGroup();
     undoStackRef.current = [];
     redoStackRef.current = [];
@@ -912,12 +958,14 @@ export function EditorWorkbenchWorkspace() {
 
     if (editor.lockStatus !== "GRANTED" || !editor.leaseId) {
       publishBaselineLeaseIdRef.current = editor.leaseId ?? null;
+      publishBaselineRef.current = nextDraftState;
       setPublishBaseline(nextDraftState);
       return;
     }
 
     if (publishBaselineLeaseIdRef.current !== editor.leaseId) {
       publishBaselineLeaseIdRef.current = editor.leaseId;
+      publishBaselineRef.current = nextDraftState;
       setPublishBaseline(nextDraftState);
       return;
     }
@@ -1073,12 +1121,15 @@ export function EditorWorkbenchWorkspace() {
         return current;
       }
       pushDraftHistory(current, label, groupKey);
+      draftStateRef.current = next;
       return next;
     });
   }
 
   function restoreDraftHistoryEntry(entry: EditorHistoryEntry) {
-    setDraftState(cloneEditorDraftState(entry.draft));
+    const restored = cloneEditorDraftState(entry.draft);
+    draftStateRef.current = restored;
+    setDraftState(restored);
     setSelectedHotspotId(entry.selectedHotspotId);
     setBatchSelectedHotspotIds([...entry.batchSelectedHotspotIds]);
   }

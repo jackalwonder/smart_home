@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from src.app.container import (
+    get_bootstrap_token_service,
     get_device_catalog_service,
     get_energy_service,
+    get_management_pin_guard,
     get_media_service,
     get_pin_verification_service,
     get_request_context_service,
@@ -18,6 +20,10 @@ from src.modules.auth.services.command.PinVerificationService import (
 from src.modules.auth.services.query.SessionQueryService import (
     AuthSessionFeaturesView,
     AuthSessionView,
+)
+from src.modules.auth.services.command.BootstrapTokenService import (
+    BootstrapSessionContext,
+    BootstrapTokenCreateView,
 )
 from src.modules.energy.services.EnergyService import (
     EnergyBindingView,
@@ -187,12 +193,53 @@ class FakeMediaService:
 
 
 class FakeRequestContextService:
-    async def resolve_http_request(self, *_args, **_kwargs):
+    async def resolve_http_request(self, request, *_args, **kwargs):
+        auth_mode = "legacy_context" if kwargs.get("require_bearer") is False else "bearer"
+        request.state.auth_mode = auth_mode
+        request.state.home_id = "home-1"
+        request.state.terminal_id = "terminal-1"
+        request.state.operator_id = "member-1"
         return RequestContext(
             home_id="home-1",
             terminal_id="terminal-1",
             operator_id="member-1",
+            auth_mode=auth_mode,
         )
+
+
+class CapturingRequestContextService(FakeRequestContextService):
+    def __init__(self):
+        self.kwargs = None
+
+    async def resolve_http_request(self, request, *_args, **kwargs):
+        self.kwargs = kwargs
+        return await super().resolve_http_request(request, *_args, **kwargs)
+
+
+class FakeBootstrapTokenService:
+    async def exchange(self, token):
+        assert token == "bootstrap-token-1"
+        return BootstrapSessionContext(
+            home_id="home-1",
+            terminal_id="terminal-1",
+            terminal_mode="KIOSK",
+            bootstrap_token_jti="bootstrap-jti-1",
+        )
+
+    async def create_or_reset(self, _input):
+        return BootstrapTokenCreateView(
+            terminal_id="terminal-1",
+            bootstrap_token="bootstrap-token-1",
+            expires_at="2026-05-18T00:00:00+00:00",
+            rotated=True,
+            scope=["bootstrap:session"],
+        )
+
+
+class FakeManagementPinGuard:
+    async def require_active_session(self, home_id, terminal_id):
+        assert home_id == "home-1"
+        assert terminal_id == "terminal-1"
 
 
 class FailingDeviceCatalogService:
@@ -203,12 +250,22 @@ class FailingDeviceCatalogService:
 def test_auth_system_energy_and_media_routes(app, client):
     app.dependency_overrides[get_session_query_service] = lambda: FakeSessionQueryService()
     app.dependency_overrides[get_pin_verification_service] = lambda: FakePinVerificationService()
+    app.dependency_overrides[get_bootstrap_token_service] = lambda: FakeBootstrapTokenService()
+    app.dependency_overrides[get_management_pin_guard] = lambda: FakeManagementPinGuard()
     app.dependency_overrides[get_system_connection_service] = lambda: FakeSystemConnectionService()
     app.dependency_overrides[get_energy_service] = lambda: FakeEnergyService()
     app.dependency_overrides[get_media_service] = lambda: FakeMediaService()
     app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
     auth_response = client.get("/api/v1/auth/session")
+    bootstrap_session_response = client.post(
+        "/api/v1/auth/session/bootstrap",
+        headers={"authorization": "Bootstrap bootstrap-token-1"},
+    )
+    bootstrap_token_response = client.post(
+        "/api/v1/terminals/terminal-1/bootstrap-token",
+        headers={"authorization": f"Bearer {auth_response.json()['data']['access_token']}"},
+    )
     access_token = auth_response.json()["data"]["access_token"]
     pin_verify_response = client.post(
         "/api/v1/auth/pin/verify",
@@ -252,6 +309,11 @@ def test_auth_system_energy_and_media_routes(app, client):
     assert auth_response.json()["data"]["token_type"] == "Bearer"
     assert set(auth_response.json()["data"]["scope"]) == {"api", "ws"}
     assert access_token
+    assert bootstrap_session_response.json()["data"]["access_token"]
+    assert bootstrap_session_response.json()["data"]["token_type"] == "Bearer"
+    assert bootstrap_token_response.json()["data"]["token_type"] == "Bootstrap"
+    assert bootstrap_token_response.json()["data"]["bootstrap_token"] == "bootstrap-token-1"
+    assert bootstrap_token_response.json()["data"]["rotated"] is True
 
     assert pin_verify_response.json()["data"]["pin_session_active"] is True
     assert pin_verify_response.json()["data"]["remaining_attempts"] == 5
@@ -266,6 +328,18 @@ def test_auth_system_energy_and_media_routes(app, client):
     assert energy_get_response.json()["data"]["balance"] == 88.8
     assert energy_refresh_response.json()["data"]["accepted"] is True
     assert media_get_response.json()["data"]["confirmation_type"] == "PLAYBACK_STATE_DRIVEN"
+
+
+def test_auth_session_always_requires_bearer_context(app, client):
+    context_service = CapturingRequestContextService()
+    app.dependency_overrides[get_session_query_service] = lambda: FakeSessionQueryService()
+    app.dependency_overrides[get_request_context_service] = lambda: context_service
+
+    response = client.get("/api/v1/auth/session?home_id=home-1&terminal_id=terminal-1")
+
+    assert response.status_code == 200
+    assert context_service.kwargs is not None
+    assert context_service.kwargs["require_bearer"] is True
 
 
 def test_http_404_and_unhandled_errors_are_wrapped(app, client):
@@ -305,6 +379,26 @@ def test_healthz_and_readyz_routes(monkeypatch, client):
     assert ready_body["data"]["status"] == "ready"
     assert ready_body["data"]["checks"]["database"]["status"] == "ok"
     assert ready_body["data"]["checks"]["redis"]["status"] == "ok"
+
+
+def test_observabilityz_reports_bootstrap_token_without_legacy_bootstrap(app, client):
+    app.dependency_overrides[get_session_query_service] = lambda: FakeSessionQueryService()
+    app.dependency_overrides[get_bootstrap_token_service] = lambda: FakeBootstrapTokenService()
+
+    response = client.post(
+        "/api/v1/auth/session/bootstrap",
+        headers={"authorization": "Bootstrap bootstrap-token-1"},
+    )
+    observability_response = client.get("/observabilityz")
+
+    assert response.status_code == 200
+    assert observability_response.status_code == 200
+    snapshot = observability_response.json()["data"]
+    assert snapshot["auth_session_bootstrap"]["requests_total"] == 1
+    assert snapshot["auth_session_bootstrap"]["auth_mode_counts"]["bootstrap_token"] == 1
+    assert snapshot["auth_session_bootstrap"]["legacy_requests_total"] == 0
+    assert snapshot["auth_session_bootstrap"]["legacy_context_field_counts"] == {}
+    assert snapshot["legacy_context"]["field_counts"] == {}
 
 
 def test_readyz_returns_503_when_dependency_is_unavailable(monkeypatch, client):

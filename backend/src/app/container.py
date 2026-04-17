@@ -15,6 +15,9 @@ from src.infrastructure.db.repositories.base.auth.PinLockRepositoryImpl import (
 from src.infrastructure.db.repositories.base.auth.PinSessionRepositoryImpl import (
     PinSessionRepositoryImpl,
 )
+from src.infrastructure.db.repositories.base.auth.TerminalBootstrapTokenRepositoryImpl import (
+    TerminalBootstrapTokenRepositoryImpl,
+)
 from src.infrastructure.db.repositories.base.control.DeviceControlRequestRepositoryImpl import (
     DeviceControlRequestRepositoryImpl,
 )
@@ -109,12 +112,17 @@ from src.infrastructure.weather.impl.OpenMeteoWeatherProvider import (
 from src.modules.auth.services.command.PinVerificationService import (
     PinVerificationService,
 )
+from src.modules.auth.services.command.BootstrapTokenService import BootstrapTokenService
 from src.modules.backups.services.BackupRestoreService import BackupRestoreService
 from src.modules.backups.services.BackupService import BackupService
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
 from src.modules.auth.services.query.AccessTokenResolver import (
     AccessTokenResolver,
     JwtAccessTokenResolver,
+)
+from src.modules.auth.services.query.BootstrapTokenResolver import (
+    BootstrapTokenResolver,
+    JwtBootstrapTokenResolver,
 )
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.auth.services.query.SessionQueryService import SessionQueryService
@@ -254,6 +262,11 @@ def get_home_auth_config_repository() -> HomeAuthConfigRepositoryImpl:
 @lru_cache(maxsize=1)
 def get_pin_session_repository() -> PinSessionRepositoryImpl:
     return PinSessionRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_terminal_bootstrap_token_repository() -> TerminalBootstrapTokenRepositoryImpl:
+    return TerminalBootstrapTokenRepositoryImpl(get_database())
 
 
 @lru_cache(maxsize=1)
@@ -406,6 +419,18 @@ def get_access_token_resolver() -> AccessTokenResolver:
     )
 
 
+@lru_cache(maxsize=1)
+def get_bootstrap_token_resolver() -> BootstrapTokenResolver:
+    settings = get_settings()
+    return JwtBootstrapTokenResolver(
+        secret=settings.bootstrap_token_secret,
+        issuer=settings.access_token_issuer,
+        audience=settings.access_token_audience,
+        ttl_seconds=settings.bootstrap_token_ttl_seconds,
+        leeway_seconds=settings.bootstrap_token_leeway_seconds,
+    )
+
+
 def get_request_context_service() -> RequestContextService:
     return RequestContextService(
         get_database(),
@@ -429,6 +454,15 @@ def get_pin_verification_service() -> PinVerificationService:
         pin_session_repository=get_pin_session_repository(),
         pin_lock_repository=get_pin_lock_repository(),
         id_generator=get_id_generator(),
+        clock=get_clock(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_bootstrap_token_service() -> BootstrapTokenService:
+    return BootstrapTokenService(
+        repository=get_terminal_bootstrap_token_repository(),
+        resolver=get_bootstrap_token_resolver(),
         clock=get_clock(),
     )
 
