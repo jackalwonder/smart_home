@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { createBackup, fetchBackups, restoreBackup } from "../api/backupsApi";
+import {
+  createBackup,
+  fetchBackupRestoreAudits,
+  fetchBackups,
+  restoreBackup,
+} from "../api/backupsApi";
 import { fetchSettings, saveSettings } from "../api/settingsApi";
 import {
   fetchSystemConnections,
@@ -7,7 +12,11 @@ import {
   saveHomeAssistantConnection,
   testHomeAssistantConnection,
 } from "../api/systemConnectionsApi";
-import { BackupListItemDto, SystemConnectionsEnvelopeDto } from "../api/types";
+import {
+  BackupListItemDto,
+  BackupRestoreAuditItemDto,
+  SystemConnectionsEnvelopeDto,
+} from "../api/types";
 import { normalizeApiError } from "../api/httpClient";
 import { PinAccessCard } from "../components/auth/PinAccessCard";
 import { PageFrame } from "../components/layout/PageFrame";
@@ -221,7 +230,9 @@ export function SettingsWorkspacePage() {
   const [backupItems, setBackupItems] = useState<BackupListItemDto[]>([]);
   const [backupNote, setBackupNote] = useState("");
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupRestoreAudits, setBackupRestoreAudits] = useState<BackupRestoreAuditItemDto[]>([]);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [backupAuditLoading, setBackupAuditLoading] = useState(false);
   const [backupCreateBusy, setBackupCreateBusy] = useState(false);
   const [backupRestoreBusyId, setBackupRestoreBusyId] = useState<string | null>(null);
 
@@ -264,6 +275,23 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function loadBackupRestoreAudits() {
+    if (!pin.active) {
+      setBackupRestoreAudits([]);
+      return;
+    }
+
+    setBackupAuditLoading(true);
+    try {
+      const response = await fetchBackupRestoreAudits();
+      setBackupRestoreAudits(response.items);
+    } catch (error) {
+      setBackupMessage(normalizeApiError(error).message);
+    } finally {
+      setBackupAuditLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (session.status !== "success") {
       return;
@@ -276,6 +304,7 @@ export function SettingsWorkspacePage() {
       return;
     }
     void loadBackups();
+    void loadBackupRestoreAudits();
   }, [pin.active, session.data?.accessToken, session.status]);
 
   useEffect(() => {
@@ -297,6 +326,7 @@ export function SettingsWorkspacePage() {
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
     { label: "备份", value: `${backupItems.length} 条` },
+    { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
   ];
   const activeSectionConfig =
     viewModel.sections.find((section) => section.key === activeSection) ?? viewModel.sections[0];
@@ -642,7 +672,7 @@ export function SettingsWorkspacePage() {
       setBackupMessage(
         `恢复完成，audit_id ${response.audit_id}，settings_version ${response.settings_version}。`,
       );
-      await Promise.all([loadSettings(), loadBackups()]);
+      await Promise.all([loadSettings(), loadBackups(), loadBackupRestoreAudits()]);
     } catch (error) {
       setBackupMessage(normalizeApiError(error).message);
     } finally {
@@ -692,6 +722,7 @@ export function SettingsWorkspacePage() {
   } else if (activeSection === "backup") {
     sectionPanel = (
       <BackupManagementPanel
+        auditLoading={backupAuditLoading}
         backups={backupItems}
         canEdit={pin.active}
         createBusy={backupCreateBusy}
@@ -700,8 +731,10 @@ export function SettingsWorkspacePage() {
         note={backupNote}
         onChangeNote={setBackupNote}
         onCreateBackup={() => void handleCreateBackup()}
+        onRefreshAudits={() => void loadBackupRestoreAudits()}
         onRefresh={() => void loadBackups()}
         onRestoreBackup={(backupId) => void handleRestoreBackup(backupId)}
+        restoreAudits={backupRestoreAudits}
         restoreBusyId={backupRestoreBusyId}
       />
     );

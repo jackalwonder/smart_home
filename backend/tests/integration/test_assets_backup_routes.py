@@ -7,7 +7,10 @@ from src.app.container import (
     get_request_context_service,
 )
 from src.modules.auth.services.query.RequestContextService import RequestContext
-from src.modules.backups.services.BackupRestoreService import BackupRestoreView
+from src.modules.backups.services.BackupRestoreService import (
+    BackupRestoreAuditView,
+    BackupRestoreView,
+)
 from src.modules.backups.services.BackupService import BackupCreateView
 from src.modules.page_assets.services.FloorplanAssetService import FloorplanAssetView
 
@@ -47,6 +50,22 @@ class FakeBackupService:
 
 
 class FakeBackupRestoreService:
+    async def list_restore_audits(self, **_kwargs):
+        return [
+            BackupRestoreAuditView(
+                audit_id="audit-1",
+                backup_id="bk_1",
+                restored_at="2026-04-14T10:05:00Z",
+                operator_id="member-1",
+                operator_name="Operator",
+                terminal_id="terminal-1",
+                before_version="bk_1",
+                settings_version="sv_1",
+                layout_version="lv_1",
+                result_status="SUCCESS",
+            )
+        ]
+
     async def restore_backup(self, **_kwargs):
         return BackupRestoreView(
             restored=True,
@@ -82,6 +101,7 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
         json={"operator_id": "member-1"},
     )
     list_response = client.get("/api/v1/system/backups")
+    audit_response = client.get("/api/v1/system/backups/restores")
     restore_response = client.post(
         "/api/v1/system/backups/bk_1/restore",
         json={"operator_id": "member-1"},
@@ -97,6 +117,11 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
     assert list_response.status_code == 200
     assert list_response.json()["data"]["items"][0]["backup_id"] == "bk_1"
     assert list_response.json()["data"]["items"][0]["restored_at"] == "2026-04-14T10:05:00Z"
+
+    assert audit_response.status_code == 200
+    assert audit_response.json()["data"]["items"][0]["audit_id"] == "audit-1"
+    assert audit_response.json()["data"]["items"][0]["backup_id"] == "bk_1"
+    assert audit_response.json()["data"]["items"][0]["settings_version"] == "sv_1"
 
     assert restore_response.status_code == 200
     assert restore_response.json()["data"]["restored"] is True

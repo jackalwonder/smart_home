@@ -1,17 +1,20 @@
-import { BackupListItemDto } from "../../api/types";
+import { BackupListItemDto, BackupRestoreAuditItemDto } from "../../api/types";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface BackupManagementPanelProps {
+  auditLoading: boolean;
   backups: BackupListItemDto[];
   canEdit: boolean;
   createBusy: boolean;
   loading: boolean;
   message: string | null;
   note: string;
+  restoreAudits: BackupRestoreAuditItemDto[];
   restoreBusyId: string | null;
   onChangeNote: (value: string) => void;
   onCreateBackup: () => void;
   onRefresh: () => void;
+  onRefreshAudits: () => void;
   onRestoreBackup: (backupId: string) => void;
 }
 
@@ -30,16 +33,19 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 export function BackupManagementPanel({
+  auditLoading,
   backups,
   canEdit,
   createBusy,
   loading,
   message,
   note,
+  restoreAudits,
   restoreBusyId,
   onChangeNote,
   onCreateBackup,
   onRefresh,
+  onRefreshAudits,
   onRestoreBackup,
 }: BackupManagementPanelProps) {
   return (
@@ -125,6 +131,65 @@ export function BackupManagementPanel({
           </p>
         )}
       </div>
+
+      <section className="backup-audit" aria-label="恢复历史">
+        <div className="backup-audit__header">
+          <div>
+            <h4>恢复历史</h4>
+            <p className="muted-copy">按最近恢复时间查看审计记录和恢复后的版本。</p>
+          </div>
+          <button
+            className="button button--ghost"
+            disabled={!canEdit || auditLoading}
+            onClick={onRefreshAudits}
+            type="button"
+          >
+            {auditLoading ? "刷新中..." : "刷新历史"}
+          </button>
+        </div>
+        <div className="backup-audit__timeline">
+          {restoreAudits.length ? (
+            restoreAudits.map((audit) => (
+              <article className="backup-audit__item" key={audit.audit_id}>
+                <div className="backup-audit__summary">
+                  <strong>{audit.backup_id}</strong>
+                  <span>{formatDateTime(audit.restored_at)}</span>
+                </div>
+                <dl className="backup-audit__meta">
+                  <div>
+                    <dt>审计 ID</dt>
+                    <dd>{audit.audit_id}</dd>
+                  </div>
+                  <div>
+                    <dt>设置版本</dt>
+                    <dd>{audit.settings_version ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>布局版本</dt>
+                    <dd>{audit.layout_version ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>操作人</dt>
+                    <dd>{audit.operator_name ?? audit.operator_id ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>终端</dt>
+                    <dd>{audit.terminal_id ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>结果</dt>
+                    <dd>{audit.result_status}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))
+          ) : (
+            <p className="backup-list__empty">
+              {auditLoading ? "正在加载恢复历史。" : "当前还没有恢复审计记录。"}
+            </p>
+          )}
+        </div>
+      </section>
     </SettingsModuleCard>
   );
 }
