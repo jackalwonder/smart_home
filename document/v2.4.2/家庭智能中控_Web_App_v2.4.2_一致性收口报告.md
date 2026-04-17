@@ -43,17 +43,18 @@
 
 1. 《家庭智能中控 Web App 鉴权方案说明 v2.4.1》“七、HTTP 鉴权规则”与“八、WebSocket 鉴权规则”把权威身份来源定义为 Bearer access token claim。
 2. 《家庭智能中控 Web App WebSocket 事件契约 v2.4.1》“二、统一收口结论”已要求 `home_id / terminal_id` 以 token claim 为准。
-3. 当前实现仍以 `home_id + terminal_id + PIN session` 为主：
-   - `backend/src/modules/auth/services/query/RequestContextService.py` 会从 `authorization`、`token`、`session_token`、`pin_session_token` 中取值，并直接查询 `pin_sessions`
-   - 同一服务仍接受 `home_id`、`terminal_id` 的 query/header/cookie 作为上下文来源
-   - `backend/src/modules/realtime/RealtimeGateway.py` 仍显式接收 `/ws?home_id=&terminal_id=&token=`
-   - `frontend/src/api/httpClient.ts` 自动附带 `home_id`、`terminal_id` query 和 `x-home-id`、`x-terminal-id` header
-   - `frontend/src/ws/wsClient.ts` 仍使用 `/ws?home_id=&terminal_id=`
+3. 2026-04-17 收口后，当前实现已从“PIN session token + home_id/terminal_id 上下文为主”推进到“双栈兼容期”：
+   - `backend/src/modules/auth/controllers/AuthController.py` 已签发 Bearer access token
+   - `backend/src/modules/auth/services/query/RequestContextService.py` 已支持 Bearer/JWT 解析，并将 token claim 作为有 token 请求的权威身份来源
+   - `backend/src/modules/realtime/RealtimeGateway.py` 已支持 `access_token` 与 `last_event_id`
+   - `frontend/src/api/httpClient.ts` 已发送 `Authorization: Bearer <access_token>`
+   - `frontend/src/ws/wsClient.ts` 已使用 `access_token` 建连，并在重连时携带 `last_event_id`
+   - 旧 `home_id / terminal_id / token / pin_session_token` 路径仍作为兼容路径保留
 
 结论：
 
 1. 文档目标架构已是“Bearer access token 为身份主键，PIN session 为敏感操作附加态”。
-2. 当前代码实现尚未完成该迁移，仍属于“PIN session token + home_id/terminal_id 上下文”阶段。
+2. 当前代码已经落地 Bearer 主链路，但尚未下线旧兼容路径；后续重点是观测兼容命中率、定义下线阈值并完成灰度移除。
 
 引用：
 
@@ -63,12 +64,11 @@
 
 代码证据：
 
-1. `backend/src/modules/auth/services/query/RequestContextService.py:47-66`
-2. `backend/src/modules/auth/services/query/RequestContextService.py:68-98`
-3. `backend/src/modules/auth/services/query/RequestContextService.py:121-153`
-4. `backend/src/modules/realtime/RealtimeGateway.py:13-41`
-5. `frontend/src/api/httpClient.ts:14-32`
-6. `frontend/src/ws/wsClient.ts:19-29`
+1. `backend/src/modules/auth/controllers/AuthController.py`
+2. `backend/src/modules/auth/services/query/RequestContextService.py`
+3. `backend/src/modules/realtime/RealtimeGateway.py`
+4. `frontend/src/api/httpClient.ts`
+5. `frontend/src/ws/wsClient.ts`
 
 ### 2.3 WebSocket 重连补偿口径在文档内部曾出现“快照优先”残留
 
@@ -147,8 +147,8 @@
 
 结论：
 
-1. 当前后端尚未落地 Bearer token 鉴权主干。
-2. `v2.4.2` 必须补充迁移计划，否则文档会继续把“目标状态”误写成“已实现状态”。
+1. 当前后端已落地 Bearer token 鉴权主干。
+2. `v2.4.2` 后续必须把状态写成“Bearer 主链路已落地，旧兼容路径仍在观察期”，避免把“旧路径已下线”误写成已完成。
 
 引用：
 
@@ -243,9 +243,17 @@
 
 ---
 
-## 六、下一步后端 P1 修复任务清单
+## 六、下一步鉴权与观测性收口任务清单
 
-### P1-1 统一请求上下文解析器
+2026-04-17 状态更新：
+
+1. P1-1、P1-2、P1-3、P1-4 的主链路已经落地：Bearer 签发/校验、HTTP Authorization、WS `access_token`、WS `last_event_id` 已进入代码与 E2E。
+2. WS 旧 `home_id / terminal_id / token / pin_session_token` 建连路径已进入 PR-1 移除，非 Bearer WS 建连在测试客户端返回 `4401`，真实握手拒绝为 HTTP `403`。
+3. HTTP 运行时旧 `home_id / terminal_id / token / pin_session_token` 兼容路径已进入 PR-2 移除；`GET /api/v1/auth/session` 作为短期 bootstrap 入口暂保留旧 home/terminal。
+4. 已新增 `/observabilityz` 聚合快照与结构化日志，用于观察 `auth_mode`、旧上下文字段命中率、WS accepted/rejected、incremental replay 与 snapshot fallback。
+5. 后续 P1 从“实现 Bearer 主链路”调整为“真实 HA/预发长窗口复验，并替换 auth session bootstrap 旧 home/terminal 来源”。
+
+### P1-1 统一请求上下文解析器（主链路已完成，兼容期继续观察）
 
 目标：
 
@@ -258,7 +266,7 @@
 1. 《家庭智能中控 Web App 鉴权方案说明 v2.4.1》“七、HTTP 鉴权规则”“八、WebSocket 鉴权规则”
 2. 《家庭智能中控 Web App 鉴权迁移与安全威胁模型 v2.4.2》迁移阶段定义
 
-### P1-2 新增或补齐 access token 签发与校验主干
+### P1-2 新增或补齐 access token 签发与校验主干（已完成）
 
 目标：
 
@@ -270,7 +278,7 @@
 1. 《家庭智能中控 Web App 鉴权方案说明 v2.4.1》“四、Token Payload”“五、过期与会话时长”“九、与 PIN Session 的关系”
 2. 《家庭智能中控 Web App 鉴权迁移与安全威胁模型 v2.4.2》迁移步骤
 
-### P1-3 改造 WebSocket 建连与重连参数
+### P1-3 改造 WebSocket 建连与重连参数（主链路已完成）
 
 目标：
 
@@ -283,7 +291,7 @@
 1. 《家庭智能中控 Web App 接口清单 v2.4》“6.1 连接信息”“6.7 重连与补偿规则”
 2. 《家庭智能中控 Web App WebSocket 事件契约 v2.4.1》“七、last_event_id 重连补偿规则”
 
-### P1-4 改造前端 HTTP / WS 客户端
+### P1-4 改造前端 HTTP / WS 客户端（主链路已完成）
 
 目标：
 
@@ -297,7 +305,7 @@
 2. 《家庭智能中控 Web App OpenAPI 与前端类型生成规范 v2.4.2》
 3. 《家庭智能中控 Web App WebSocket 事件契约 v2.4.1》“七、last_event_id 重连补偿规则”“八、前端去重与乱序处理规则”
 
-### P1-5 补齐契约测试与迁移观察指标
+### P1-5 补齐契约测试与迁移观察指标（进行中）
 
 目标：
 

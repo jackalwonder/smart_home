@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Body, Depends, Query, Request
+from fastapi import APIRouter, Body, Depends, Request
 from pydantic import Field
 
 from src.app.container import get_pin_verification_service, get_request_context_service
@@ -92,23 +92,11 @@ async def verify_pin(
 )
 async def get_pin_session(
     request: Request,
-    home_id: str | None = Query(
-        default=None,
-        description="Legacy compatibility context field.",
-        deprecated=True,
-    ),
-    terminal_id: str | None = Query(
-        default=None,
-        description="Legacy compatibility context field.",
-        deprecated=True,
-    ),
     service: PinVerificationService = Depends(get_pin_verification_service),
     request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
     context = await request_context_service.resolve_http_request(
         request,
-        explicit_home_id=home_id,
-        explicit_terminal_id=terminal_id,
         require_home=True,
         require_terminal=True,
     )

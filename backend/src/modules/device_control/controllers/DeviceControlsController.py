@@ -113,18 +113,9 @@ async def accept_device_control(
     service: DeviceControlCommandService = Depends(get_device_control_command_service),
     request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    base_context = await request_context_service.resolve_http_request(
-        request,
-        explicit_home_id=body.home_id,
-        require_home=False,
-    )
-    fallback_home_id = base_context.home_id
-    if fallback_home_id is None:
-        fallback_home_id = await request_context_service.find_home_id_by_device_id(body.device_id)
     context = await request_context_service.resolve_http_request(
         request,
         explicit_home_id=body.home_id,
-        fallback_home_id=fallback_home_id,
         require_home=True,
     )
     view: DeviceControlAcceptedView = await service.accept(
@@ -154,16 +145,8 @@ async def get_device_control_result(
     service: DeviceControlResultQueryService = Depends(get_device_control_result_query_service),
     request_context_service: RequestContextService = Depends(get_request_context_service),
 ) -> object:
-    base_context = await request_context_service.resolve_http_request(
-        request,
-        require_home=False,
-    )
-    fallback_home_id = base_context.home_id
-    if fallback_home_id is None:
-        fallback_home_id = await request_context_service.find_home_id_by_control_request_id(request_id)
     context = await request_context_service.resolve_http_request(
         request,
-        fallback_home_id=fallback_home_id,
         require_home=True,
     )
     view = await service.get_result(

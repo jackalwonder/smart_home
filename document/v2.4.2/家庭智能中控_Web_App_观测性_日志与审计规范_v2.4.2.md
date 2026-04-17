@@ -45,6 +45,15 @@
 4. snapshot fallback 命中率
 5. 旧鉴权兼容路径命中率
 
+当前最小落地状态（2026-04-17）：
+
+1. 后端已新增结构化 HTTP 请求日志事件：`http_request`。
+2. PR-4 后旧 HTTP bootstrap 成功路径已删除，不再输出 `auth_session_bootstrap_legacy` 事件。
+3. 后端已新增结构化 WS 事件：`websocket_connection`、`websocket_resume`、`websocket_rejected`。
+4. 后端已新增 `/observabilityz` 聚合快照，用于查看当前进程内的 HTTP、runtime legacy context、auth session bootstrap、WebSocket accepted/rejected 计数。
+5. `http_request` 日志已增加 `observability_scope`，当前取值为 `runtime` 或 `auth_session_bootstrap`。
+6. 当前指标为进程内内存快照，用于本地、CI、预发迁移观察；生产长期留存仍需后续接入 Prometheus、日志平台或 APM。
+
 ---
 
 ## 三、结构化字段要求
@@ -61,6 +70,12 @@ HTTP / 业务日志最少字段：
 8. `operator_id`
 9. `error_code`
 10. `duration_ms`
+11. `auth_mode`
+12. `status_code`
+13. `legacy_context_fields`
+14. `observability_scope`
+15. `client_ip`
+16. `user_agent`
 
 业务扩展字段：
 
@@ -68,12 +83,30 @@ HTTP / 业务日志最少字段：
 2. 编辑锁：`lease_id`, `lock_status`
 3. WS 事件：`event_id`, `event_type`, `change_domain`, `snapshot_required`
 4. 版本操作：`settings_version`, `layout_version`, `backup_id`
+5. 鉴权迁移：`auth_mode`, `access_token_jti`, `legacy_context_fields`, `observability_scope`
 
 约束：
 
 1. 不记录 PIN 明文
 2. 不记录 access token 明文
 3. session token、JWT 只允许记录哈希或截断值
+4. 当前结构化日志只记录旧上下文字段名称，不记录 token、PIN 或认证原文
+
+---
+
+## 3.1 鉴权迁移指标口径
+
+PR-3A 后，旧路径指标分为 runtime 与 auth session bootstrap 两组：
+
+1. `legacy_context.field_counts`：只统计非 bootstrap 的 runtime HTTP 路径旧字段命中。
+2. `legacy_context.all_field_counts`：统计 HTTP、WS、bootstrap 的旧字段总命中，用于排障，不作为 runtime 下线阈值。
+3. `legacy_context.runtime_accepted_requests_total`：runtime 路径成功接受 legacy auth 的请求数，PR-2/PR-3 长窗口必须保持为 0。
+4. `legacy_context.runtime_rejected_requests_total`：runtime 路径拒绝 legacy auth 的请求数，用于确认负向探针进入观测。
+5. `auth_session_bootstrap.requests_total`：auth session bootstrap 请求总数，包含 `GET /api/v1/auth/session` 与 `POST /api/v1/auth/session/bootstrap`。
+6. `auth_session_bootstrap.legacy_requests_total`：旧 `home_id / terminal_id` bootstrap 被接受的次数，后续 PR-3B/PR-3C 迁移目标是降为 0。
+7. `auth_session_bootstrap.legacy_context_field_counts`：旧 bootstrap 中出现的 query/header/cookie 字段名称计数。
+8. `auth_session_bootstrap.auth_mode_counts.bootstrap_token`：新 Bootstrap token 兑换路径命中次数。
+9. `http_request.observability_scope`：用于日志侧区分 `runtime` 与 `auth_session_bootstrap`。
 
 ---
 

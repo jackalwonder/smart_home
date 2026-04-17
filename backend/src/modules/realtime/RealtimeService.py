@@ -18,6 +18,7 @@ from src.modules.realtime.RealtimeSchemas import (
     realtime_server_event_adapter,
 )
 from src.repositories.base.realtime.WsEventOutboxRepository import WsEventOutboxRepository
+from src.shared.observability import get_observability_metrics, log_structured_event
 
 
 def _parse_iso_datetime(value: str | None) -> datetime:
@@ -87,6 +88,9 @@ class RealtimeService:
         await websocket.send_json(
             normalized_event.model_dump(mode="json")
         )
+        get_observability_metrics().record_ws_event_sent(
+            snapshot_required=event.snapshot_required
+        )
         state.sent_event_ids.add(event.event_id)
         state.pending_ack_ids[event.event_id] = event.id
 
@@ -110,10 +114,21 @@ class RealtimeService:
         last_event_id: str | None,
     ) -> None:
         if last_event_id is None:
+            get_observability_metrics().record_ws_resume("no_last_event_id")
             return
         events = await self._ws_event_outbox_repository.list_recent(state.home_id, 100)
         last_index = next((index for index, event in enumerate(events) if event.event_id == last_event_id), None)
         if last_index is None:
+            get_observability_metrics().record_ws_resume("snapshot_fallback")
+            log_structured_event(
+                "websocket_resume",
+                {
+                    "home_id": state.home_id,
+                    "terminal_id": state.terminal_id,
+                    "last_event_id": last_event_id,
+                    "result": "snapshot_fallback",
+                },
+            )
             synthetic_event = type(
                 "SyntheticEvent",
                 (),
@@ -130,6 +145,17 @@ class RealtimeService:
             )()
             await self._send_event(websocket, state, synthetic_event)
             return
+        get_observability_metrics().record_ws_resume("incremental_replay")
+        log_structured_event(
+            "websocket_resume",
+            {
+                "home_id": state.home_id,
+                "terminal_id": state.terminal_id,
+                "last_event_id": last_event_id,
+                "result": "incremental_replay",
+                "replay_count": len(events[last_index + 1 :]),
+            },
+        )
         for event in events[last_index + 1 :]:
             if event.event_id in state.sent_event_ids:
                 continue

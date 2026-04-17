@@ -5,6 +5,9 @@ const HOME_ID = "11111111-1111-1111-1111-111111111111";
 const TERMINAL_ID = "22222222-2222-2222-2222-222222222222";
 const SECONDARY_TERMINAL_ID = "33333333-3333-3333-3333-333333333333";
 const DEV_PIN = "1234";
+const BOOTSTRAP_TOKEN_STORAGE_KEY = "smart_home.bootstrap_token";
+const TERMINAL_ACTIVATION_TEST = "terminal activation stores bootstrap token and enters shell";
+const bootstrapTokens = new Map<string, string>();
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTjwAAAABJRU5ErkJggg==",
   "base64",
@@ -21,6 +24,19 @@ type AuthSession = {
   home_id: string;
   terminal_id: string;
 };
+
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title === TERMINAL_ACTIVATION_TEST) {
+    return;
+  }
+  const token = issueBootstrapToken(TERMINAL_ID);
+  await page.addInitScript(
+    ({ key, value }) => {
+      window.localStorage.setItem(key, value);
+    },
+    { key: BOOTSTRAP_TOKEN_STORAGE_KEY, value: token },
+  );
+});
 
 type SettingsSnapshot = {
   settings_version: string | null;
@@ -108,8 +124,11 @@ function toEditorSaveHotspots(hotspots: NonNullable<EditorDraft["layout"]>["hots
 }
 
 async function bootstrapSession(request: APIRequestContext, terminalId = TERMINAL_ID) {
+  const bootstrapToken = issueBootstrapToken(terminalId);
   const session = await expectEnvelope<AuthSession>(
-    await request.get(`/api/v1/auth/session?home_id=${HOME_ID}&terminal_id=${terminalId}`),
+    await request.post("/api/v1/auth/session/bootstrap", {
+      headers: { authorization: `Bootstrap ${bootstrapToken}` },
+    }),
   );
   await expectEnvelope(
     await request.post("/api/v1/auth/pin/verify", {
@@ -122,6 +141,56 @@ async function bootstrapSession(request: APIRequestContext, terminalId = TERMINA
     }),
   );
   return session;
+}
+
+test(TERMINAL_ACTIVATION_TEST, async ({ page }) => {
+  const token = issueBootstrapToken(TERMINAL_ID);
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "激活这台中控" })).toBeVisible();
+  await expect(page.locator(".control-shell")).toHaveCount(0);
+
+  await page.getByLabel("Bootstrap token").fill(token);
+  await page.getByRole("button", { name: "激活终端" }).click();
+
+  await expect(page.locator(".control-shell")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .toBe(token);
+});
+
+function issueBootstrapToken(terminalId = TERMINAL_ID) {
+  const cached = bootstrapTokens.get(terminalId);
+  if (cached) {
+    return cached;
+  }
+
+  const script = [
+    "import asyncio",
+    "from src.app.container import get_bootstrap_token_service",
+    "from src.modules.auth.services.command.BootstrapTokenService import BootstrapTokenCreateInput",
+    "async def main():",
+    "    view = await get_bootstrap_token_service().create_or_reset(BootstrapTokenCreateInput(",
+    `        home_id=${JSON.stringify(HOME_ID)},`,
+    `        target_terminal_id=${JSON.stringify(terminalId)},`,
+    "        created_by_member_id=None,",
+    `        created_by_terminal_id=${JSON.stringify(terminalId)},`,
+    "    ))",
+    "    print(view.bootstrap_token)",
+    "asyncio.run(main())",
+  ].join("\n");
+
+  const output = execFileSync(
+    "docker",
+    ["compose", "-f", "../docker-compose.yml", "exec", "-T", "backend", "python", "-c", script],
+    { cwd: process.cwd(), encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
+  );
+  const token = output.trim().split(/\r?\n/).at(-1)?.trim();
+  if (!token) {
+    throw new Error(`Failed to issue bootstrap token for ${terminalId}`);
+  }
+  bootstrapTokens.set(terminalId, token);
+  return token;
 }
 
 async function ensureControllableHotspot(request: APIRequestContext, accessToken: string) {

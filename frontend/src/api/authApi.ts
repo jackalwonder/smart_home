@@ -1,11 +1,58 @@
 import { apiRequest } from "./httpClient";
-import { PinSessionDto, PinVerifyDto, PinVerifyInput, SessionDto, SessionModel } from "./types";
+import {
+  ApiError,
+  PinSessionDto,
+  PinVerifyDto,
+  PinVerifyInput,
+  SessionDto,
+  SessionModel,
+} from "./types";
 import { setAccessToken } from "../auth/accessToken";
+import { getBootstrapToken } from "../auth/bootstrapToken";
+
+export class BootstrapTokenActivationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BootstrapTokenActivationError";
+  }
+}
+
+export function isBootstrapTokenActivationError(error: unknown) {
+  return error instanceof BootstrapTokenActivationError;
+}
 
 export async function fetchCurrentSession(): Promise<SessionModel> {
-  const dto = await apiRequest<SessionDto>("/api/v1/auth/session", {
-    includeLegacyContext: true,
-  });
+  const bootstrapToken = getBootstrapToken();
+  if (!bootstrapToken) {
+    throw new BootstrapTokenActivationError("请先激活终端。");
+  }
+  const dto = await exchangeBootstrapToken(bootstrapToken);
+  return mapSession(dto);
+}
+
+export async function activateSessionWithBootstrapToken(bootstrapToken: string): Promise<SessionModel> {
+  const dto = await exchangeBootstrapToken(bootstrapToken);
+  return mapSession(dto);
+}
+
+async function exchangeBootstrapToken(bootstrapToken: string) {
+  try {
+    return await apiRequest<SessionDto>("/api/v1/auth/session/bootstrap", {
+      method: "POST",
+      headers: {
+        Authorization: `Bootstrap ${bootstrapToken}`,
+      },
+      useAccessToken: false,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.payload.code === "UNAUTHORIZED") {
+      throw new BootstrapTokenActivationError("Bootstrap token 已失效，请重新激活终端。");
+    }
+    throw error;
+  }
+}
+
+function mapSession(dto: SessionDto): SessionModel {
   setAccessToken(dto.access_token);
 
   return {

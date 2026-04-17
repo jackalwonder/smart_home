@@ -9,6 +9,7 @@ from src.modules.realtime.RealtimeService import RealtimeService
 from src.repositories.rows.index import WsEventOutboxRow
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
+from src.shared.observability import get_observability_metrics
 from starlette.websockets import WebSocketDisconnect
 
 
@@ -111,6 +112,11 @@ def test_websocket_pushes_sequence_and_ack_dispatches(app, client):
     assert second["event_id"] == "evt-2"
     assert second["sequence"] == 2
     assert repo.dispatched == ["1", "2"]
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["connections_total"] == 1
+    assert snapshot["websocket"]["auth_mode_counts"]["bearer"] == 1
+    assert snapshot["websocket"]["events_sent_total"] == 2
+    assert snapshot["websocket"]["snapshot_required_events_total"] == 1
 
 
 def test_websocket_resume_gap_requests_snapshot(app, client):
@@ -126,6 +132,8 @@ def test_websocket_resume_gap_requests_snapshot(app, client):
     assert event["event_type"] == "version_conflict_detected"
     assert event["snapshot_required"] is True
     assert event["payload"]["reason"] == "EVENT_GAP"
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["resume_counts"]["snapshot_fallback"] == 1
 
 
 def test_websocket_resume_replays_events_after_last_event_id(app, client):
@@ -141,6 +149,8 @@ def test_websocket_resume_replays_events_after_last_event_id(app, client):
     assert event["event_id"] == "evt-2"
     assert event["sequence"] == 1
     assert event["snapshot_required"] is False
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["resume_counts"]["incremental_replay"] == 1
 
 
 def test_websocket_rejects_connection_without_token_or_session_state(app, client):
@@ -153,15 +163,42 @@ def test_websocket_rejects_connection_without_token_or_session_state(app, client
             pass
 
     assert exc_info.value.code == 4401
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["rejected_total"] == 1
+    assert snapshot["websocket"]["rejected_reason_counts"]["auth_error"] == 1
 
 
-def test_websocket_accepts_cookie_backed_session_state(app, client):
+def test_websocket_rejects_cookie_backed_session_state(app, client):
     repo = _FakeOutboxRepo()
     app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
     client.cookies.set("pin_session_token", "pin-session-cookie")
 
-    with client.websocket_connect("/ws") as websocket:
-        first = websocket.receive_json()
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect("/ws"):
+            pass
 
-    assert first["event_id"] == "evt-1"
+    assert exc_info.value.code == 4401
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["rejected_total"] == 1
+    assert snapshot["websocket"]["rejected_reason_counts"]["legacy_auth_mode"] == 1
+    assert (
+        snapshot["websocket"]["rejected_legacy_context_field_counts"]["cookie.pin_session_token"]
+        == 1
+    )
+
+
+def test_websocket_rejects_legacy_token_query(app, client):
+    repo = _FakeOutboxRepo()
+    app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)
+    app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect("/ws?token=legacy-session-token"):
+            pass
+
+    assert exc_info.value.code == 4401
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["rejected_total"] == 1
+    assert snapshot["websocket"]["rejected_reason_counts"]["legacy_auth_mode"] == 1
+    assert snapshot["websocket"]["rejected_legacy_context_field_counts"]["query.token"] == 1
