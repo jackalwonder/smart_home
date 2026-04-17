@@ -327,6 +327,7 @@ test("editor save surfaces version conflict and retries after refresh", async ({
 
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("保存前草稿版本已更新")).toBeVisible();
+  await expect(page.getByText(new RegExp(`本次提交基于 ${draft.draft_version}`))).toBeVisible();
   await expect(page.getByRole("button", { name: "重新保存" })).toBeVisible();
   await page.getByRole("button", { name: "重新保存" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
@@ -361,6 +362,7 @@ test("editor publish surfaces version conflict and retries after refresh", async
 
   await page.getByRole("button", { name: "发布草稿" }).click();
   await expect(page.getByText("发布前草稿版本已更新")).toBeVisible();
+  await expect(page.getByText(new RegExp(`本次提交基于 ${draft.draft_version}`))).toBeVisible();
   await expect(page.getByRole("button", { name: "重新发布" })).toBeVisible();
   await page.getByRole("button", { name: "重新发布" }).click();
   await expect(page.getByText("草稿已发布")).toBeVisible();

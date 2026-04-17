@@ -103,6 +103,43 @@ class EditorDraftService:
             return "LOCKED_BY_OTHER"
         return "READ_ONLY"
 
+    def _lock_lost_details(self, *, lease, input: EditorDraftSaveInput | EditorDraftDiscardInput) -> dict[str, Any]:
+        now = self._clock.now()
+        if lease is None:
+            reason = "LEASE_NOT_FOUND"
+        elif not lease.is_active:
+            reason = "LEASE_INACTIVE"
+        elif lease.terminal_id != input.terminal_id:
+            reason = "TERMINAL_MISMATCH"
+        elif not self._is_lease_valid(lease, now):
+            reason = "LEASE_EXPIRED"
+        else:
+            reason = "LEASE_UNAVAILABLE"
+
+        details: dict[str, Any] = {
+            "reason": reason,
+            "lease_id": input.lease_id,
+            "terminal_id": input.terminal_id,
+        }
+        if lease is not None:
+            details["active_lease"] = {
+                "lease_id": lease.lease_id,
+                "terminal_id": lease.terminal_id,
+                "lease_status": lease.lease_status,
+                "lease_expires_at": lease.lease_expires_at,
+            }
+        return details
+
+    def _version_conflict_details(self, *, draft, submitted: dict[str, str | None]) -> dict[str, Any]:
+        return {
+            "reason": "DRAFT_VERSION_MISMATCH",
+            "submitted": submitted,
+            "current": {
+                "draft_version": draft.draft_version if draft is not None else None,
+                "base_layout_version": draft.base_layout_version if draft is not None else None,
+            },
+        }
+
     async def get_draft(self, input: EditorDraftInput) -> EditorDraftView:
         draft = await self._editor_draft_query_repository.get_draft_context(input.home_id)
         now = self._clock.now()
@@ -144,12 +181,34 @@ class EditorDraftService:
             or lease.terminal_id != input.terminal_id
             or not self._is_lease_valid(lease, self._clock.now())
         ):
-            raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
+            raise AppError(
+                ErrorCode.DRAFT_LOCK_LOST,
+                "active editor lease is required",
+                details=self._lock_lost_details(lease=lease, input=input),
+            )
         draft = await self._draft_layout_repository.find_by_home_id(input.home_id)
         if draft is None:
-            raise AppError(ErrorCode.DRAFT_LOCK_LOST, "draft context is missing")
+            raise AppError(
+                ErrorCode.DRAFT_LOCK_LOST,
+                "draft context is missing",
+                details={
+                    "reason": "DRAFT_MISSING",
+                    "lease_id": input.lease_id,
+                    "terminal_id": input.terminal_id,
+                },
+            )
         if draft.draft_version != input.draft_version or draft.base_layout_version != input.base_layout_version:
-            raise AppError(ErrorCode.VERSION_CONFLICT, "draft version is stale")
+            raise AppError(
+                ErrorCode.VERSION_CONFLICT,
+                "draft version is stale",
+                details=self._version_conflict_details(
+                    draft=draft,
+                    submitted={
+                        "draft_version": input.draft_version,
+                        "base_layout_version": input.base_layout_version,
+                    },
+                ),
+            )
 
         next_draft_version = self._version_token_generator.next_draft_version()
 
@@ -206,7 +265,11 @@ class EditorDraftService:
             or lease.terminal_id != input.terminal_id
             or not self._is_lease_valid(lease, self._clock.now())
         ):
-            raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
+            raise AppError(
+                ErrorCode.DRAFT_LOCK_LOST,
+                "active editor lease is required",
+                details=self._lock_lost_details(lease=lease, input=input),
+            )
 
         draft = await self._draft_layout_repository.find_by_home_id(input.home_id)
         if (
@@ -214,7 +277,17 @@ class EditorDraftService:
             and draft is not None
             and draft.draft_version != input.draft_version
         ):
-            raise AppError(ErrorCode.VERSION_CONFLICT, "draft version is stale")
+            raise AppError(
+                ErrorCode.VERSION_CONFLICT,
+                "draft version is stale",
+                details=self._version_conflict_details(
+                    draft=draft,
+                    submitted={
+                        "draft_version": input.draft_version,
+                        "base_layout_version": draft.base_layout_version,
+                    },
+                ),
+            )
 
         async def _transaction(tx) -> None:
             from src.shared.kernel.RepoContext import RepoContext

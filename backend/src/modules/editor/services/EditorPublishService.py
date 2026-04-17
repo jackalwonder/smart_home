@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
 from src.repositories.base.editor.DraftHotspotRepository import DraftHotspotRepository
@@ -72,6 +73,45 @@ class EditorPublishService:
             return False
         return now < datetime.fromisoformat(lease.lease_expires_at)
 
+    def _lock_lost_details(self, *, lease, input: EditorPublishInput, now: datetime) -> dict[str, Any]:
+        if lease is None:
+            reason = "LEASE_NOT_FOUND"
+        elif not lease.is_active:
+            reason = "LEASE_INACTIVE"
+        elif lease.terminal_id != input.terminal_id:
+            reason = "TERMINAL_MISMATCH"
+        elif not self._is_lease_valid(lease, now):
+            reason = "LEASE_EXPIRED"
+        else:
+            reason = "LEASE_UNAVAILABLE"
+
+        details: dict[str, Any] = {
+            "reason": reason,
+            "lease_id": input.lease_id,
+            "terminal_id": input.terminal_id,
+        }
+        if lease is not None:
+            details["active_lease"] = {
+                "lease_id": lease.lease_id,
+                "terminal_id": lease.terminal_id,
+                "lease_status": lease.lease_status,
+                "lease_expires_at": lease.lease_expires_at,
+            }
+        return details
+
+    def _version_conflict_details(self, *, draft, input: EditorPublishInput) -> dict[str, Any]:
+        return {
+            "reason": "DRAFT_VERSION_MISMATCH",
+            "submitted": {
+                "draft_version": input.draft_version,
+                "base_layout_version": input.base_layout_version,
+            },
+            "current": {
+                "draft_version": draft.draft_version if draft is not None else None,
+                "base_layout_version": draft.base_layout_version if draft is not None else None,
+            },
+        }
+
     async def publish(self, input: EditorPublishInput) -> EditorPublishView:
         await self._management_pin_guard.require_active_session(input.home_id, input.terminal_id)
         lease = await self._draft_lease_repository.find_by_lease_id(input.home_id, input.lease_id)
@@ -82,12 +122,28 @@ class EditorPublishService:
             or lease.terminal_id != input.terminal_id
             or not self._is_lease_valid(lease, now)
         ):
-            raise AppError(ErrorCode.DRAFT_LOCK_LOST, "active editor lease is required")
+            raise AppError(
+                ErrorCode.DRAFT_LOCK_LOST,
+                "active editor lease is required",
+                details=self._lock_lost_details(lease=lease, input=input, now=now),
+            )
         draft = await self._draft_layout_repository.find_by_home_id(input.home_id)
         if draft is None:
-            raise AppError(ErrorCode.DRAFT_LOCK_LOST, "draft context is missing")
+            raise AppError(
+                ErrorCode.DRAFT_LOCK_LOST,
+                "draft context is missing",
+                details={
+                    "reason": "DRAFT_MISSING",
+                    "lease_id": input.lease_id,
+                    "terminal_id": input.terminal_id,
+                },
+            )
         if draft.draft_version != input.draft_version or draft.base_layout_version != input.base_layout_version:
-            raise AppError(ErrorCode.VERSION_CONFLICT, "draft version is stale")
+            raise AppError(
+                ErrorCode.VERSION_CONFLICT,
+                "draft version is stale",
+                details=self._version_conflict_details(draft=draft, input=input),
+            )
 
         layout_version = self._version_token_generator.next_layout_version()
         now_iso = now.isoformat()
