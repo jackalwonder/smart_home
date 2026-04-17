@@ -142,6 +142,13 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
     page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "保存全部" })).toBeEnabled();
+
+  await page.getByRole("button", { name: /备份恢复/ }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
+  await page.getByPlaceholder("例如：联调前、夜间稳定版").fill("e2e smoke backup");
+  await page.getByRole("button", { name: "创建备份" }).click();
+  await expect(page.getByText(/备份 bk_/)).toBeVisible();
+  await expect(page.getByText("e2e smoke backup").first()).toBeVisible();
 });
 
 test("settings save emits realtime settings_updated event", async ({ page, request }) => {

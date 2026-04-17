@@ -1,7 +1,7 @@
 import { asArray, asBoolean, asRecord, asString, formatValue, labelize } from "./utils";
 
 export interface SettingsSectionViewModel {
-  key: "favorites" | "system" | "page" | "function";
+  key: "favorites" | "system" | "page" | "function" | "backup";
   label: string;
   eyebrow: string;
   description: string;
@@ -66,6 +66,12 @@ export function mapSettingsViewModel(value: Record<string, unknown> | null): Set
         label: "功能策略",
         eyebrow: "行为规则",
         description: "阈值、自动返回和快捷入口相关规则。",
+      },
+      {
+        key: "backup",
+        label: "备份恢复",
+        eyebrow: "恢复点",
+        description: "创建设置和布局快照，查看恢复时间并触发恢复。",
       },
     ],
     overview: [

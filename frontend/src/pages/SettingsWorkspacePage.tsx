@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createBackup, fetchBackups, restoreBackup } from "../api/backupsApi";
 import { fetchSettings, saveSettings } from "../api/settingsApi";
 import {
   fetchSystemConnections,
@@ -6,10 +7,11 @@ import {
   saveHomeAssistantConnection,
   testHomeAssistantConnection,
 } from "../api/systemConnectionsApi";
-import { SystemConnectionsEnvelopeDto } from "../api/types";
+import { BackupListItemDto, SystemConnectionsEnvelopeDto } from "../api/types";
 import { normalizeApiError } from "../api/httpClient";
 import { PinAccessCard } from "../components/auth/PinAccessCard";
 import { PageFrame } from "../components/layout/PageFrame";
+import { BackupManagementPanel } from "../components/settings/BackupManagementPanel";
 import { FavoritesDevicePanel } from "../components/settings/FavoritesDevicePanel";
 import { FunctionSettingsPanel } from "../components/settings/FunctionSettingsPanel";
 import { PageSettingsPanel } from "../components/settings/PageSettingsPanel";
@@ -216,6 +218,12 @@ export function SettingsWorkspacePage() {
   const [systemSaveBusy, setSystemSaveBusy] = useState(false);
   const [systemTestBusy, setSystemTestBusy] = useState(false);
   const [systemSyncBusy, setSystemSyncBusy] = useState(false);
+  const [backupItems, setBackupItems] = useState<BackupListItemDto[]>([]);
+  const [backupNote, setBackupNote] = useState("");
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupCreateBusy, setBackupCreateBusy] = useState(false);
+  const [backupRestoreBusyId, setBackupRestoreBusyId] = useState<string | null>(null);
 
   async function loadSystemConnection() {
     const response = await fetchSystemConnections();
@@ -239,12 +247,36 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function loadBackups() {
+    if (!pin.active) {
+      setBackupItems([]);
+      return;
+    }
+
+    setBackupLoading(true);
+    try {
+      const response = await fetchBackups();
+      setBackupItems(response.items);
+    } catch (error) {
+      setBackupMessage(normalizeApiError(error).message);
+    } finally {
+      setBackupLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (session.status !== "success") {
       return;
     }
     void loadSettings();
   }, [session.data?.accessToken, session.status]);
+
+  useEffect(() => {
+    if (session.status !== "success") {
+      return;
+    }
+    void loadBackups();
+  }, [pin.active, session.data?.accessToken, session.status]);
 
   useEffect(() => {
     const nextVersion = getSettingsVersion(settings.data);
@@ -264,6 +296,7 @@ export function SettingsWorkspacePage() {
   const overviewRows = [
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
+    { label: "备份", value: `${backupItems.length} 条` },
   ];
   const activeSectionConfig =
     viewModel.sections.find((section) => section.key === activeSection) ?? viewModel.sections[0];
@@ -571,6 +604,52 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function handleCreateBackup() {
+    if (!pin.active) {
+      setBackupMessage("创建备份前，请先验证管理 PIN。");
+      return;
+    }
+
+    setBackupMessage(null);
+    setBackupCreateBusy(true);
+    try {
+      const response = await createBackup({
+        note: backupNote.trim() || undefined,
+      });
+      setBackupNote("");
+      setBackupMessage(`备份 ${response.backup_id} 已创建。`);
+      await loadBackups();
+    } catch (error) {
+      setBackupMessage(normalizeApiError(error).message);
+    } finally {
+      setBackupCreateBusy(false);
+    }
+  }
+
+  async function handleRestoreBackup(backupId: string) {
+    if (!pin.active) {
+      setBackupMessage("恢复备份前，请先验证管理 PIN。");
+      return;
+    }
+    if (!window.confirm(`恢复备份 ${backupId} 会生成新的设置和布局版本，是否继续？`)) {
+      return;
+    }
+
+    setBackupMessage(null);
+    setBackupRestoreBusyId(backupId);
+    try {
+      const response = await restoreBackup(backupId);
+      setBackupMessage(
+        `恢复完成，audit_id ${response.audit_id}，settings_version ${response.settings_version}。`,
+      );
+      await Promise.all([loadSettings(), loadBackups()]);
+    } catch (error) {
+      setBackupMessage(normalizeApiError(error).message);
+    } finally {
+      setBackupRestoreBusyId(null);
+    }
+  }
+
   let sectionPanel = (
     <FavoritesDevicePanel
       favorites={settingsDraft.favorites}
@@ -609,6 +688,22 @@ export function SettingsWorkspacePage() {
   } else if (activeSection === "function") {
     sectionPanel = (
       <FunctionSettingsPanel draft={settingsDraft.function} onChange={updateFunctionDraft} />
+    );
+  } else if (activeSection === "backup") {
+    sectionPanel = (
+      <BackupManagementPanel
+        backups={backupItems}
+        canEdit={pin.active}
+        createBusy={backupCreateBusy}
+        loading={backupLoading}
+        message={backupMessage}
+        note={backupNote}
+        onChangeNote={setBackupNote}
+        onCreateBackup={() => void handleCreateBackup()}
+        onRefresh={() => void loadBackups()}
+        onRestoreBackup={(backupId) => void handleRestoreBackup(backupId)}
+        restoreBusyId={backupRestoreBusyId}
+      />
     );
   }
 
