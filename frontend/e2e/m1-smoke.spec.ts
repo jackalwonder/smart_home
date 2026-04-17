@@ -183,49 +183,45 @@ async function ensureEditorWritable(page: Page) {
   const noticeTakeoverButton = page.getByRole("button", { name: "接管当前锁" });
   const acquireButton = page.getByRole("button", { name: "申请编辑" });
   const retryAcquireButton = page.getByRole("button", { name: "重新申请编辑" });
+  const isEnabled = async (locator: ReturnType<Page["getByRole"]>) => {
+    if ((await locator.count()) === 0) {
+      return false;
+    }
+    return locator.isEnabled();
+  };
 
-  let entryAction = "waiting";
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     if (await saveButton.isEnabled()) {
-      entryAction = "ready";
-      break;
+      return;
     }
-    if (await takeoverButton.isEnabled()) {
-      entryAction = "takeover";
-      break;
+    if (await isEnabled(takeoverButton)) {
+      await takeoverButton.click({ timeout: 1_000 });
+      await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
+      await expect(saveButton).toBeEnabled();
+      return;
     }
-    if (await noticeTakeoverButton.isEnabled()) {
-      entryAction = "notice-takeover";
-      break;
+    if (await isEnabled(noticeTakeoverButton)) {
+      await noticeTakeoverButton.click({ timeout: 1_000 });
+      await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
+      await expect(saveButton).toBeEnabled();
+      return;
     }
-    if (await retryAcquireButton.isEnabled()) {
-      entryAction = "retry-acquire";
-      break;
+    if (await isEnabled(retryAcquireButton)) {
+      await retryAcquireButton.click({ timeout: 1_000 });
+      await expect(page.getByText("已获取编辑租约")).toBeVisible();
+      await expect(saveButton).toBeEnabled();
+      return;
     }
-    if (await acquireButton.isEnabled()) {
-      entryAction = "acquire";
-      break;
+    if (await isEnabled(acquireButton)) {
+      await acquireButton.click({ timeout: 1_000 });
+      await expect(page.getByText("已获取编辑租约")).toBeVisible();
+      await expect(saveButton).toBeEnabled();
+      return;
     }
     await page.waitForTimeout(200);
   }
-  expect(entryAction).not.toBe("waiting");
-
-  if (entryAction === "takeover") {
-    await takeoverButton.click();
-    await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
-  } else if (entryAction === "notice-takeover") {
-    await noticeTakeoverButton.click();
-    await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
-  } else if (entryAction === "retry-acquire") {
-    await retryAcquireButton.click();
-    await expect(page.getByText("已获取编辑租约")).toBeVisible();
-  } else if (entryAction === "acquire") {
-    await acquireButton.click();
-    await expect(page.getByText("已获取编辑租约")).toBeVisible();
-  }
-
-  await expect(saveButton).toBeEnabled();
+  throw new Error("Editor did not reach a writable state in time");
 }
 
 test("shell loads and management PIN unlocks settings", async ({ page }) => {

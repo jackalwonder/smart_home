@@ -71,6 +71,13 @@ export function normalizeApiError(error: unknown): ApiErrorPayload {
     return error.payload;
   }
 
+  if (error instanceof TypeError) {
+    return {
+      code: "NETWORK_ERROR",
+      message: "网络连接失败，请检查本机网络或稍后重试。",
+    };
+  }
+
   return {
     code: "UNKNOWN_ERROR",
     message: error instanceof Error ? error.message : "未知异常",
