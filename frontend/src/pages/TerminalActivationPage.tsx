@@ -51,6 +51,18 @@ function pairingStatusCopy(status: string) {
   }
 }
 
+function pairingIssueErrorCopy(error: unknown) {
+  const payload = normalizeApiError(error);
+  const retryAfter = payload.details?.retry_after_seconds;
+  if (payload.details?.reason === "cooldown") {
+    if (typeof retryAfter === "number" && retryAfter > 0) {
+      return `A pairing code was just issued. Try refreshing again in ${retryAfter}s.`;
+    }
+    return "A pairing code was just issued. Try refreshing again shortly.";
+  }
+  return payload.message;
+}
+
 export function TerminalActivationPage({
   terminalId,
   error,
@@ -78,8 +90,7 @@ export function TerminalActivationPage({
       setPairingStatus(next.status);
       setPairingError(null);
     } catch (refreshError) {
-      setPairingSession(null);
-      setPairingError(normalizeApiError(refreshError).message);
+      setPairingError(pairingIssueErrorCopy(refreshError));
     } finally {
       setPairingBusy(false);
     }
@@ -192,7 +203,8 @@ export function TerminalActivationPage({
             <div>
               <h2 id="pairing-title">Pairing code</h2>
               <p className="muted-copy">
-                Terminal ID: <span data-testid="pairing-terminal-id">{terminalId}</span>
+                Short-lived and one-time use. Claim this code from a PIN-verified management
+                workspace. Terminal ID: <span data-testid="pairing-terminal-id">{terminalId}</span>
               </p>
             </div>
             <button

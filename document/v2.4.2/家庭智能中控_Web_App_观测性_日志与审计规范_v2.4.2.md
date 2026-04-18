@@ -108,7 +108,8 @@ PR-3A 后，旧路径指标分为 runtime、auth session bootstrap 与 terminal 
 8. `auth_session_bootstrap.auth_mode_counts.bootstrap_token`：新 Bootstrap token 兑换路径命中次数。
 9. `terminal_pairing.requests_total`：安装期绑定码签发/轮询请求数。
 10. `terminal_pairing.auth_mode_counts.legacy_context`：终端绑定码签发/轮询依赖已知 terminal 上下文，但不计入 runtime legacy accepted。
-11. `http_request.observability_scope`：用于日志侧区分 `runtime`、`auth_session_bootstrap` 与 `terminal_pairing`。
+11. `terminal_pairing.event_counts`：安装期绑定码业务结果计数，当前包含 `issue_success`、`issue_cooldown`、`issue_not_found`、`poll_pending`、`poll_delivered`、`poll_expired`、`poll_invalidated`、`poll_completed`、`poll_not_found`、`claim_success`、`claim_failed_malformed`、`claim_failed_expired_or_invalid` 等。
+12. `http_request.observability_scope`：用于日志侧区分 `runtime`、`auth_session_bootstrap` 与 `terminal_pairing`。
 
 ---
 
@@ -184,6 +185,8 @@ PR-3A 后，旧路径指标分为 runtime、auth session bootstrap 与 terminal 
 7. 电量账号绑定/刷新
 8. 默认媒体绑定/解绑
 9. 备份创建/恢复
+10. 终端 bootstrap token 创建/重置
+11. 安装期绑定码签发、认领成功与认领失败
 
 审计字段最少包括：
 
@@ -195,6 +198,12 @@ PR-3A 后，旧路径指标分为 runtime、auth session bootstrap 与 terminal 
 6. `request_id`
 7. `result`
 8. `error_code`
+
+安装期绑定码审计约束：
+
+1. `TERMINAL_PAIRING_CODE_ISSUED` 仅记录目标 terminal、过期时间与 terminal mode，不记录绑定码明文。
+2. `TERMINAL_PAIRING_CODE_CLAIMED` 记录认领操作者、目标 terminal、bootstrap token 过期时间与是否轮换，不记录 bootstrap token 明文。
+3. `TERMINAL_PAIRING_CODE_CLAIM_FAILED` 记录失败原因，例如 `malformed` 或 `expired_or_invalid`；只允许记录格式长度等低敏排障字段，不记录用户输入的绑定码原文。
 
 ---
 

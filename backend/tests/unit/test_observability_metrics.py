@@ -56,11 +56,17 @@ def test_terminal_pairing_context_is_not_counted_as_runtime_legacy():
         legacy_context_fields=[],
         scope="terminal_pairing",
     )
+    metrics.record_terminal_pairing_event("issue_success")
+    metrics.record_terminal_pairing_event("poll_pending")
 
     snapshot = metrics.snapshot()
     assert snapshot["terminal_pairing"]["requests_total"] == 1
     assert snapshot["terminal_pairing"]["status_counts"]["200"] == 1
     assert snapshot["terminal_pairing"]["auth_mode_counts"]["legacy_context"] == 1
+    assert snapshot["terminal_pairing"]["event_counts"] == {
+        "issue_success": 1,
+        "poll_pending": 1,
+    }
     assert snapshot["legacy_context"]["field_counts"] == {}
     assert snapshot["legacy_context"]["runtime_accepted_requests_total"] == 0
     assert snapshot["auth_session_bootstrap"]["requests_total"] == 0

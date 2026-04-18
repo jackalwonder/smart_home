@@ -216,6 +216,7 @@ test(TERMINAL_ACTIVATION_CODE_TEST, async ({ page }) => {
 
 test(TERMINAL_PAIRING_TEST, async ({ page, request }) => {
   ensureSecondaryTerminal();
+  clearPairingSessions(TERMINAL_ID);
 
   await page.goto("/");
   await expect
@@ -682,6 +683,35 @@ function ensureSecondaryTerminal() {
         "INSERT INTO terminals (id, home_id, terminal_code, terminal_name, terminal_mode)",
         `VALUES ('${SECONDARY_TERMINAL_ID}', '${HOME_ID}', 'wall-panel-side-smoke', '侧墙板联调', 'KIOSK')`,
         "ON CONFLICT (id) DO NOTHING;",
+      ].join(" "),
+    ],
+    { cwd: process.cwd(), stdio: "pipe" },
+  );
+}
+
+function clearPairingSessions(terminalId: string) {
+  execFileSync(
+    "docker",
+    [
+      "compose",
+      "-f",
+      "../docker-compose.yml",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "smart_home",
+      "-d",
+      "smart_home",
+      "-c",
+      [
+        "UPDATE terminal_pairing_code_sessions",
+        "SET invalidated_at = now(), updated_at = now()",
+        `WHERE terminal_id = '${terminalId}'`,
+        "AND invalidated_at IS NULL",
+        "AND completed_at IS NULL",
+        "AND claimed_at IS NULL;",
       ].join(" "),
     ],
     { cwd: process.cwd(), stdio: "pipe" },

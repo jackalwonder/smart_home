@@ -63,6 +63,14 @@ class TerminalPairingCodeRepository(Protocol):
         ctx: RepoContext | None = None,
     ) -> TerminalPairingSessionRow: ...
 
+    async def find_active_for_terminal(
+        self,
+        *,
+        terminal_id: str,
+        now: str,
+        ctx: RepoContext | None = None,
+    ) -> TerminalPairingSessionRow | None: ...
+
     async def find_session_for_terminal(
         self,
         *,

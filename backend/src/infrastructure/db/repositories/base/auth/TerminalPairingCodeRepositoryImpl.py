@@ -198,6 +198,52 @@ class TerminalPairingCodeRepositoryImpl:
             ).mappings().one_or_none()
         return _to_pairing_row(row) if row is not None else None
 
+    async def find_active_for_terminal(
+        self,
+        *,
+        terminal_id: str,
+        now: str,
+        ctx: RepoContext | None = None,
+    ) -> TerminalPairingSessionRow | None:
+        stmt = text(
+            """
+            SELECT
+                pcs.id::text AS pairing_id,
+                t.home_id::text AS home_id,
+                t.id::text AS terminal_id,
+                t.terminal_code,
+                t.terminal_name,
+                t.terminal_mode::text AS terminal_mode,
+                pcs.pairing_code_hash,
+                pcs.issued_at::text AS issued_at,
+                pcs.expires_at::text AS expires_at,
+                pcs.claimed_at::text AS claimed_at,
+                pcs.claimed_by_member_id::text AS claimed_by_member_id,
+                pcs.claimed_by_terminal_id::text AS claimed_by_terminal_id,
+                pcs.bootstrap_token_ciphertext,
+                pcs.bootstrap_token_expires_at::text AS bootstrap_token_expires_at,
+                pcs.completed_at::text AS completed_at,
+                pcs.invalidated_at::text AS invalidated_at
+            FROM terminal_pairing_code_sessions pcs
+            JOIN terminals t ON t.id = pcs.terminal_id
+            WHERE pcs.terminal_id = :terminal_id
+              AND pcs.invalidated_at IS NULL
+              AND pcs.completed_at IS NULL
+              AND pcs.claimed_at IS NULL
+              AND pcs.expires_at > :now
+            ORDER BY pcs.issued_at DESC
+            LIMIT 1
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            row = (
+                await session.execute(
+                    stmt,
+                    {"terminal_id": terminal_id, "now": now},
+                )
+            ).mappings().one_or_none()
+        return _to_pairing_row(row) if row is not None else None
+
     async def find_active_by_code_hash(
         self,
         *,
