@@ -487,6 +487,7 @@ def get_terminal_pairing_code_service() -> TerminalPairingCodeService:
         connection_secret_cipher=get_connection_secret_cipher(),
         clock=get_clock(),
         pairing_code_ttl_seconds=get_settings().pairing_code_ttl_seconds,
+        pairing_code_issue_cooldown_seconds=get_settings().pairing_code_issue_cooldown_seconds,
     )
 
 

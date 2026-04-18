@@ -24,6 +24,14 @@ from src.repositories.base.auth.TerminalPairingCodeRepository import (
 )
 from src.repositories.rows.index import TerminalRow
 from src.shared.errors.AppError import AppError
+from src.shared.observability import get_observability_metrics
+
+
+@pytest.fixture(autouse=True)
+def _reset_observability_metrics():
+    get_observability_metrics().reset()
+    yield
+    get_observability_metrics().reset()
 
 
 class _Clock:
@@ -87,6 +95,11 @@ class _Repository:
         )
         return self.issued_row
 
+    async def find_active_for_terminal(self, *, terminal_id, now, ctx=None):
+        if self.issued_row is not None and self.issued_row.terminal_id == terminal_id:
+            return self.issued_row
+        return None
+
     async def find_session_for_terminal(self, *, terminal_id, pairing_id, ctx=None):
         if (
             self.issued_row is not None
@@ -147,6 +160,7 @@ def _service(repository: _Repository) -> TerminalPairingCodeService:
         connection_secret_cipher=FernetConnectionSecretCipher("unit-test-connection-secret"),
         clock=_Clock(),
         pairing_code_ttl_seconds=600,
+        pairing_code_issue_cooldown_seconds=30,
     )
 
 
@@ -177,11 +191,37 @@ async def test_issue_claim_and_poll_delivers_bootstrap_token():
         "TERMINAL_PAIRING_CODE_ISSUED",
         "TERMINAL_PAIRING_CODE_CLAIMED",
     ]
+    assert get_observability_metrics().snapshot()["terminal_pairing"]["event_counts"] == {
+        "issue_success": 1,
+        "claim_success": 1,
+        "poll_delivered": 1,
+    }
+
+
+@pytest.mark.asyncio
+async def test_issue_rejects_fast_refresh_during_cooldown():
+    repository = _Repository()
+    service = _service(repository)
+
+    issued = await service.issue(TerminalPairingIssueInput(home_id="home-1", terminal_id="terminal-1"))
+
+    with pytest.raises(AppError) as exc_info:
+        await service.issue(TerminalPairingIssueInput(home_id="home-1", terminal_id="terminal-1"))
+
+    assert exc_info.value.code == "INVALID_PARAMS"
+    assert exc_info.value.details["reason"] == "cooldown"
+    assert exc_info.value.details["pairing_id"] == issued.pairing_id
+    assert exc_info.value.details["retry_after_seconds"] == 30
+    assert get_observability_metrics().snapshot()["terminal_pairing"]["event_counts"] == {
+        "issue_success": 1,
+        "issue_cooldown": 1,
+    }
 
 
 @pytest.mark.asyncio
 async def test_claim_rejects_malformed_pairing_code():
-    service = _service(_Repository())
+    repository = _Repository()
+    service = _service(repository)
 
     with pytest.raises(AppError) as exc_info:
         await service.claim(
@@ -194,3 +234,35 @@ async def test_claim_rejects_malformed_pairing_code():
         )
 
     assert exc_info.value.code == "INVALID_PARAMS"
+    assert repository.audits[-1].action_type == "TERMINAL_PAIRING_CODE_CLAIM_FAILED"
+    assert repository.audits[-1].result_status == "FAILURE"
+    assert repository.audits[-1].payload_json == {
+        "reason": "malformed",
+        "normalized_length": 3,
+    }
+    assert get_observability_metrics().snapshot()["terminal_pairing"]["event_counts"] == {
+        "claim_failed_malformed": 1,
+    }
+
+
+@pytest.mark.asyncio
+async def test_claim_rejects_unknown_pairing_code_with_failed_audit():
+    repository = _Repository()
+    service = _service(repository)
+
+    with pytest.raises(AppError) as exc_info:
+        await service.claim(
+            TerminalPairingClaimInput(
+                home_id="home-1",
+                pairing_code="ABCD-2345",
+                claimed_by_member_id="member-1",
+                claimed_by_terminal_id="terminal-2",
+            )
+        )
+
+    assert exc_info.value.code == "NOT_FOUND"
+    assert repository.audits[-1].action_type == "TERMINAL_PAIRING_CODE_CLAIM_FAILED"
+    assert repository.audits[-1].payload_json == {"reason": "expired_or_invalid"}
+    assert get_observability_metrics().snapshot()["terminal_pairing"]["event_counts"] == {
+        "claim_failed_expired_or_invalid": 1,
+    }

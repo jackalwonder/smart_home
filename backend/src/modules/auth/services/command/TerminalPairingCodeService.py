@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from math import ceil
 from secrets import choice
 from string import ascii_uppercase, digits
 
@@ -21,6 +22,7 @@ from src.repositories.base.auth.TerminalPairingCodeRepository import (
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.kernel.Clock import Clock
+from src.shared.observability import get_observability_metrics
 
 PAIRING_CODE_GROUP = 4
 PAIRING_CODE_GROUPS = 2
@@ -96,6 +98,7 @@ class TerminalPairingCodeService:
         connection_secret_cipher: FernetConnectionSecretCipher,
         clock: Clock,
         pairing_code_ttl_seconds: int,
+        pairing_code_issue_cooldown_seconds: int = 30,
     ) -> None:
         self._repository = repository
         self._bootstrap_token_service = bootstrap_token_service
@@ -103,13 +106,41 @@ class TerminalPairingCodeService:
         self._connection_secret_cipher = connection_secret_cipher
         self._clock = clock
         self._pairing_code_ttl_seconds = max(60, pairing_code_ttl_seconds)
+        self._pairing_code_issue_cooldown_seconds = max(
+            0,
+            pairing_code_issue_cooldown_seconds,
+        )
 
     async def issue(self, input: TerminalPairingIssueInput) -> TerminalPairingIssueView:
         terminal = await self._repository.find_terminal(input.home_id, input.terminal_id)
         if terminal is None:
+            _record_pairing_event("issue_not_found")
             raise AppError(ErrorCode.NOT_FOUND, "terminal not found")
 
         now = self._clock.now()
+        active = await self._repository.find_active_for_terminal(
+            terminal_id=terminal.id,
+            now=now.isoformat(),
+        )
+        if active is not None:
+            elapsed_seconds = (now - _parse_datetime(active.issued_at)).total_seconds()
+            if elapsed_seconds < self._pairing_code_issue_cooldown_seconds:
+                retry_after_seconds = max(
+                    1,
+                    ceil(self._pairing_code_issue_cooldown_seconds - elapsed_seconds),
+                )
+                _record_pairing_event("issue_cooldown")
+                raise AppError(
+                    ErrorCode.INVALID_PARAMS,
+                    "pairing code was issued recently",
+                    details={
+                        "reason": "cooldown",
+                        "retry_after_seconds": retry_after_seconds,
+                        "pairing_id": active.pairing_id,
+                        "expires_at": active.expires_at,
+                    },
+                )
+
         pairing_code = _format_pairing_code(_random_pairing_code())
         row = await self._repository.issue_for_terminal(
             NewTerminalPairingSessionRow(
@@ -138,6 +169,7 @@ class TerminalPairingCodeService:
                 created_at=now.isoformat(),
             )
         )
+        _record_pairing_event("issue_success")
         return TerminalPairingIssueView(
             pairing_id=row.pairing_id,
             terminal_id=row.terminal_id,
@@ -155,6 +187,7 @@ class TerminalPairingCodeService:
             pairing_id=input.pairing_id,
         )
         if row is None:
+            _record_pairing_event("poll_not_found")
             raise AppError(ErrorCode.NOT_FOUND, "pairing session not found")
 
         now_iso = self._clock.now().isoformat()
@@ -169,6 +202,7 @@ class TerminalPairingCodeService:
             )
             status = "DELIVERED"
 
+        _record_pairing_event(f"poll_{status.lower()}")
         return TerminalPairingPollView(
             pairing_id=row.pairing_id,
             terminal_id=row.terminal_id,
@@ -186,6 +220,14 @@ class TerminalPairingCodeService:
         normalized_code = _normalize_pairing_code(input.pairing_code)
         expected_length = PAIRING_CODE_GROUP * PAIRING_CODE_GROUPS
         if len(normalized_code) != expected_length:
+            now_iso = self._clock.now().isoformat()
+            await self._record_failed_claim(
+                input,
+                reason="malformed",
+                created_at=now_iso,
+                payload={"normalized_length": len(normalized_code)},
+            )
+            _record_pairing_event("claim_failed_malformed")
             raise AppError(
                 ErrorCode.INVALID_PARAMS,
                 "pairing code format is invalid",
@@ -199,6 +241,13 @@ class TerminalPairingCodeService:
             now=now.isoformat(),
         )
         if row is None:
+            await self._record_failed_claim(
+                input,
+                reason="expired_or_invalid",
+                created_at=now.isoformat(),
+                payload={},
+            )
+            _record_pairing_event("claim_failed_expired_or_invalid")
             raise AppError(
                 ErrorCode.NOT_FOUND,
                 "pairing code not found or expired",
@@ -240,6 +289,7 @@ class TerminalPairingCodeService:
                 created_at=now.isoformat(),
             )
         )
+        _record_pairing_event("claim_success")
         return TerminalPairingClaimView(
             pairing_id=row.pairing_id,
             terminal_id=row.terminal_id,
@@ -250,6 +300,31 @@ class TerminalPairingCodeService:
             claimed_at=now.isoformat(),
             bootstrap_token_expires_at=issued.expires_at,
             rotated=issued.rotated,
+        )
+
+    async def _record_failed_claim(
+        self,
+        input: TerminalPairingClaimInput,
+        *,
+        reason: str,
+        created_at: str,
+        payload: dict[str, object | str | bool | int | float | None],
+    ) -> None:
+        await self._repository.insert_audit(
+            NewTerminalPairingAuditRow(
+                home_id=input.home_id,
+                acting_terminal_id=input.claimed_by_terminal_id,
+                operator_id=input.claimed_by_member_id,
+                target_terminal_id=input.claimed_by_terminal_id,
+                action_type="TERMINAL_PAIRING_CODE_CLAIM_FAILED",
+                after_version=None,
+                result_status="FAILURE",
+                payload_json={
+                    "reason": reason,
+                    **payload,
+                },
+                created_at=created_at,
+            )
         )
 
 
@@ -286,3 +361,7 @@ def _pairing_status(row, now_iso: str) -> str:
 
 def _parse_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _record_pairing_event(result: str) -> None:
+    get_observability_metrics().record_terminal_pairing_event(result)

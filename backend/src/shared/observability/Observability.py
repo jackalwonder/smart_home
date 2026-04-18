@@ -150,6 +150,7 @@ class ObservabilityMetrics:
             self._terminal_pairing_status_counts: Counter[str] = Counter()
             self._terminal_pairing_auth_mode_counts: Counter[str] = Counter()
             self._terminal_pairing_legacy_context_field_counts: Counter[str] = Counter()
+            self._terminal_pairing_event_counts: Counter[str] = Counter()
             self._ws_connections = 0
             self._ws_auth_mode_counts: Counter[str] = Counter()
             self._ws_rejections = 0
@@ -194,6 +195,10 @@ class ObservabilityMetrics:
                     self._runtime_accepted_legacy_requests += 1
             if legacy_context_fields and status_code >= 400:
                 self._runtime_rejected_legacy_requests += 1
+
+    def record_terminal_pairing_event(self, result: str) -> None:
+        with self._lock:
+            self._terminal_pairing_event_counts[result] += 1
 
     def record_ws_connection(
         self,
@@ -261,6 +266,7 @@ class ObservabilityMetrics:
                     "legacy_context_field_counts": dict(
                         self._terminal_pairing_legacy_context_field_counts
                     ),
+                    "event_counts": dict(self._terminal_pairing_event_counts),
                 },
                 "websocket": {
                     "connections_total": self._ws_connections,

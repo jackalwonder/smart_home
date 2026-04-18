@@ -21,7 +21,7 @@ export function TerminalPairingClaimPanel({
     <SettingsModuleCard
       title="Pairing claim"
       eyebrow="Terminal install"
-      description="Enter the one-time pairing code shown on an unactivated terminal. The terminal will receive a bootstrap token automatically."
+      description="After PIN verification, enter the one-time pairing code shown on the terminal. The terminal receives its bootstrap token automatically."
     >
       <label className="form-field">
         <span>Pairing code</span>
@@ -52,7 +52,8 @@ export function TerminalPairingClaimPanel({
         </p>
       ) : (
         <p className="muted-copy">
-          This is meant for installation and recovery. Each pairing code can be claimed once.
+          Use this only during installation or recovery. Pairing codes are short-lived, single-use,
+          and replaced when the terminal issues a new code.
         </p>
       )}
     </SettingsModuleCard>
