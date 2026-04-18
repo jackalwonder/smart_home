@@ -263,7 +263,43 @@ FEATURE_EDITOR_ENABLED=true
 2. `GET /api/v1/home/overview`
 3. `POST /api/v1/device-controls`（可用测试设备）
 4. WebSocket 建连与事件接收
-5. 新终端首次打开时，如未配置 `VITE_BOOTSTRAP_TOKEN` 且本地没有 `smart_home.bootstrap_token`，应进入终端激活页；粘贴管理端签发的 bootstrap token 后，应成功进入中控 shell。
+5. 新终端首次打开时，如未配置 `VITE_BOOTSTRAP_TOKEN` 且本地没有 `smart_home.bootstrap_token`，应进入终端激活页；粘贴管理端签发的 bootstrap token、激活链接或激活码后，应成功进入中控 shell。
+6. 管理端创建或重置 bootstrap token 后，应可复制：
+   - bootstrap token 原文
+   - 激活链接
+   - 激活码
+   - 并展示可扫码的激活二维码
+7. 终端通过激活链接进入后，地址栏中的 `bootstrap_token` 参数应被自动清除。
+
+### 9.3 终端交付与恢复流程
+
+1. 新终端上线
+   - 在管理端“设置 -> 系统 -> Bootstrap token”选择目标终端并创建 token。
+   - 优先使用激活二维码或激活链接完成交付；无法扫码时改用激活码或 token 原文。
+   - 终端激活成功后，应在本地写入 `smart_home.bootstrap_token`，后续刷新页面无需再次输入。
+2. 终端重装
+   - 在管理端对同一 terminal 执行“重置 bootstrap token”。
+   - 旧 token、旧激活链接、旧激活码应立即失效。
+   - 将新的二维码 / 激活链接 / 激活码交付给重装后的终端。
+3. 现场换机
+   - 先完成 replacement terminal 的建档或预注册，再为新的 terminal_id 签发 bootstrap token。
+   - 旧 terminal 不再使用时，应重置或撤销其 bootstrap token，避免旧设备继续换取 Bearer access token。
+4. 运维脚本
+   - 可使用 `backend/scripts/issue_bootstrap_token.py` 正式签发终端 token。
+   - 示例：
+
+```powershell
+docker compose exec -T backend python scripts/issue_bootstrap_token.py `
+  --home-id 11111111-1111-1111-1111-111111111111 `
+  --terminal-id 22222222-2222-2222-2222-222222222222 `
+  --created-by-terminal-id 22222222-2222-2222-2222-222222222222 `
+  --frontend-url http://127.0.0.1:25173
+```
+
+   - 脚本输出包括：
+     - `bootstrap_token=...`
+     - `activation_code=smart-home-activate:...`
+     - `activation_link=http://.../?bootstrap_token=...`
 
 ---
 
@@ -281,6 +317,12 @@ FEATURE_EDITOR_ENABLED=true
    - 排查：`ws_event_outbox` 是否落库、dispatcher 是否运行、事件是否被去重误杀。
 6. 症状：跨域失败  
    - 排查：`CORS_ALLOW_ORIGINS`、`Authorization` 头是否在白名单。
+7. 症状：激活页提示“激活信息已过期”
+   - 排查：管理端重新创建或重置 bootstrap token，并重新交付二维码 / 激活链接 / 激活码。
+8. 症状：激活页提示“激活信息无效”
+   - 排查：确认激活码或链接是否复制完整、是否已被重置、是否属于当前 terminal。
+9. 症状：终端打开激活链接后仍停留在激活页
+   - 排查：确认 backend 可达、`POST /api/v1/auth/session/bootstrap` 返回 `200`、浏览器是否拦截了地址栏跳转参数。
 
 ---
 

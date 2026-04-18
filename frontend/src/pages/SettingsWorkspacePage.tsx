@@ -32,6 +32,10 @@ import {
   TerminalBootstrapTokenDirectoryItemDto,
 } from "../api/types";
 import { normalizeApiError } from "../api/httpClient";
+import {
+  buildBootstrapActivationCode,
+  buildBootstrapActivationLink,
+} from "../auth/bootstrapToken";
 import { PinAccessCard } from "../components/auth/PinAccessCard";
 import { PageFrame } from "../components/layout/PageFrame";
 import { BackupManagementPanel } from "../components/settings/BackupManagementPanel";
@@ -534,6 +538,12 @@ export function SettingsWorkspacePage() {
   const selectedBootstrapTerminal =
     bootstrapTokenDirectory.find((item) => item.terminal_id === selectedBootstrapTerminalId) ?? null;
   const bootstrapTokenState = selectedBootstrapTerminal;
+  const bootstrapActivationLink = bootstrapTokenReveal
+    ? buildBootstrapActivationLink(bootstrapTokenReveal.bootstrap_token)
+    : null;
+  const bootstrapActivationCode = bootstrapTokenReveal
+    ? buildBootstrapActivationCode(bootstrapTokenReveal.bootstrap_token)
+    : null;
   const overviewRows = [
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
@@ -908,6 +918,42 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function handleCopyBootstrapActivationLink() {
+    if (!bootstrapActivationLink) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(bootstrapActivationLink);
+      setBootstrapTokenFeedback({
+        tone: "success",
+        text: "激活链接已复制到剪贴板。",
+      });
+    } catch {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: "复制激活链接失败，请稍后重试。",
+      });
+    }
+  }
+
+  async function handleCopyBootstrapActivationCode() {
+    if (!bootstrapActivationCode) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(bootstrapActivationCode);
+      setBootstrapTokenFeedback({
+        tone: "success",
+        text: "激活码已复制到剪贴板。",
+      });
+    } catch {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: "复制激活码失败，请稍后重试。",
+      });
+    }
+  }
+
   async function handleCreateBackup() {
     if (!pin.active) {
       setBackupMessage("创建备份前，请先验证管理 PIN。");
@@ -1128,6 +1174,8 @@ export function SettingsWorkspacePage() {
           unbindBusy={mediaUnbindBusy}
         />
         <TerminalBootstrapTokenPanel
+          activationCode={bootstrapActivationCode}
+          activationLink={bootstrapActivationLink}
           audits={bootstrapTokenAudits}
           auditLoading={bootstrapTokenAuditLoading}
           availableTerminals={bootstrapTokenDirectory}
@@ -1136,6 +1184,8 @@ export function SettingsWorkspacePage() {
           loading={bootstrapTokenLoading}
           message={bootstrapTokenFeedback}
           onCopy={() => void handleCopyBootstrapToken()}
+          onCopyActivationCode={() => void handleCopyBootstrapActivationCode()}
+          onCopyActivationLink={() => void handleCopyBootstrapActivationLink()}
           onCreateOrReset={() => void handleCreateOrResetBootstrapToken()}
           onRefresh={() => void loadBootstrapTokenDirectory()}
           onRefreshAudits={() => void loadBootstrapTokenAudits()}

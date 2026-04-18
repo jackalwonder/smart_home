@@ -11,9 +11,27 @@ import { setAccessToken } from "../auth/accessToken";
 import { getBootstrapToken } from "../auth/bootstrapToken";
 
 export class BootstrapTokenActivationError extends Error {
-  constructor(message: string) {
+  reason:
+    | "missing"
+    | "expired"
+    | "invalid"
+    | "network"
+    | "server"
+    | "malformed";
+
+  constructor(
+    message: string,
+    reason:
+      | "missing"
+      | "expired"
+      | "invalid"
+      | "network"
+      | "server"
+      | "malformed" = "invalid",
+  ) {
     super(message);
     this.name = "BootstrapTokenActivationError";
+    this.reason = reason;
   }
 }
 
@@ -24,7 +42,7 @@ export function isBootstrapTokenActivationError(error: unknown) {
 export async function fetchCurrentSession(): Promise<SessionModel> {
   const bootstrapToken = getBootstrapToken();
   if (!bootstrapToken) {
-    throw new BootstrapTokenActivationError("请先激活终端。");
+    throw new BootstrapTokenActivationError("请先激活终端。", "missing");
   }
   const dto = await exchangeBootstrapToken(bootstrapToken);
   return mapSession(dto);
@@ -45,8 +63,27 @@ async function exchangeBootstrapToken(bootstrapToken: string) {
       useAccessToken: false,
     });
   } catch (error) {
-    if (error instanceof ApiError && error.payload.code === "UNAUTHORIZED") {
-      throw new BootstrapTokenActivationError("Bootstrap token 已失效，请重新激活终端。");
+    if (error instanceof ApiError) {
+      if (error.payload.code === "UNAUTHORIZED") {
+        const message = error.payload.message.toLowerCase();
+        if (message.includes("expired")) {
+          throw new BootstrapTokenActivationError("激活信息已过期，请在管理端重新创建。", "expired");
+        }
+        throw new BootstrapTokenActivationError(
+          "激活信息无效，可能已被重置、复制不完整，或不属于这台终端。",
+          "invalid",
+        );
+      }
+      throw new BootstrapTokenActivationError(
+        `终端激活失败：${error.payload.message}`,
+        "server",
+      );
+    }
+    if (error instanceof TypeError) {
+      throw new BootstrapTokenActivationError(
+        "当前无法连接服务端，请检查网络或稍后再试。",
+        "network",
+      );
     }
     throw error;
   }

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import {
   TerminalBootstrapTokenAuditItemDto,
   TerminalBootstrapTokenCreateDto,
@@ -6,6 +8,8 @@ import {
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface TerminalBootstrapTokenPanelProps {
+  activationCode: string | null;
+  activationLink: string | null;
   audits: TerminalBootstrapTokenAuditItemDto[];
   auditLoading: boolean;
   availableTerminals: TerminalBootstrapTokenDirectoryItemDto[];
@@ -17,6 +21,8 @@ interface TerminalBootstrapTokenPanelProps {
   selectedTerminalId: string;
   status: TerminalBootstrapTokenDirectoryItemDto | null;
   onCopy: () => void;
+  onCopyActivationCode: () => void;
+  onCopyActivationLink: () => void;
   onCreateOrReset: () => void;
   onRefresh: () => void;
   onRefreshAudits: () => void;
@@ -52,6 +58,8 @@ function formatAction(actionType: string, rotated: boolean | null) {
 }
 
 export function TerminalBootstrapTokenPanel({
+  activationCode,
+  activationLink,
   audits,
   auditLoading,
   availableTerminals,
@@ -63,13 +71,50 @@ export function TerminalBootstrapTokenPanel({
   selectedTerminalId,
   status,
   onCopy,
+  onCopyActivationCode,
+  onCopyActivationLink,
   onCreateOrReset,
   onRefresh,
   onRefreshAudits,
   onSelectTerminalId,
 }: TerminalBootstrapTokenPanelProps) {
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const hasToken = Boolean(status?.token_configured);
   const actionLabel = hasToken ? "重置 bootstrap token" : "创建 bootstrap token";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function renderQrCode() {
+      if (!activationLink) {
+        setQrCodeDataUrl(null);
+        return;
+      }
+      try {
+        const next = await QRCode.toDataURL(activationLink, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 220,
+          color: {
+            dark: "#dff8ff",
+            light: "#050a12",
+          },
+        });
+        if (!cancelled) {
+          setQrCodeDataUrl(next);
+        }
+      } catch {
+        if (!cancelled) {
+          setQrCodeDataUrl(null);
+        }
+      }
+    }
+
+    void renderQrCode();
+    return () => {
+      cancelled = true;
+    };
+  }, [activationLink]);
 
   return (
     <SettingsModuleCard
@@ -156,6 +201,54 @@ export function TerminalBootstrapTokenPanel({
               <dd>{revealedToken.rotated ? "重置" : "首次创建"}</dd>
             </div>
           </dl>
+          <div className="bootstrap-token-delivery">
+            <div className="bootstrap-token-delivery__qr">
+              {qrCodeDataUrl ? (
+                <img
+                  alt="终端激活二维码"
+                  className="bootstrap-token-delivery__qr-image"
+                  src={qrCodeDataUrl}
+                />
+              ) : (
+                <div className="bootstrap-token-delivery__qr-empty">二维码生成中</div>
+              )}
+              <p className="muted-copy">
+                现场可直接扫码打开激活链接，成功后地址栏中的激活参数会自动清除。
+              </p>
+            </div>
+            <div className="bootstrap-token-delivery__code">
+              <div>
+                <h4>终端激活码</h4>
+                <p className="muted-copy">
+                  当终端无法扫码时，可复制下面的激活码，在激活页直接粘贴。
+                </p>
+              </div>
+              <textarea
+                className="control-input settings-textarea"
+                readOnly
+                rows={4}
+                value={activationCode ?? ""}
+              />
+            </div>
+          </div>
+          <div className="settings-module-card__actions">
+            <button
+              className="button button--ghost"
+              disabled={!activationCode}
+              onClick={onCopyActivationCode}
+              type="button"
+            >
+              复制激活码
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!activationLink}
+              onClick={onCopyActivationLink}
+              type="button"
+            >
+              复制激活链接
+            </button>
+          </div>
         </section>
       ) : null}
 

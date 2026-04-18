@@ -23,7 +23,7 @@ from src.shared.errors.AppError import AppError
 
 class _Clock:
     def now(self):
-        return datetime(2026, 4, 18, 0, 0, 0, tzinfo=timezone.utc)
+        return datetime(2030, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
 
 class _Repository:
@@ -118,9 +118,9 @@ class _Repository:
                 before_version="active_token",
                 after_version=self.saved_jti,
                 result_status="SUCCESS",
-                expires_at=(datetime(2026, 4, 18, 1, 0, 0, tzinfo=timezone.utc)).isoformat(),
+                expires_at=(datetime(2030, 1, 1, 1, 0, 0, tzinfo=timezone.utc)).isoformat(),
                 rotated=True,
-                created_at=datetime(2026, 4, 18, 0, 0, 0, tzinfo=timezone.utc).isoformat(),
+                created_at=datetime(2030, 1, 1, 0, 0, 0, tzinfo=timezone.utc).isoformat(),
             )
         ][:limit]
 

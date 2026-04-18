@@ -31,7 +31,7 @@ declare global {
 
 class WsClient {
   private socket: WebSocket | null = null;
-  private reconnectTimer: ReturnType<typeof window.setTimeout> | null = null;
+  private reconnectTimer: number | null = null;
   private options: ConnectOptions | null = null;
   private manualClose = false;
   private reconnectAttempt = 0;

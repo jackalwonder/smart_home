@@ -9,6 +9,10 @@ const SMOKE_ROOM_ID = "11111111-1111-1111-1111-000000000010";
 const SMOKE_DEVICE_ID = "11111111-1111-1111-1111-000000000101";
 const BOOTSTRAP_TOKEN_STORAGE_KEY = "smart_home.bootstrap_token";
 const TERMINAL_ACTIVATION_TEST = "terminal activation stores bootstrap token and enters shell";
+const TERMINAL_ACTIVATION_LINK_TEST =
+  "terminal activation link auto-activates and persists bootstrap token";
+const TERMINAL_ACTIVATION_CODE_TEST =
+  "terminal activation code can be pasted and persists bootstrap token";
 const DEVICE_SYNC_TIMEOUT_MS = 45_000;
 const DEVICE_SYNC_POLL_INTERVAL_MS = 1_000;
 const bootstrapTokens = new Map<string, string>();
@@ -42,7 +46,11 @@ type SupportedControlRequest = {
 };
 
 test.beforeEach(async ({ page }, testInfo) => {
-  if (testInfo.title === TERMINAL_ACTIVATION_TEST) {
+  if (
+    testInfo.title === TERMINAL_ACTIVATION_TEST ||
+    testInfo.title === TERMINAL_ACTIVATION_LINK_TEST ||
+    testInfo.title === TERMINAL_ACTIVATION_CODE_TEST
+  ) {
     return;
   }
   const token = issueBootstrapToken(TERMINAL_ID);
@@ -175,38 +183,75 @@ test(TERMINAL_ACTIVATION_TEST, async ({ page }) => {
     .toBe(token);
 });
 
+test(TERMINAL_ACTIVATION_LINK_TEST, async ({ page }) => {
+  const token = issueBootstrapToken(TERMINAL_ID);
+
+  await page.goto(`/?bootstrap_token=${encodeURIComponent(token)}`);
+
+  await expect(page.locator(".control-shell")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .toBe(token);
+  await expect.poll(() => page.evaluate(() => window.location.search)).toBe("");
+});
+
+test(TERMINAL_ACTIVATION_CODE_TEST, async ({ page }) => {
+  const token = issueBootstrapToken(TERMINAL_ID);
+  const activationCode = buildActivationCode(token);
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "激活这台中控" })).toBeVisible();
+
+  await page.locator("#bootstrap-token").fill(activationCode);
+  await page.getByRole("button", { name: "激活终端" }).click();
+
+  await expect(page.locator(".control-shell")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .toBe(token);
+});
+
 function issueBootstrapToken(terminalId = TERMINAL_ID) {
   const cached = bootstrapTokens.get(terminalId);
   if (cached) {
     return cached;
   }
 
-  const script = [
-    "import asyncio",
-    "from src.app.container import get_bootstrap_token_service",
-    "from src.modules.auth.services.command.BootstrapTokenService import BootstrapTokenCreateInput",
-    "async def main():",
-    "    view = await get_bootstrap_token_service().create_or_reset(BootstrapTokenCreateInput(",
-    `        home_id=${JSON.stringify(HOME_ID)},`,
-    `        target_terminal_id=${JSON.stringify(terminalId)},`,
-    "        created_by_member_id=None,",
-    `        created_by_terminal_id=${JSON.stringify(terminalId)},`,
-    "    ))",
-    "    print(view.bootstrap_token)",
-    "asyncio.run(main())",
-  ].join("\n");
-
   const output = execFileSync(
     "docker",
-    ["compose", "-f", "../docker-compose.yml", "exec", "-T", "backend", "python", "-c", script],
+    [
+      "compose",
+      "-f",
+      "../docker-compose.yml",
+      "exec",
+      "-T",
+      "backend",
+      "python",
+      "scripts/issue_bootstrap_token.py",
+      "--home-id",
+      HOME_ID,
+      "--terminal-id",
+      terminalId,
+      "--created-by-terminal-id",
+      terminalId,
+    ],
     { cwd: process.cwd(), encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
   );
-  const token = output.trim().split(/\r?\n/).at(-1)?.trim();
+  const token = output
+    .trim()
+    .split(/\r?\n/)
+    .find((line) => line.startsWith("bootstrap_token="))
+    ?.slice("bootstrap_token=".length)
+    .trim();
   if (!token) {
     throw new Error(`Failed to issue bootstrap token for ${terminalId}`);
   }
   bootstrapTokens.set(terminalId, token);
   return token;
+}
+
+function buildActivationCode(token: string) {
+  return `smart-home-activate:${token}`;
 }
 
 function seedSmokeDeviceFixture() {
@@ -761,6 +806,7 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
 
   const revealedToken = await page
     .locator("section[aria-label='bootstrap token reveal'] textarea")
+    .first()
     .inputValue();
   expect(revealedToken).toBeTruthy();
   expect(revealedToken).not.toBe(previousToken);
