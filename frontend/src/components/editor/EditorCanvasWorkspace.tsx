@@ -1,5 +1,5 @@
 import { EditorHotspotViewModel } from "../../view-models/editor";
-import { resolveAssetImageUrl } from "../../api/pageAssetsApi";
+import { useResolvedAssetImageUrl } from "../../hooks/useResolvedAssetImageUrl";
 import { EditorSelectionLayer } from "./EditorSelectionLayer";
 
 interface EditorCanvasWorkspaceProps {
@@ -32,7 +32,7 @@ export function EditorCanvasWorkspace({
   onMoveHotspot,
   onMoveHotspots,
 }: EditorCanvasWorkspaceProps) {
-  const resolvedBackgroundImageUrl = resolveAssetImageUrl(backgroundImageUrl);
+  const resolvedBackgroundImageUrl = useResolvedAssetImageUrl(backgroundImageUrl);
   const visibleHotspots = hotspots.filter((hotspot) => hotspot.isVisible);
   const displayedHotspots = mode === "preview" ? visibleHotspots : hotspots;
 
