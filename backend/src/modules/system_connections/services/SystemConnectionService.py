@@ -76,7 +76,10 @@ def _mask_url(value: str | None) -> str | None:
     parsed = urlparse(value)
     if not parsed.scheme or not parsed.netloc:
         return "***"
-    return f"{parsed.scheme}://{parsed.hostname or '***'}"
+    host = parsed.hostname or "***"
+    if parsed.port is not None:
+        return f"{parsed.scheme}://{host}:{parsed.port}"
+    return f"{parsed.scheme}://{host}"
 
 
 class SystemConnectionService:

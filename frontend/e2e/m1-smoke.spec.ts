@@ -15,6 +15,10 @@ const TERMINAL_ACTIVATION_CODE_TEST =
   "terminal activation code can be pasted and persists bootstrap token";
 const TERMINAL_PAIRING_TEST =
   "terminal pairing code can be claimed and auto-activates the terminal";
+const TERMINAL_ACTIVATION_ENTRY_TEST =
+  "terminal activation exposes scan code and pairing task entries";
+const TERMINAL_ACTIVATION_LANDING_TEST =
+  "terminal activation success landing shows destination before home";
 const DEVICE_SYNC_TIMEOUT_MS = 45_000;
 const DEVICE_SYNC_POLL_INTERVAL_MS = 1_000;
 const bootstrapTokens = new Map<string, string>();
@@ -52,7 +56,9 @@ test.beforeEach(async ({ page }, testInfo) => {
     testInfo.title === TERMINAL_ACTIVATION_TEST ||
     testInfo.title === TERMINAL_ACTIVATION_LINK_TEST ||
     testInfo.title === TERMINAL_ACTIVATION_CODE_TEST ||
-    testInfo.title === TERMINAL_PAIRING_TEST
+    testInfo.title === TERMINAL_PAIRING_TEST ||
+    testInfo.title === TERMINAL_ACTIVATION_ENTRY_TEST ||
+    testInfo.title === TERMINAL_ACTIVATION_LANDING_TEST
   ) {
     return;
   }
@@ -250,6 +256,30 @@ test(TERMINAL_PAIRING_TEST, async ({ page, request }) => {
   );
   expect(activatedToken).toBeTruthy();
   bootstrapTokens.set(TERMINAL_ID, activatedToken as string);
+});
+
+test(TERMINAL_ACTIVATION_ENTRY_TEST, async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "扫码激活" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "输入激活码" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "等待绑定码认领" })).toBeVisible();
+  await expect(page.getByText("新装终端优先用扫码或绑定码认领")).toBeVisible();
+});
+
+test(TERMINAL_ACTIVATION_LANDING_TEST, async ({ page }) => {
+  const token = issueBootstrapToken(TERMINAL_ID);
+
+  await page.goto("/");
+  await page.locator("#bootstrap-token").fill(token);
+  await page.getByRole("button", { name: "激活终端" }).click();
+
+  await expect(page.getByRole("heading", { name: "恢复激活完成" })).toBeVisible();
+  await expect(page.getByText("即将进入")).toBeVisible();
+  await expect(page.getByText("首页", { exact: true }).nth(1)).toBeVisible();
+
+  await page.getByRole("button", { name: "进入首页" }).click();
+  await expect(page.locator(".control-shell")).toBeVisible();
 });
 
 function issueBootstrapToken(terminalId = TERMINAL_ID) {
