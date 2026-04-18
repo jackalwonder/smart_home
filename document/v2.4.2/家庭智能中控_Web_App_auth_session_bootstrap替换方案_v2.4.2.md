@@ -110,14 +110,15 @@ POST /api/v1/auth/session/bootstrap
 
 推荐分两步走：
 
-1. 先落地方案 A：签名 bootstrap token。
-2. 后续在需要新增终端自助注册时，再补方案 C：安装期绑定码。
+1. 先落地方案 A：签名 bootstrap token，完成旧 `/api/v1/auth/session?home_id=&terminal_id=` 引导替换。
+2. 再叠加方案 C：安装期绑定码，让首次安装、现场换机与重装恢复不再依赖人工分发 token。
 
 原因：
 
 1. 当前系统已有 access token 签发与校验能力，扩展 bootstrap token 成本最低。
 2. 固定家庭中控场景不需要每次人机登录。
 3. 方案 A 可以快速替换裸 `home_id / terminal_id`，立刻降低暴露面。
+4. 方案 C 复用方案 A 的 token 兑换能力，只把“如何把 token 安全交到终端”进一步产品化。
 
 ## 六、接口草案
 
@@ -175,6 +176,62 @@ GET /api/v1/auth/session?home_id=...&terminal_id=...
 3. 后端不再提供 `AUTH_SESSION_LEGACY_BOOTSTRAP_ENABLED` 回滚开关。
 4. `/observabilityz.auth_session_bootstrap.legacy_requests_total` 仅作为历史回归观察字段保留，目标值恒为 `0`。
 
+### 6.4 安装期绑定码签发与轮询
+
+终端首次打开激活页时，使用自身 `terminal_id` 申请短时有效的绑定码；该接口允许匿名访问，但只接受已知 terminal。
+
+```http
+POST /api/v1/terminals/{terminal_id}/pairing-code-sessions
+```
+
+响应：
+
+```json
+{
+  "success": true,
+  "data": {
+    "pairing_id": "5b57f41b-2d06-4f0d-b03d-7acfd01bf84a",
+    "terminal_id": "22222222-2222-2222-2222-222222222222",
+    "terminal_code": "wall-panel-main",
+    "terminal_name": "主墙板",
+    "terminal_mode": "KIOSK",
+    "pairing_code": "ABCD-2345",
+    "expires_at": "2026-04-18T16:00:00Z",
+    "status": "PENDING"
+  },
+  "error": null,
+  "meta": {
+    "trace_id": "...",
+    "server_time": "..."
+  }
+}
+```
+
+终端随后轮询绑定状态；当管理端认领成功后，服务端把一次性交付用的 bootstrap token 通过该轮询响应回传给终端。
+
+```http
+GET /api/v1/terminals/{terminal_id}/pairing-code-sessions/{pairing_id}
+```
+
+响应中的 `status` 可能为 `PENDING`、`CLAIMED`、`DELIVERED`、`EXPIRED`、`INVALIDATED` 或 `COMPLETED`；仅在 `DELIVERED` 时返回 `bootstrap_token`。
+
+### 6.5 管理端认领绑定码
+
+管理端在已通过 Bearer + PIN session 验证后，输入终端展示的绑定码完成认领。认领成功后，服务端为目标终端创建或重置 bootstrap token，并等待终端轮询领取。
+
+```http
+POST /api/v1/terminals/pairing-code-claims
+Authorization: Bearer <access_token>
+```
+
+请求体：
+
+```json
+{
+  "pairing_code": "ABCD-2345"
+}
+```
+
 ## 七、数据模型草案
 
 新增表或扩展 `terminals`：
@@ -207,6 +264,34 @@ CREATE TABLE terminal_bootstrap_tokens (
 ```
 
 推荐新增表，便于审计和轮换。
+
+安装期绑定码使用独立会话表，保存短时绑定码的哈希、认领状态与一次性交付的 bootstrap token 密文：
+
+```sql
+CREATE TABLE terminal_pairing_code_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  terminal_id uuid NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
+  pairing_code_hash text NOT NULL,
+  issued_at timestamptz NOT NULL,
+  expires_at timestamptz NOT NULL,
+  claimed_at timestamptz,
+  claimed_by_member_id uuid,
+  claimed_by_terminal_id uuid,
+  bootstrap_token_ciphertext text,
+  bootstrap_token_expires_at timestamptz,
+  completed_at timestamptz,
+  invalidated_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+设计约束：
+
+1. 同一 terminal 只允许一个活跃绑定会话；签发新绑定码会使旧会话 `invalidated`。
+2. 数据库存储 `pairing_code_hash`，不保存绑定码明文。
+3. 认领成功后，bootstrap token 以密文暂存；终端轮询领取后立即清空密文并将会话标记为 `completed`。
+4. 审计日志记录 `TERMINAL_PAIRING_CODE_ISSUED` 与 `TERMINAL_PAIRING_CODE_CLAIMED`，便于追踪安装和恢复操作。
 
 ## 八、迁移步骤
 
@@ -311,6 +396,26 @@ CREATE TABLE terminal_bootstrap_tokens (
 5. `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:25173'; npx playwright test e2e/m1-smoke.spec.ts -g "terminal activation"`：`3 passed`
 6. `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:25173'; npm run test:e2e`：`15 passed`
 
+### Step 7：安装期绑定码 / 配对流程
+
+状态：2026-04-18 已完成 PR-7 本地实现与回归验证。
+
+1. 终端激活页在无 bootstrap token 时自动签发短时有效绑定码，并轮询绑定状态。
+2. 管理端新增“认领绑定码”入口；仅在 Bearer + 活跃 PIN session 条件下允许认领。
+3. 认领成功后，服务端为目标终端创建或重置 bootstrap token，并以密文暂存，等待终端领取。
+4. 终端轮询拿到 bootstrap token 后自动完成激活，并立即清空服务端暂存密文。
+5. 绑定码只允许使用一次；重新刷新或重新签发会使旧绑定会话失效。
+6. E2E 覆盖“终端展示绑定码 -> 管理端认领 -> 终端自动激活”，并在同轮测试内更新本地缓存 bootstrap token，避免后续用例持有旧 token。
+
+本地验证结果（2026-04-18，PR-7）：
+
+1. `python -m pytest backend/tests/unit/test_terminal_pairing_code_service.py backend/tests/integration/test_supporting_routes.py backend/tests/integration/test_openapi_contract.py`：通过
+2. `npm run generate:api-types`：通过
+3. `npm run build`：通过
+4. `docker compose up -d --build backend frontend`：通过
+5. 手工接口验收：绑定码签发 -> 管理端认领 -> 终端轮询领取 bootstrap token 成功
+6. `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:25173'; npm run test:e2e`：`16 passed`
+
 ## 九、验收标准
 
 1. HTTP 运行时业务接口 `auth_mode=legacy_context` 接受量为 0。
@@ -322,8 +427,10 @@ CREATE TABLE terminal_bootstrap_tokens (
    - runtime rejected old context
    - auth session legacy bootstrap
    - auth session bootstrap token
+   - terminal pairing code issue/claim/delivery
 6. `/observabilityz.legacy_context.runtime_accepted_requests_total` 长窗口保持为 0，且旧引导命中只进入 `auth_session_bootstrap.legacy_requests_total`。
 7. 日志不包含 bootstrap token、access token、PIN、HA token 明文。
+8. 安装期绑定码只允许使用一次；终端轮询领取 bootstrap token 后不再可重复获取。
 
 ## 十、PR-4 最终兼容清理结论
 
@@ -349,6 +456,6 @@ CREATE TABLE terminal_bootstrap_tokens (
 
 ## 十一、下一步建议
 
-1. 运行真实 HA/预发长窗口，确认 `auth_session_bootstrap.legacy_requests_total=0`、`legacy_context.runtime_accepted_requests_total=0`、WS bearer 占比 100%。
-2. 将管理端创建/重置 bootstrap token 的入口产品化，补齐复制、展示一次、重置审计与操作者提示。
-3. 继续设计安装期绑定码流程，用于后续替代人工分发 bootstrap token 的场景。
+1. 运行真实 HA/预发长窗口，确认 `auth_session_bootstrap.legacy_requests_total=0`、`legacy_context.runtime_accepted_requests_total=0`、WS bearer 占比 100%，同时验证安装期绑定码在真实网络环境下的轮询稳定性。
+2. 为安装现场补充更强交付形态，例如二维码打印模板、短链接或一次性设备配对卡。
+3. 把安装、重装、换机、撤场四类操作整理成正式 release 验收清单，并补审计筛选和异常告警。

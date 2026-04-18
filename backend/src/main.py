@@ -20,6 +20,9 @@ from src.modules.auth.controllers.PinAuthController import router as pin_auth_ro
 from src.modules.auth.controllers.TerminalBootstrapController import (
     router as terminal_bootstrap_router,
 )
+from src.modules.auth.controllers.TerminalPairingController import (
+    router as terminal_pairing_router,
+)
 from src.modules.backups.controllers.BackupsController import router as backups_router
 from src.modules.device_control.controllers.DeviceControlsController import (
     router as device_controls_router,
@@ -176,6 +179,8 @@ def _attach_openapi_contract(app: FastAPI) -> None:
                     operation.setdefault("security", [{"BearerAuth": []}])
                 if path == "/api/v1/auth/session/bootstrap":
                     operation["security"] = [{"BootstrapAuth": []}]
+                if path.startswith("/api/v1/terminals/") and "/pairing-code-sessions" in path:
+                    operation["security"] = []
                 responses = operation.setdefault("responses", {})
                 for code, description in STANDARD_ERROR_RESPONSES.items():
                     responses.setdefault(
@@ -284,6 +289,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(pin_auth_router)
     app.include_router(terminal_bootstrap_router)
+    app.include_router(terminal_pairing_router)
     app.include_router(home_overview_router)
     app.include_router(device_reload_router)
     app.include_router(devices_router)

@@ -10,6 +10,7 @@ from src.app.container import (
     get_request_context_service,
     get_session_query_service,
     get_system_connection_service,
+    get_terminal_pairing_code_service,
 )
 from fastapi.testclient import TestClient
 from src.modules.auth.services.query.RequestContextService import RequestContext
@@ -27,6 +28,11 @@ from src.modules.auth.services.command.BootstrapTokenService import (
     BootstrapTokenCreateView,
     BootstrapTokenTerminalView,
     BootstrapTokenStatusView,
+)
+from src.modules.auth.services.command.TerminalPairingCodeService import (
+    TerminalPairingClaimView,
+    TerminalPairingIssueView,
+    TerminalPairingPollView,
 )
 from src.modules.energy.services.EnergyService import (
     EnergyBindingView,
@@ -287,6 +293,47 @@ class FakeBootstrapTokenService:
         ]
 
 
+class FakeTerminalPairingCodeService:
+    async def issue(self, _input):
+        return TerminalPairingIssueView(
+            pairing_id="pairing-1",
+            terminal_id="terminal-1",
+            terminal_code="main",
+            terminal_name="Main terminal",
+            terminal_mode="KIOSK",
+            pairing_code="ABCD-2345",
+            expires_at="2026-04-18T00:10:00+00:00",
+            status="PENDING",
+        )
+
+    async def poll(self, _input):
+        return TerminalPairingPollView(
+            pairing_id="pairing-1",
+            terminal_id="terminal-1",
+            terminal_code="main",
+            terminal_name="Main terminal",
+            terminal_mode="KIOSK",
+            status="DELIVERED",
+            expires_at="2026-04-18T00:10:00+00:00",
+            claimed_at="2026-04-18T00:01:00+00:00",
+            bootstrap_token="bootstrap-token-1",
+            bootstrap_token_expires_at="2026-05-18T00:00:00+00:00",
+        )
+
+    async def claim(self, _input):
+        return TerminalPairingClaimView(
+            pairing_id="pairing-1",
+            terminal_id="terminal-1",
+            terminal_code="main",
+            terminal_name="Main terminal",
+            terminal_mode="KIOSK",
+            status="CLAIMED",
+            claimed_at="2026-04-18T00:01:00+00:00",
+            bootstrap_token_expires_at="2026-05-18T00:00:00+00:00",
+            rotated=True,
+        )
+
+
 class FakeManagementPinGuard:
     async def require_active_session(self, home_id, terminal_id):
         assert home_id == "home-1"
@@ -302,6 +349,9 @@ def test_auth_system_energy_and_media_routes(app, client):
     app.dependency_overrides[get_session_query_service] = lambda: FakeSessionQueryService()
     app.dependency_overrides[get_pin_verification_service] = lambda: FakePinVerificationService()
     app.dependency_overrides[get_bootstrap_token_service] = lambda: FakeBootstrapTokenService()
+    app.dependency_overrides[get_terminal_pairing_code_service] = (
+        lambda: FakeTerminalPairingCodeService()
+    )
     app.dependency_overrides[get_management_pin_guard] = lambda: FakeManagementPinGuard()
     app.dependency_overrides[get_system_connection_service] = lambda: FakeSystemConnectionService()
     app.dependency_overrides[get_energy_service] = lambda: FakeEnergyService()
@@ -316,6 +366,13 @@ def test_auth_system_energy_and_media_routes(app, client):
     bootstrap_token_response = client.post(
         "/api/v1/terminals/terminal-1/bootstrap-token",
         headers={"authorization": f"Bearer {auth_response.json()['data']['access_token']}"},
+    )
+    pairing_issue_response = client.post("/api/v1/terminals/terminal-1/pairing-code-sessions")
+    pairing_poll_response = client.get("/api/v1/terminals/terminal-1/pairing-code-sessions/pairing-1")
+    pairing_claim_response = client.post(
+        "/api/v1/terminals/pairing-code-claims",
+        headers={"authorization": f"Bearer {auth_response.json()['data']['access_token']}"},
+        json={"pairing_code": "ABCD-2345"},
     )
     bootstrap_token_status_response = client.get(
         "/api/v1/terminals/terminal-1/bootstrap-token",
@@ -377,6 +434,9 @@ def test_auth_system_energy_and_media_routes(app, client):
     assert bootstrap_token_response.json()["data"]["token_type"] == "Bootstrap"
     assert bootstrap_token_response.json()["data"]["bootstrap_token"] == "bootstrap-token-1"
     assert bootstrap_token_response.json()["data"]["rotated"] is True
+    assert pairing_issue_response.json()["data"]["pairing_code"] == "ABCD-2345"
+    assert pairing_poll_response.json()["data"]["bootstrap_token"] == "bootstrap-token-1"
+    assert pairing_claim_response.json()["data"]["status"] == "CLAIMED"
     assert bootstrap_token_status_response.json()["data"]["token_configured"] is True
     assert bootstrap_token_status_response.json()["data"]["last_used_at"] == "2026-04-18T00:05:00+00:00"
     assert bootstrap_token_directory_response.json()["data"]["items"][0]["terminal_code"] == "main"

@@ -18,6 +18,9 @@ from src.infrastructure.db.repositories.base.auth.PinSessionRepositoryImpl impor
 from src.infrastructure.db.repositories.base.auth.TerminalBootstrapTokenRepositoryImpl import (
     TerminalBootstrapTokenRepositoryImpl,
 )
+from src.infrastructure.db.repositories.base.auth.TerminalPairingCodeRepositoryImpl import (
+    TerminalPairingCodeRepositoryImpl,
+)
 from src.infrastructure.db.repositories.base.control.DeviceControlRequestRepositoryImpl import (
     DeviceControlRequestRepositoryImpl,
 )
@@ -113,6 +116,9 @@ from src.modules.auth.services.command.PinVerificationService import (
     PinVerificationService,
 )
 from src.modules.auth.services.command.BootstrapTokenService import BootstrapTokenService
+from src.modules.auth.services.command.TerminalPairingCodeService import (
+    TerminalPairingCodeService,
+)
 from src.modules.backups.services.BackupRestoreService import BackupRestoreService
 from src.modules.backups.services.BackupService import BackupService
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
@@ -267,6 +273,11 @@ def get_pin_session_repository() -> PinSessionRepositoryImpl:
 @lru_cache(maxsize=1)
 def get_terminal_bootstrap_token_repository() -> TerminalBootstrapTokenRepositoryImpl:
     return TerminalBootstrapTokenRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_terminal_pairing_code_repository() -> TerminalPairingCodeRepositoryImpl:
+    return TerminalPairingCodeRepositoryImpl(get_database())
 
 
 @lru_cache(maxsize=1)
@@ -464,6 +475,18 @@ def get_bootstrap_token_service() -> BootstrapTokenService:
         repository=get_terminal_bootstrap_token_repository(),
         resolver=get_bootstrap_token_resolver(),
         clock=get_clock(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_terminal_pairing_code_service() -> TerminalPairingCodeService:
+    return TerminalPairingCodeService(
+        repository=get_terminal_pairing_code_repository(),
+        bootstrap_token_service=get_bootstrap_token_service(),
+        bootstrap_token_resolver=get_bootstrap_token_resolver(),
+        connection_secret_cipher=get_connection_secret_cipher(),
+        clock=get_clock(),
+        pairing_code_ttl_seconds=get_settings().pairing_code_ttl_seconds,
     )
 
 

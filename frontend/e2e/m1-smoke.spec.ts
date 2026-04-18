@@ -13,6 +13,8 @@ const TERMINAL_ACTIVATION_LINK_TEST =
   "terminal activation link auto-activates and persists bootstrap token";
 const TERMINAL_ACTIVATION_CODE_TEST =
   "terminal activation code can be pasted and persists bootstrap token";
+const TERMINAL_PAIRING_TEST =
+  "terminal pairing code can be claimed and auto-activates the terminal";
 const DEVICE_SYNC_TIMEOUT_MS = 45_000;
 const DEVICE_SYNC_POLL_INTERVAL_MS = 1_000;
 const bootstrapTokens = new Map<string, string>();
@@ -49,7 +51,8 @@ test.beforeEach(async ({ page }, testInfo) => {
   if (
     testInfo.title === TERMINAL_ACTIVATION_TEST ||
     testInfo.title === TERMINAL_ACTIVATION_LINK_TEST ||
-    testInfo.title === TERMINAL_ACTIVATION_CODE_TEST
+    testInfo.title === TERMINAL_ACTIVATION_CODE_TEST ||
+    testInfo.title === TERMINAL_PAIRING_TEST
   ) {
     return;
   }
@@ -209,6 +212,39 @@ test(TERMINAL_ACTIVATION_CODE_TEST, async ({ page }) => {
   await expect
     .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
     .toBe(token);
+});
+
+test(TERMINAL_PAIRING_TEST, async ({ page, request }) => {
+  ensureSecondaryTerminal();
+
+  await page.goto("/");
+  await expect
+    .poll(async () => (await page.getByTestId("pairing-code-value").textContent())?.trim() ?? "")
+    .not.toBe("Loading...");
+  const pairingCode = ((await page.getByTestId("pairing-code-value").textContent()) ?? "").trim();
+  expect(pairingCode).toBeTruthy();
+  expect(pairingCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+
+  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  await expectEnvelope(
+    await request.post("/api/v1/terminals/pairing-code-claims", {
+      headers: { authorization: `Bearer ${secondarySession.access_token}` },
+      data: {
+        pairing_code: pairingCode,
+      },
+    }),
+  );
+
+  await expect(page.locator(".control-shell")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .not.toBeNull();
+  const activatedToken = await page.evaluate(
+    (key) => window.localStorage.getItem(key),
+    BOOTSTRAP_TOKEN_STORAGE_KEY,
+  );
+  expect(activatedToken).toBeTruthy();
+  bootstrapTokens.set(TERMINAL_ID, activatedToken as string);
 });
 
 function issueBootstrapToken(terminalId = TERMINAL_ID) {
