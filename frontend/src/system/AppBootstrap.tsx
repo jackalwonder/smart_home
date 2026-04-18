@@ -10,7 +10,7 @@ import { appStore } from "../store/useAppStore";
 import { syncRealtimeSession } from "./realtime";
 import { wsClient } from "../ws/wsClient";
 import { clearAccessToken } from "../auth/accessToken";
-import { setBootstrapToken } from "../auth/bootstrapToken";
+import { consumeBootstrapTokenFromUrl, setBootstrapToken } from "../auth/bootstrapToken";
 import { TerminalActivationPage } from "../pages/TerminalActivationPage";
 
 export function AppBootstrap({ children }: PropsWithChildren) {
@@ -46,7 +46,14 @@ export function AppBootstrap({ children }: PropsWithChildren) {
     const message = error instanceof Error ? error.message : "启动会话加载失败";
     appStore.setSessionError(message);
     if (isBootstrapTokenActivationError(error)) {
-      setBootstrapToken(null);
+      if (
+        error.reason === "missing" ||
+        error.reason === "expired" ||
+        error.reason === "invalid" ||
+        error.reason === "malformed"
+      ) {
+        setBootstrapToken(null);
+      }
       setActivationRequired(true);
     }
   }, []);
@@ -57,11 +64,26 @@ export function AppBootstrap({ children }: PropsWithChildren) {
     void (async () => {
       appStore.setSessionLoading();
       try {
+        const deliveredBootstrapToken = consumeBootstrapTokenFromUrl();
+        if (deliveredBootstrapToken) {
+          if (active) {
+            setActivationRequired(true);
+            setActivationLoading(true);
+          }
+          const data = await activateSessionWithBootstrapToken(deliveredBootstrapToken);
+          setBootstrapToken(deliveredBootstrapToken);
+          await completeSession(data, () => active);
+          return;
+        }
         const data = await fetchCurrentSession();
         await completeSession(data, () => active);
       } catch (error) {
         if (active) {
           setBootError(error);
+        }
+      } finally {
+        if (active) {
+          setActivationLoading(false);
         }
       }
     })();

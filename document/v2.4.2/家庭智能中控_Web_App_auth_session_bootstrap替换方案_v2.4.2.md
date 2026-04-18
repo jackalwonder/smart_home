@@ -291,6 +291,26 @@ CREATE TABLE terminal_bootstrap_tokens (
 3. `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:25173'; npx playwright test e2e/m1-smoke.spec.ts -g "terminal activation stores bootstrap token and enters shell"`：`1 passed`
 4. `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:25173'; npm run test:e2e`：`12 passed`
 
+### Step 6：终端交付与恢复流程
+
+状态：2026-04-18 已完成 PR-6 第二段本地实现与回归验证。
+
+1. 管理端在创建或重置 bootstrap token 后，除了复制 token 原文，还可复制激活链接与激活码。
+2. 管理端可直接展示激活二维码，现场可扫码打开激活链接。
+3. 终端激活页支持三种输入：bootstrap token、激活链接、激活码。
+4. 激活链接进入后，前端会自动兑换 token、写入本地存储，并清除地址栏中的 `bootstrap_token` 参数。
+5. 激活失败提示区分为“已过期”“已失效/被重置/复制不完整”“网络不可达”“服务端错误”等更细粒度文案。
+6. 新增正式运维脚本 `backend/scripts/issue_bootstrap_token.py`，用于输出 token、激活码与激活链接，替代临时 one-liner。
+
+本地验证结果（2026-04-18，PR-6 第二段）：
+
+1. `python -m py_compile backend/scripts/issue_bootstrap_token.py`：通过
+2. `npm run build`：通过
+3. `docker compose up -d --build backend frontend`：通过
+4. `docker compose exec -T backend python scripts/issue_bootstrap_token.py --home-id 11111111-1111-1111-1111-111111111111 --terminal-id 22222222-2222-2222-2222-222222222222 --created-by-terminal-id 22222222-2222-2222-2222-222222222222 --frontend-url http://127.0.0.1:25173`：成功输出 `bootstrap_token`、`activation_code`、`activation_link`
+5. `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:25173'; npx playwright test e2e/m1-smoke.spec.ts -g "terminal activation"`：`3 passed`
+6. `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:25173'; npm run test:e2e`：`15 passed`
+
 ## 九、验收标准
 
 1. HTTP 运行时业务接口 `auth_mode=legacy_context` 接受量为 0。
