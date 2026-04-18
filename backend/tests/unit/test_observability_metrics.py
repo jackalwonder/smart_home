@@ -45,3 +45,22 @@ def test_runtime_old_context_rejection_counts_unresolved_401_attempts():
     assert snapshot["legacy_context"]["runtime_accepted_requests_total"] == 0
     assert snapshot["legacy_context"]["runtime_rejected_requests_total"] == 1
     assert snapshot["auth_session_bootstrap"]["requests_total"] == 0
+
+
+def test_terminal_pairing_context_is_not_counted_as_runtime_legacy():
+    metrics = ObservabilityMetrics()
+
+    metrics.record_http_request(
+        status_code=200,
+        auth_mode="legacy_context",
+        legacy_context_fields=[],
+        scope="terminal_pairing",
+    )
+
+    snapshot = metrics.snapshot()
+    assert snapshot["terminal_pairing"]["requests_total"] == 1
+    assert snapshot["terminal_pairing"]["status_counts"]["200"] == 1
+    assert snapshot["terminal_pairing"]["auth_mode_counts"]["legacy_context"] == 1
+    assert snapshot["legacy_context"]["field_counts"] == {}
+    assert snapshot["legacy_context"]["runtime_accepted_requests_total"] == 0
+    assert snapshot["auth_session_bootstrap"]["requests_total"] == 0

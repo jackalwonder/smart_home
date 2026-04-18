@@ -532,6 +532,24 @@ def test_observabilityz_reports_bootstrap_token_without_legacy_bootstrap(app, cl
     assert snapshot["legacy_context"]["field_counts"] == {}
 
 
+def test_observabilityz_reports_pairing_bootstrap_outside_runtime_legacy(app, client):
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
+    app.dependency_overrides[get_terminal_pairing_code_service] = (
+        lambda: FakeTerminalPairingCodeService()
+    )
+
+    response = client.post("/api/v1/terminals/terminal-1/pairing-code-sessions")
+    observability_response = client.get("/observabilityz")
+
+    assert response.status_code == 200
+    assert observability_response.status_code == 200
+    snapshot = observability_response.json()["data"]
+    assert snapshot["terminal_pairing"]["requests_total"] == 1
+    assert snapshot["terminal_pairing"]["auth_mode_counts"]["legacy_context"] == 1
+    assert snapshot["legacy_context"]["field_counts"] == {}
+    assert snapshot["legacy_context"]["runtime_accepted_requests_total"] == 0
+
+
 def test_readyz_returns_503_when_dependency_is_unavailable(monkeypatch, client):
     async def fake_check_redis(*_args, **_kwargs):
         raise RuntimeError("redis unavailable")

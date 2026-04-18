@@ -98,6 +98,11 @@ def _observability_scope(request: Request) -> str:
         return "auth_session_bootstrap"
     if request.method == "POST" and request.url.path == "/api/v1/auth/session/bootstrap":
         return "auth_session_bootstrap"
+    if (
+        request.url.path.startswith("/api/v1/terminals/")
+        and "/pairing-code-sessions" in request.url.path
+    ):
+        return "terminal_pairing"
     return "runtime"
 
 

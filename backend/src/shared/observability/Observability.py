@@ -146,6 +146,10 @@ class ObservabilityMetrics:
             self._auth_session_bootstrap_auth_mode_counts: Counter[str] = Counter()
             self._auth_session_bootstrap_legacy_requests = 0
             self._auth_session_bootstrap_legacy_context_field_counts: Counter[str] = Counter()
+            self._terminal_pairing_requests = 0
+            self._terminal_pairing_status_counts: Counter[str] = Counter()
+            self._terminal_pairing_auth_mode_counts: Counter[str] = Counter()
+            self._terminal_pairing_legacy_context_field_counts: Counter[str] = Counter()
             self._ws_connections = 0
             self._ws_auth_mode_counts: Counter[str] = Counter()
             self._ws_rejections = 0
@@ -177,6 +181,12 @@ class ObservabilityMetrics:
                     self._auth_session_bootstrap_legacy_context_field_counts.update(
                         legacy_context_fields
                     )
+                return
+            if scope == "terminal_pairing":
+                self._terminal_pairing_requests += 1
+                self._terminal_pairing_status_counts[str(status_code)] += 1
+                self._terminal_pairing_auth_mode_counts[auth_mode or "unresolved"] += 1
+                self._terminal_pairing_legacy_context_field_counts.update(legacy_context_fields)
                 return
             self._runtime_legacy_context_field_counts.update(legacy_context_fields)
             if auth_mode in {"legacy_context", "legacy_pin_session"}:
@@ -242,6 +252,14 @@ class ObservabilityMetrics:
                     "legacy_requests_total": self._auth_session_bootstrap_legacy_requests,
                     "legacy_context_field_counts": dict(
                         self._auth_session_bootstrap_legacy_context_field_counts
+                    ),
+                },
+                "terminal_pairing": {
+                    "requests_total": self._terminal_pairing_requests,
+                    "status_counts": dict(self._terminal_pairing_status_counts),
+                    "auth_mode_counts": dict(self._terminal_pairing_auth_mode_counts),
+                    "legacy_context_field_counts": dict(
+                        self._terminal_pairing_legacy_context_field_counts
                     ),
                 },
                 "websocket": {

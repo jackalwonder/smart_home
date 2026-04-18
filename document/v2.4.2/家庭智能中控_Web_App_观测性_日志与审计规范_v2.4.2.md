@@ -96,7 +96,7 @@ HTTP / 业务日志最少字段：
 
 ## 3.1 鉴权迁移指标口径
 
-PR-3A 后，旧路径指标分为 runtime 与 auth session bootstrap 两组：
+PR-3A 后，旧路径指标分为 runtime、auth session bootstrap 与 terminal pairing 三组：
 
 1. `legacy_context.field_counts`：只统计非 bootstrap 的 runtime HTTP 路径旧字段命中。
 2. `legacy_context.all_field_counts`：统计 HTTP、WS、bootstrap 的旧字段总命中，用于排障，不作为 runtime 下线阈值。
@@ -106,7 +106,9 @@ PR-3A 后，旧路径指标分为 runtime 与 auth session bootstrap 两组：
 6. `auth_session_bootstrap.legacy_requests_total`：旧 `home_id / terminal_id` bootstrap 被接受的次数，后续 PR-3B/PR-3C 迁移目标是降为 0。
 7. `auth_session_bootstrap.legacy_context_field_counts`：旧 bootstrap 中出现的 query/header/cookie 字段名称计数。
 8. `auth_session_bootstrap.auth_mode_counts.bootstrap_token`：新 Bootstrap token 兑换路径命中次数。
-9. `http_request.observability_scope`：用于日志侧区分 `runtime` 与 `auth_session_bootstrap`。
+9. `terminal_pairing.requests_total`：安装期绑定码签发/轮询请求数。
+10. `terminal_pairing.auth_mode_counts.legacy_context`：终端绑定码签发/轮询依赖已知 terminal 上下文，但不计入 runtime legacy accepted。
+11. `http_request.observability_scope`：用于日志侧区分 `runtime`、`auth_session_bootstrap` 与 `terminal_pairing`。
 
 ---
 
