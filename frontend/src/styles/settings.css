@@ -29,7 +29,7 @@
   grid-column: 1 / -1;
 }
 
-.settings-showcase-shell .settings-operations-path {
+.settings-showcase-shell .settings-task-flow {
   grid-column: 1 / -1;
 }
 
@@ -162,44 +162,127 @@
   box-shadow: inset 3px 0 0 rgba(104, 219, 255, 0.86);
 }
 
-.settings-operations-path {
+.settings-task-flow {
   display: grid;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 8px;
+  gap: 14px;
   border: 1px solid rgba(255, 198, 106, 0.16);
   background:
     linear-gradient(90deg, rgba(255, 198, 106, 0.08), rgba(47, 140, 255, 0.06)),
     rgba(5, 12, 26, 0.76);
 }
 
-.settings-operations-path .card-eyebrow {
+.settings-task-flow__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.settings-task-flow__header .card-eyebrow {
   letter-spacing: 0;
 }
 
-.settings-operations-path__items {
+.settings-task-flow__header h3 {
+  margin: 0 0 6px;
+}
+
+.settings-task-flow__summary {
+  margin: 0;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.settings-task-flow__cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
-.settings-operations-path__item {
+.settings-task-flow__card {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  gap: 4px 10px;
-  align-items: start;
+  gap: 10px;
   min-width: 0;
-  padding: 12px;
+  padding: 14px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.settings-operations-path__item span {
-  grid-row: 1 / span 2;
+.settings-task-flow__card strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.settings-task-flow__card p,
+.settings-task-flow__card small {
+  margin: 0;
+  color: var(--muted);
+}
+
+.settings-task-flow__card small {
+  font-size: 12px;
+}
+
+.settings-task-flow__card.is-active {
+  border-color: rgba(255, 198, 106, 0.32);
+  background:
+    linear-gradient(135deg, rgba(255, 198, 106, 0.12), rgba(47, 140, 255, 0.08)),
+    rgba(255, 255, 255, 0.03);
+  box-shadow: inset 3px 0 0 rgba(255, 198, 106, 0.86);
+}
+
+.settings-task-flow__card-tag {
+  justify-self: start;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 198, 106, 0.14);
+  color: #ffe3a9;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-task-flow__steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-task-flow__step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.settings-task-flow__step.is-current {
+  border-color: rgba(104, 219, 255, 0.28);
+  background: rgba(47, 140, 255, 0.09);
+}
+
+.settings-task-flow__step-copy {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+}
+
+.settings-task-flow__step-index {
   display: inline-grid;
   place-items: center;
   width: 28px;
@@ -210,18 +293,23 @@
   font-weight: 700;
 }
 
-.settings-operations-path__item strong {
+.settings-task-flow__step strong,
+.settings-task-flow__step p {
+  margin: 0;
+}
+
+.settings-task-flow__step strong {
   color: var(--text);
 }
 
-.settings-operations-path__item small {
+.settings-task-flow__step p {
+  margin-top: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
-.settings-operations-path__item.is-active {
-  border-color: rgba(255, 198, 106, 0.32);
-  background: rgba(255, 198, 106, 0.1);
+.settings-task-flow__step-action {
+  white-space: nowrap;
 }
 
 .settings-header-bar,
@@ -709,7 +797,9 @@
   }
 
   .settings-form-grid,
-  .settings-operations-path__items,
+  .settings-task-flow__header,
+  .settings-task-flow__cards,
+  .settings-task-flow__step,
   .delivery-steps,
   .favorite-editor__row,
   .policy-editor__row,
