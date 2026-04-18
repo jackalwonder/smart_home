@@ -114,10 +114,53 @@ function isMediaCandidateDevice(device: DeviceListItemDto) {
 }
 
 let policyEntryCounter = 0;
+const OPERATIONS_SECTION_KEYS: SettingsSectionViewModel["key"][] = [
+  "system",
+  "delivery",
+  "backup",
+];
 
 function nextPolicyEntryId() {
   policyEntryCounter += 1;
   return `policy-entry-${policyEntryCounter}`;
+}
+
+function SettingsOperationsPath({
+  activeSection,
+  onSelectSection,
+  sections,
+}: {
+  activeSection: SettingsSectionViewModel["key"];
+  onSelectSection: (key: SettingsSectionViewModel["key"]) => void;
+  sections: SettingsSectionViewModel[];
+}) {
+  const operationSections = sections.filter((section) =>
+    OPERATIONS_SECTION_KEYS.includes(section.key),
+  );
+
+  return (
+    <nav className="settings-operations-path" aria-label="运维路径">
+      <span className="card-eyebrow">运维路径</span>
+      <div className="settings-operations-path__items">
+        {operationSections.map((section, index) => (
+          <button
+            className={
+              section.key === activeSection
+                ? "settings-operations-path__item is-active"
+                : "settings-operations-path__item"
+            }
+            key={section.key}
+            onClick={() => onSelectSection(section.key)}
+            type="button"
+          >
+            <span>{index + 1}</span>
+            <strong>{section.label}</strong>
+            <small>{section.description}</small>
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
 }
 
 function inferPolicyEntryType(value: unknown): PolicyEntryDraftType {
@@ -1216,6 +1259,11 @@ export function SettingsWorkspacePage() {
           selectedDeviceId={selectedMediaDeviceId}
           unbindBusy={mediaUnbindBusy}
         />
+      </>
+    );
+  } else if (activeSection === "delivery") {
+    sectionPanel = (
+      <>
         <TerminalPairingClaimPanel
           canEdit={pin.active}
           claimBusy={pairingClaimBusy}
@@ -1324,6 +1372,13 @@ export function SettingsWorkspacePage() {
             title={activeSectionConfig.label}
             version={viewModel.version}
           />
+          {OPERATIONS_SECTION_KEYS.includes(activeSection) ? (
+            <SettingsOperationsPath
+              activeSection={activeSection}
+              onSelectSection={setActiveSection}
+              sections={viewModel.sections}
+            />
+          ) : null}
           {activeSection === "favorites" ? <SettingsShowcaseGrid /> : null}
           <SettingsOverviewCard rows={overviewRows} />
         </div>
