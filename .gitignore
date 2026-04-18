@@ -16,5 +16,6 @@ frontend/dist/
 frontend/.cache/
 frontend/playwright-report/
 frontend/test-results/
+frontend/test-results-*/
 deploy/
 picture/
