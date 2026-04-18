@@ -59,6 +59,9 @@ export function EditorCommandBar({
         <span className="card-eyebrow">工作台</span>
         <h2>户型编辑器</h2>
         <p className="muted-copy">{helperText}</p>
+        <p className="muted-copy">
+          背景图和热点先保存到草稿，点“发布到首页”后才会在总览显示。
+        </p>
       </div>
       <div className="badge-row">
         <span className="state-chip">{modeLabel}</span>
@@ -126,7 +129,7 @@ export function EditorCommandBar({
           onClick={onPublishDraft}
           type="button"
         >
-          {publishBusy ? "发布中..." : "发布草稿"}
+          {publishBusy ? "\u53d1\u5e03\u4e2d..." : "\u53d1\u5e03\u5230\u9996\u9875"}
         </button>
       </div>
       <p className="editor-command-bar__shortcuts">

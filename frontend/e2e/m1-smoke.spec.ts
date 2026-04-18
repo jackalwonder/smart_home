@@ -889,7 +889,7 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(taskFlow.getByRole("button", { name: /换机恢复/ })).toBeVisible();
   await expect(taskFlow.getByRole("button", { name: /备份恢复/ })).toBeVisible();
   await expect(page.getByRole("heading", { level: 3, name: "系统连接" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "Bootstrap token" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 3, name: "激活凭据交付" })).toHaveCount(0);
 
   await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
   await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
@@ -914,15 +914,22 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
     .click();
   const taskFlow = page.locator("section[aria-label='现场任务流']");
   await taskFlow.getByRole("button", { name: /换机恢复/ }).click();
-  await expect(taskFlow.getByText("重置 bootstrap token")).toBeVisible();
+  await expect(taskFlow.getByText("重置激活凭据")).toBeVisible();
   await expect(taskFlow.getByText("必要时复查系统连接")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "Bootstrap token" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "终端交付现场台" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "认领绑定码" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "激活凭据交付" })).toBeVisible();
 
-  await page.getByRole("button", { name: "重置 bootstrap token" }).click();
+  await page.getByRole("button", { name: "重置激活凭据" }).click();
   await expect(page.getByRole("heading", { level: 4, name: "本次签发结果" })).toBeVisible();
+  await expect(page.getByText("推荐扫码")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 4, name: "二维码交付" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 4, name: "激活链接" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 4, name: "激活码" })).toBeVisible();
+  await expect(page.getByText("现场排障提示")).toBeVisible();
 
   const revealedToken = await page
-    .locator("section[aria-label='bootstrap token reveal'] textarea")
+    .locator("section[aria-label='激活凭据签发结果'] textarea")
     .first()
     .inputValue();
   expect(revealedToken).toBeTruthy();

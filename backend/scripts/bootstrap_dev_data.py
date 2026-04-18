@@ -170,10 +170,7 @@ def main() -> None:
                 published_by_terminal_id
             )
             VALUES (%s, %s, %s, '{}'::jsonb, now(), %s)
-            ON CONFLICT (id) DO UPDATE
-            SET layout_version = EXCLUDED.layout_version,
-                effective_at = EXCLUDED.effective_at,
-                published_by_terminal_id = EXCLUDED.published_by_terminal_id
+            ON CONFLICT (id) DO NOTHING
             """,
             (LAYOUT_VERSION_ID, HOME_ID, "layout_v1", TERMINAL_ID),
         )

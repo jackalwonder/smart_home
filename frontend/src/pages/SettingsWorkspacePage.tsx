@@ -56,6 +56,7 @@ import {
 } from "../components/settings/StructuredPolicyEditor";
 import { SystemConnectionPanel } from "../components/settings/SystemConnectionPanel";
 import { TerminalBootstrapTokenPanel } from "../components/settings/TerminalBootstrapTokenPanel";
+import { TerminalDeliveryOverviewPanel } from "../components/settings/TerminalDeliveryOverviewPanel";
 import { TerminalPairingClaimPanel } from "../components/settings/TerminalPairingClaimPanel";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { SettingsSectionViewModel, mapSettingsViewModel } from "../view-models/settings";
@@ -143,7 +144,7 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
     title: "新装终端",
     eyebrow: "安装交付",
     description: "适合全新终端首次入场，先认领绑定码，再交付激活凭据。",
-    outcome: "让新终端在现场一次激活成功，并自动拿到 bootstrap token。",
+    outcome: "让新终端在现场一次激活成功，并自动拿到后续访问权限。",
     primarySection: "delivery",
     steps: [
       {
@@ -158,7 +159,7 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
       },
       {
         title: "交付激活凭据",
-        description: "生成并交付 bootstrap token，优先使用二维码，其次激活链接或激活码。",
+        description: "生成并交付一次性激活凭据，优先使用二维码，其次激活链接或激活码。",
         sectionKey: "delivery",
       },
     ],
@@ -177,8 +178,8 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
         sectionKey: "delivery",
       },
       {
-        title: "重置 bootstrap token",
-        description: "为该终端重新签发一次性的 bootstrap token，旧 token 会立即失效。",
+        title: "重置激活凭据",
+        description: "为该终端重新签发一次性激活凭据，旧凭据会立即失效。",
         sectionKey: "delivery",
       },
       {
@@ -1108,8 +1109,8 @@ export function SettingsWorkspacePage() {
       setBootstrapTokenFeedback({
         tone: "success",
         text: response.rotated
-          ? "Bootstrap token 已重置，旧令牌已立即失效。"
-          : "Bootstrap token 已创建，可用于新终端激活。",
+          ? "激活凭据已重置，旧凭据已立即失效。"
+          : "激活凭据已生成，可用于新终端激活。",
       });
       await Promise.all([loadBootstrapTokenDirectory(), loadBootstrapTokenAudits()]);
     } catch (error) {
@@ -1126,14 +1127,14 @@ export function SettingsWorkspacePage() {
     if (!pin.active) {
       setPairingClaimFeedback({
         tone: "error",
-        text: "Verify management PIN before claiming a pairing code.",
+        text: "认领绑定码前，请先验证管理 PIN。",
       });
       return;
     }
     if (!pairingCodeInput.trim()) {
       setPairingClaimFeedback({
         tone: "error",
-        text: "Enter a pairing code first.",
+        text: "请先输入终端屏幕上的绑定码。",
       });
       return;
     }
@@ -1147,7 +1148,7 @@ export function SettingsWorkspacePage() {
       setBootstrapTokenReveal(null);
       setPairingClaimFeedback({
         tone: "success",
-        text: `${response.terminal_name} (${response.terminal_code}) claimed. The terminal will activate automatically.`,
+        text: `${response.terminal_name} (${response.terminal_code}) 已认领，终端将自动完成激活。`,
       });
       await Promise.all([loadBootstrapTokenDirectory(), loadBootstrapTokenAudits()]);
     } catch (error) {
@@ -1168,12 +1169,12 @@ export function SettingsWorkspacePage() {
       await navigator.clipboard.writeText(bootstrapTokenReveal.bootstrap_token);
       setBootstrapTokenFeedback({
         tone: "success",
-        text: "Bootstrap token 已复制到剪贴板。",
+        text: "原始激活凭据已复制到剪贴板。",
       });
     } catch {
       setBootstrapTokenFeedback({
         tone: "error",
-        text: "复制失败，请手动复制当前展示的 bootstrap token。",
+        text: "复制失败，请手动复制当前展示的原始激活凭据。",
       });
     }
   }
@@ -1438,6 +1439,10 @@ export function SettingsWorkspacePage() {
   } else if (activeSection === "delivery") {
     sectionPanel = (
       <>
+        <TerminalDeliveryOverviewPanel
+          availableTerminalCount={bootstrapTokenDirectory.length}
+          selectedTerminal={selectedBootstrapTerminal}
+        />
         <TerminalPairingClaimPanel
           canEdit={pin.active}
           claimBusy={pairingClaimBusy}

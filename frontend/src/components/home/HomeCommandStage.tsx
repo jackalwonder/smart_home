@@ -1,5 +1,5 @@
 import { HomeHotspotViewModel } from "../../view-models/home";
-import { resolveAssetImageUrl } from "../../api/pageAssetsApi";
+import { useResolvedAssetImageUrl } from "../../hooks/useResolvedAssetImageUrl";
 import { HomeDeviceControlPanel } from "./HomeDeviceControlPanel";
 import { HomeHotspotOverlay } from "./HomeHotspotOverlay";
 
@@ -19,7 +19,7 @@ export function HomeCommandStage({
   cacheMode,
 }: HomeCommandStageProps) {
   const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? null;
-  const resolvedBackgroundImageUrl = resolveAssetImageUrl(backgroundImageUrl);
+  const resolvedBackgroundImageUrl = useResolvedAssetImageUrl(backgroundImageUrl);
 
   return (
     <section className="panel home-command-stage">

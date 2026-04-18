@@ -59,7 +59,7 @@ export function mapSettingsViewModel(value: Record<string, unknown> | null): Set
         key: "delivery",
         label: "终端交付",
         eyebrow: "安装恢复",
-        description: "绑定码认领、bootstrap token 交付以及现场恢复入口。",
+        description: "绑定码认领、激活凭据交付以及现场恢复入口。",
       },
       {
         key: "page",
