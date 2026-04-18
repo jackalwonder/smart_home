@@ -23,10 +23,24 @@ export function TerminalPairingClaimPanel({
       eyebrow="Terminal install"
       description="After PIN verification, enter the one-time pairing code shown on the terminal. The terminal receives its bootstrap token automatically."
     >
+      <ol className="delivery-steps" aria-label="Pairing claim steps">
+        <li>
+          <strong>Verify PIN</strong>
+          <span>Confirm management access before claiming a terminal.</span>
+        </li>
+        <li>
+          <strong>Enter code</strong>
+          <span>Use the latest code shown on the unactivated terminal.</span>
+        </li>
+        <li>
+          <strong>Confirm activation</strong>
+          <span>The terminal signs in automatically after handoff.</span>
+        </li>
+      </ol>
       <label className="form-field">
         <span>Pairing code</span>
         <input
-          className="control-input"
+          className="control-input pairing-claim-input"
           data-testid="pairing-claim-input"
           disabled={claimBusy}
           onChange={(event) => onChangePairingCode(event.target.value)}
@@ -52,8 +66,8 @@ export function TerminalPairingClaimPanel({
         </p>
       ) : (
         <p className="muted-copy">
-          Use this only during installation or recovery. Pairing codes are short-lived, single-use,
-          and replaced when the terminal issues a new code.
+          Installation and recovery only. Codes are short-lived, single-use, and replaced when the
+          terminal issues a new code.
         </p>
       )}
     </SettingsModuleCard>

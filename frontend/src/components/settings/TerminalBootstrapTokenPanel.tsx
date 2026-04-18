@@ -130,6 +130,20 @@ export function TerminalBootstrapTokenPanel({
       ]}
       title="Bootstrap token"
     >
+      <ol className="delivery-steps" aria-label="Bootstrap delivery steps">
+        <li>
+          <strong>Select terminal</strong>
+          <span>Choose the device being delivered, reinstalled, or recovered.</span>
+        </li>
+        <li>
+          <strong>Create or reset</strong>
+          <span>Generate a fresh bootstrap token for this terminal only.</span>
+        </li>
+        <li>
+          <strong>Hand off safely</strong>
+          <span>Prefer QR code, then activation link, then activation code.</span>
+        </li>
+      </ol>
       <label className="form-field">
         <span>目标终端</span>
         <select
@@ -174,7 +188,7 @@ export function TerminalBootstrapTokenPanel({
             <div>
               <h4>本次签发结果</h4>
               <p className="muted-copy">
-                请尽快完成终端激活。离开此页后，这里不会再次展示令牌原文。
+                请尽快完成终端激活。离开此页后，这里不会再次展示令牌原文；现场优先交付二维码或激活链接。
               </p>
             </div>
             <button className="button button--ghost" onClick={onCopy} type="button">
@@ -203,6 +217,7 @@ export function TerminalBootstrapTokenPanel({
           </dl>
           <div className="bootstrap-token-delivery">
             <div className="bootstrap-token-delivery__qr">
+              <span className="delivery-method-label">Recommended</span>
               {qrCodeDataUrl ? (
                 <img
                   alt="终端激活二维码"
@@ -218,6 +233,7 @@ export function TerminalBootstrapTokenPanel({
             </div>
             <div className="bootstrap-token-delivery__code">
               <div>
+                <span className="delivery-method-label">Manual entry</span>
                 <h4>终端激活码</h4>
                 <p className="muted-copy">
                   当终端无法扫码时，可复制下面的激活码，在激活页直接粘贴。
