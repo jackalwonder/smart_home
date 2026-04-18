@@ -851,7 +851,13 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "保存全部" })).toBeEnabled();
 
-  await page.getByRole("button", { name: /备份恢复/ }).click();
+  const settingsNav = page.getByRole("navigation", { name: "设置分区" });
+  await expect(settingsNav.getByRole("button", { name: /终端交付/ })).toBeVisible();
+  await settingsNav.getByRole("button", { name: /系统连接/ }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "系统连接" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "Bootstrap token" })).toHaveCount(0);
+
+  await settingsNav.getByRole("button", { name: /备份恢复/ }).click();
   await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "恢复历史" })).toBeVisible();
   await page.getByPlaceholder("例如：联调前、夜间稳定版").fill("e2e smoke backup");
@@ -868,7 +874,12 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
   const previousToken = issueBootstrapToken(TERMINAL_ID);
 
   await unlockManagementPin(page);
-  await page.locator(".settings-side-nav__item").nth(1).click();
+  await page
+    .getByRole("navigation", { name: "设置分区" })
+    .getByRole("button", { name: /终端交付/ })
+    .click();
+  await expect(page.getByText("系统连接").last()).toBeVisible();
+  await expect(page.getByText("备份恢复").last()).toBeVisible();
   await expect(page.getByRole("heading", { level: 3, name: "Bootstrap token" })).toBeVisible();
 
   await page.getByRole("button", { name: "重置 bootstrap token" }).click();

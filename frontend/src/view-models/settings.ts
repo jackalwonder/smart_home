@@ -1,7 +1,7 @@
 import { asArray, asBoolean, asRecord, asString, formatValue, labelize } from "./utils";
 
 export interface SettingsSectionViewModel {
-  key: "favorites" | "system" | "page" | "function" | "backup";
+  key: "favorites" | "system" | "delivery" | "page" | "function" | "backup";
   label: string;
   eyebrow: string;
   description: string;
@@ -53,7 +53,13 @@ export function mapSettingsViewModel(value: Record<string, unknown> | null): Set
         key: "system",
         label: "系统连接",
         eyebrow: "基础设施",
-        description: "Home Assistant、媒体、天气以及外部服务绑定。",
+        description: "Home Assistant、能耗、媒体以及外部服务绑定。",
+      },
+      {
+        key: "delivery",
+        label: "终端交付",
+        eyebrow: "安装恢复",
+        description: "绑定码认领、bootstrap token 交付以及现场恢复入口。",
       },
       {
         key: "page",
