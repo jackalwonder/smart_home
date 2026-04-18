@@ -1028,8 +1028,8 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await expect(page.getByText("草稿已保存")).toBeVisible();
   await expect(page.getByLabel("发布前变更摘要")).toContainText("新增热点");
 
-  await expect(page.getByRole("button", { name: "发布草稿" })).toBeEnabled();
-  await page.getByRole("button", { name: "发布草稿" }).click();
+  await expect(page.getByRole("button", { name: "发布到首页" })).toBeEnabled();
+  await page.getByRole("button", { name: "发布到首页" }).click();
   await expect(page.getByText("草稿已发布")).toBeVisible();
   await expect(page.getByText(/布局版本已更新为/)).toBeVisible();
 
@@ -1130,7 +1130,7 @@ test("editor publish surfaces version conflict and retries after refresh", async
     }),
   );
 
-  await page.getByRole("button", { name: "发布草稿" }).click();
+  await page.getByRole("button", { name: "发布到首页" }).click();
   await expect(page.getByText("发布前草稿版本已更新")).toBeVisible();
   await expect(page.getByText(new RegExp(`本次提交基于 ${draft.draft_version}`))).toBeVisible();
   await expect(page.getByRole("button", { name: "重新发布" })).toBeVisible();

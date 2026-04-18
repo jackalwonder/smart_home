@@ -9,13 +9,14 @@ import { appStore, useAppStore } from "../store/useAppStore";
 import { mapHomeOverviewViewModel } from "../view-models/home";
 import { formatRealtimeEvent } from "../ws/eventPresentation";
 
-
 export function HomeDashboardPage() {
   const session = useAppStore((state) => state.session);
   const home = useAppStore((state) => state.home);
   const realtime = useAppStore((state) => state.realtime);
   const events = useAppStore((state) => state.wsEvents);
-  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -75,6 +76,7 @@ export function HomeDashboardPage() {
         <HomeCommandStage
           backgroundImageUrl={viewModel.stage.backgroundImageUrl}
           cacheMode={viewModel.cacheMode}
+          connectionStatus={realtime.connectionStatus}
           hotspots={viewModel.stage.hotspots}
           onSelectHotspot={setSelectedHotspotId}
           selectedHotspotId={selectedHotspotId}

@@ -1,4 +1,13 @@
-import { asArray, asBoolean, asNumber, asOptionalString, asRecord, asString, formatDateTime, labelize } from "./utils";
+import {
+  asArray,
+  asBoolean,
+  asNumber,
+  asOptionalString,
+  asRecord,
+  asString,
+  formatDateTime,
+  labelize,
+} from "./utils";
 
 export interface HomeHotspotViewModel {
   id: string;
@@ -85,13 +94,21 @@ function deriveHotspotGlyph(deviceType: string, iconType: string): string {
   return "控";
 }
 
-function deriveHotspotTone(deviceType: string, status: string, isOffline: boolean): "accent" | "warm" | "neutral" {
+function deriveHotspotTone(
+  deviceType: string,
+  status: string,
+  isOffline: boolean,
+): "accent" | "warm" | "neutral" {
   if (isOffline) {
     return "neutral";
   }
 
   const statusText = status.toLowerCase();
-  if (statusText.includes("on") || statusText.includes("running") || statusText.includes("open")) {
+  if (
+    statusText.includes("on") ||
+    statusText.includes("running") ||
+    statusText.includes("open")
+  ) {
     return "warm";
   }
 
@@ -141,6 +158,28 @@ function translateEntryBehavior(value: string) {
     return "直达";
   }
   return labelize(value);
+}
+
+function translateServiceStatus(value: string) {
+  switch (value) {
+    case "MEDIA_UNSET":
+    case "UNBOUND":
+      return "待绑定";
+    case "BOUND":
+      return "已绑定";
+    case "AVAILABLE":
+      return "可用";
+    case "UNAVAILABLE":
+      return "不可用";
+    case "IDLE":
+      return "空闲";
+    case "PLAYING":
+      return "播放中";
+    case "PAUSED":
+      return "已暂停";
+    default:
+      return value;
+  }
 }
 
 function translateDeviceType(value: string) {
@@ -213,7 +252,9 @@ function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[] {
     }));
 }
 
-export function mapHomeOverviewViewModel(value: Record<string, unknown> | null): HomeViewModel {
+export function mapHomeOverviewViewModel(
+  value: Record<string, unknown> | null,
+): HomeViewModel {
   const stage = asRecord(value?.stage);
   const sidebar = asRecord(value?.sidebar);
   const summary = asRecord(sidebar?.summary);
@@ -225,37 +266,47 @@ export function mapHomeOverviewViewModel(value: Record<string, unknown> | null):
     asOptionalString(timeline?.current_time ?? sidebar?.datetime) ?? null,
   );
 
-  const hotspots = asArray<Record<string, unknown>>(stage?.hotspots).map((hotspot, index) => ({
-    id: asString(hotspot.hotspot_id ?? `hotspot-${index}`),
-    deviceId: asString(hotspot.device_id ?? ""),
-    label: asString(hotspot.display_name ?? hotspot.device_id ?? `设备 ${index + 1}`),
-    deviceType: asString(hotspot.device_type ?? "device"),
-    deviceTypeLabel: translateDeviceType(asString(hotspot.device_type ?? "device")),
-    x: asNumber(hotspot.x),
-    y: asNumber(hotspot.y),
-    iconGlyph: deriveHotspotGlyph(
-      asString(hotspot.device_type ?? "device"),
-      asString(hotspot.icon_type ?? "device"),
-    ),
-    tone: deriveHotspotTone(
-      asString(hotspot.device_type ?? "device"),
-      asString(hotspot.status ?? "unknown"),
-      asBoolean(hotspot.is_offline),
-    ),
-    iconType: asString(hotspot.icon_type ?? "device"),
-    labelMode: asString(hotspot.label_mode ?? hotspot.display_policy ?? "AUTO"),
-    status: asString(hotspot.status ?? "unknown"),
-    statusLabel: translateStatusLabel(
-      asString(hotspot.status ?? "unknown"),
-      asBoolean(hotspot.is_offline),
-    ),
-    statusSummary: asOptionalString(hotspot.status_summary),
-    isOffline: asBoolean(hotspot.is_offline),
-    isComplex: asBoolean(hotspot.is_complex_device),
-    isReadonly: asBoolean(hotspot.is_readonly_device),
-    entryBehavior: asString(hotspot.entry_behavior ?? "VIEW"),
-    entryBehaviorLabel: translateEntryBehavior(asString(hotspot.entry_behavior ?? "VIEW")),
-  }));
+  const hotspots = asArray<Record<string, unknown>>(stage?.hotspots).map(
+    (hotspot, index) => ({
+      id: asString(hotspot.hotspot_id ?? `hotspot-${index}`),
+      deviceId: asString(hotspot.device_id ?? ""),
+      label: asString(
+        hotspot.display_name ?? hotspot.device_id ?? `设备 ${index + 1}`,
+      ),
+      deviceType: asString(hotspot.device_type ?? "device"),
+      deviceTypeLabel: translateDeviceType(
+        asString(hotspot.device_type ?? "device"),
+      ),
+      x: asNumber(hotspot.x),
+      y: asNumber(hotspot.y),
+      iconGlyph: deriveHotspotGlyph(
+        asString(hotspot.device_type ?? "device"),
+        asString(hotspot.icon_type ?? "device"),
+      ),
+      tone: deriveHotspotTone(
+        asString(hotspot.device_type ?? "device"),
+        asString(hotspot.status ?? "unknown"),
+        asBoolean(hotspot.is_offline),
+      ),
+      iconType: asString(hotspot.icon_type ?? "device"),
+      labelMode: asString(
+        hotspot.label_mode ?? hotspot.display_policy ?? "AUTO",
+      ),
+      status: asString(hotspot.status ?? "unknown"),
+      statusLabel: translateStatusLabel(
+        asString(hotspot.status ?? "unknown"),
+        asBoolean(hotspot.is_offline),
+      ),
+      statusSummary: asOptionalString(hotspot.status_summary),
+      isOffline: asBoolean(hotspot.is_offline),
+      isComplex: asBoolean(hotspot.is_complex_device),
+      isReadonly: asBoolean(hotspot.is_readonly_device),
+      entryBehavior: asString(hotspot.entry_behavior ?? "VIEW"),
+      entryBehaviorLabel: translateEntryBehavior(
+        asString(hotspot.entry_behavior ?? "VIEW"),
+      ),
+    }),
+  );
 
   return {
     layoutVersion: asString(value?.layout_version ?? "layout_v1"),
@@ -268,7 +319,9 @@ export function mapHomeOverviewViewModel(value: Record<string, unknown> | null):
     timeline: {
       time: formattedTime.time,
       date: formattedTime.date,
-      weatherCondition: asString(weather?.condition ?? weather?.text ?? "暂无天气"),
+      weatherCondition: asString(
+        weather?.condition ?? weather?.text ?? "暂无天气",
+      ),
       weatherTemperature: asString(weather?.temperature ?? "--"),
       humidity: asString(weather?.humidity ?? "--"),
     },
@@ -281,25 +334,42 @@ export function mapHomeOverviewViewModel(value: Record<string, unknown> | null):
     ],
     quickActions: normalizeQuickActions(value?.quick_entries),
     mediaFields: [
-      { label: "绑定状态", value: asString(musicCard?.binding_status ?? "MEDIA_UNSET") },
-      { label: "可用性", value: asString(musicCard?.availability_status ?? "-") },
+      {
+        label: "绑定状态",
+        value: translateServiceStatus(
+          asString(musicCard?.binding_status ?? "MEDIA_UNSET"),
+        ),
+      },
+      {
+        label: "可用性",
+        value: translateServiceStatus(
+          asString(musicCard?.availability_status ?? "-"),
+        ),
+      },
       { label: "设备", value: asString(musicCard?.display_name ?? "-") },
-      { label: "播放状态", value: asString(musicCard?.play_state ?? "-") },
+      {
+        label: "播放状态",
+        value: translateServiceStatus(asString(musicCard?.play_state ?? "-")),
+      },
       { label: "曲目", value: asString(musicCard?.track_title ?? "-") },
       { label: "歌手", value: asString(musicCard?.artist ?? "-") },
     ],
     energyFields: [
-      { label: "绑定状态", value: asString(energy?.binding_status ?? "-") },
-      { label: "刷新状态", value: asString(energy?.refresh_status ?? "-") },
+      {
+        label: "绑定状态",
+        value: translateServiceStatus(asString(energy?.binding_status ?? "-")),
+      },
+      {
+        label: "刷新状态",
+        value: translateServiceStatus(asString(energy?.refresh_status ?? "-")),
+      },
       { label: "本月用量", value: asString(energy?.monthly_usage ?? "-") },
       { label: "剩余金额", value: asString(energy?.balance ?? "-") },
     ],
     bottomStats: [
-      { label: "布局版本", value: asString(value?.layout_version ?? "-") },
-      { label: "设置版本", value: asString(value?.settings_version ?? "-") },
-      { label: "热点数量", value: String(hotspots.length) },
-      { label: "当前天气", value: asString(weather?.temperature ?? "--") },
-      { label: "运行模式", value: asBoolean(value?.cache_mode) ? "缓存" : "实时" },
+      { label: "热点", value: String(hotspots.length) },
+      { label: "天气", value: asString(weather?.temperature ?? "--") },
+      { label: "模式", value: asBoolean(value?.cache_mode) ? "缓存" : "实时" },
     ],
   };
 }
