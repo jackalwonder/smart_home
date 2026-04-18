@@ -20,6 +20,7 @@ import {
   fetchTerminalBootstrapTokenAudits,
   fetchTerminalBootstrapTokenDirectory,
 } from "../api/terminalBootstrapTokensApi";
+import { claimTerminalPairingCode } from "../api/terminalPairingCodesApi";
 import {
   BackupListItemDto,
   BackupRestoreAuditItemDto,
@@ -55,6 +56,7 @@ import {
 } from "../components/settings/StructuredPolicyEditor";
 import { SystemConnectionPanel } from "../components/settings/SystemConnectionPanel";
 import { TerminalBootstrapTokenPanel } from "../components/settings/TerminalBootstrapTokenPanel";
+import { TerminalPairingClaimPanel } from "../components/settings/TerminalPairingClaimPanel";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { SettingsSectionViewModel, mapSettingsViewModel } from "../view-models/settings";
 import { asArray, asBoolean, asNumber, asRecord, asString } from "../view-models/utils";
@@ -275,6 +277,9 @@ export function SettingsWorkspacePage() {
   const [bootstrapTokenLoading, setBootstrapTokenLoading] = useState(false);
   const [bootstrapTokenAuditLoading, setBootstrapTokenAuditLoading] = useState(false);
   const [bootstrapTokenCreateBusy, setBootstrapTokenCreateBusy] = useState(false);
+  const [pairingCodeInput, setPairingCodeInput] = useState("");
+  const [pairingClaimBusy, setPairingClaimBusy] = useState(false);
+  const [pairingClaimFeedback, setPairingClaimFeedback] = useState<FeedbackState | null>(null);
   const [energyState, setEnergyState] = useState<EnergyDto | null>(null);
   const [energyPayloadText, setEnergyPayloadText] = useState('{\n  "account_id": "demo",\n  "provider": "utility"\n}');
   const [energyMessage, setEnergyMessage] = useState<string | null>(null);
@@ -900,6 +905,44 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function handleClaimPairingCode() {
+    if (!pin.active) {
+      setPairingClaimFeedback({
+        tone: "error",
+        text: "Verify management PIN before claiming a pairing code.",
+      });
+      return;
+    }
+    if (!pairingCodeInput.trim()) {
+      setPairingClaimFeedback({
+        tone: "error",
+        text: "Enter a pairing code first.",
+      });
+      return;
+    }
+
+    setPairingClaimFeedback(null);
+    setPairingClaimBusy(true);
+    try {
+      const response = await claimTerminalPairingCode(pairingCodeInput.trim());
+      setPairingCodeInput("");
+      setSelectedBootstrapTerminalId(response.terminal_id);
+      setBootstrapTokenReveal(null);
+      setPairingClaimFeedback({
+        tone: "success",
+        text: `${response.terminal_name} (${response.terminal_code}) claimed. The terminal will activate automatically.`,
+      });
+      await Promise.all([loadBootstrapTokenDirectory(), loadBootstrapTokenAudits()]);
+    } catch (error) {
+      setPairingClaimFeedback({
+        tone: "error",
+        text: normalizeApiError(error).message,
+      });
+    } finally {
+      setPairingClaimBusy(false);
+    }
+  }
+
   async function handleCopyBootstrapToken() {
     if (!bootstrapTokenReveal?.bootstrap_token) {
       return;
@@ -1172,6 +1215,14 @@ export function SettingsWorkspacePage() {
           onUnbind={() => void handleUnbindDefaultMedia()}
           selectedDeviceId={selectedMediaDeviceId}
           unbindBusy={mediaUnbindBusy}
+        />
+        <TerminalPairingClaimPanel
+          canEdit={pin.active}
+          claimBusy={pairingClaimBusy}
+          feedback={pairingClaimFeedback}
+          onChangePairingCode={setPairingCodeInput}
+          onClaim={() => void handleClaimPairingCode()}
+          pairingCode={pairingCodeInput}
         />
         <TerminalBootstrapTokenPanel
           activationCode={bootstrapActivationCode}

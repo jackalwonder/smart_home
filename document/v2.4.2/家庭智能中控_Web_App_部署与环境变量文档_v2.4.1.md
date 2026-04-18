@@ -147,6 +147,7 @@ volumes:
 14. `PIN_MAX_RETRY`
 15. `PIN_LOCK_MINUTES`
 16. `PIN_SESSION_TTL_SECONDS`
+17. `PAIRING_CODE_TTL_SECONDS`（安装期绑定码有效期，默认 600 秒）
 
 ### 5.5 Home Assistant / 能力开关 / CORS
 
@@ -200,6 +201,7 @@ PIN_HASH_PEPPER=replace_with_random_pepper
 PIN_MAX_RETRY=5
 PIN_LOCK_MINUTES=15
 PIN_SESSION_TTL_SECONDS=900
+PAIRING_CODE_TTL_SECONDS=600
 
 # ===== CORS =====
 CORS_ALLOW_ORIGINS=http://localhost:5173
@@ -264,27 +266,35 @@ FEATURE_EDITOR_ENABLED=true
 3. `POST /api/v1/device-controls`（可用测试设备）
 4. WebSocket 建连与事件接收
 5. 新终端首次打开时，如未配置 `VITE_BOOTSTRAP_TOKEN` 且本地没有 `smart_home.bootstrap_token`，应进入终端激活页；粘贴管理端签发的 bootstrap token、激活链接或激活码后，应成功进入中控 shell。
-6. 管理端创建或重置 bootstrap token 后，应可复制：
+6. 新终端首次打开激活页时，应自动生成并展示短时有效绑定码；管理端认领后，终端应在轮询中自动拿到 bootstrap token 并进入中控 shell。
+7. 管理端创建或重置 bootstrap token 后，应可复制：
    - bootstrap token 原文
    - 激活链接
    - 激活码
    - 并展示可扫码的激活二维码
-7. 终端通过激活链接进入后，地址栏中的 `bootstrap_token` 参数应被自动清除。
+8. 终端通过激活链接进入后，地址栏中的 `bootstrap_token` 参数应被自动清除。
 
 ### 9.3 终端交付与恢复流程
 
-1. 新终端上线
-   - 在管理端“设置 -> 系统 -> Bootstrap token”选择目标终端并创建 token。
+1. 安装期配对
+   - 未激活终端打开前端后，应在激活页展示绑定码。
+   - 在已授权管理端“设置 -> 系统 -> Claim pairing code”输入绑定码，并先完成 PIN 验证。
+   - 认领成功后，终端应在数秒内自动完成激活，无需人工粘贴 bootstrap token。
+2. 新终端上线
+   - 如现场不方便使用绑定码认领，可在管理端“设置 -> 系统 -> Bootstrap token”选择目标终端并创建 token。
    - 优先使用激活二维码或激活链接完成交付；无法扫码时改用激活码或 token 原文。
    - 终端激活成功后，应在本地写入 `smart_home.bootstrap_token`，后续刷新页面无需再次输入。
-2. 终端重装
+3. 终端重装
    - 在管理端对同一 terminal 执行“重置 bootstrap token”。
    - 旧 token、旧激活链接、旧激活码应立即失效。
    - 将新的二维码 / 激活链接 / 激活码交付给重装后的终端。
-3. 现场换机
+4. 绑定码过期或失效
+   - 终端激活页点击刷新后应生成新的绑定码。
+   - 管理端只认领当前可见绑定码；旧绑定码在刷新后应立即失效。
+5. 现场换机
    - 先完成 replacement terminal 的建档或预注册，再为新的 terminal_id 签发 bootstrap token。
    - 旧 terminal 不再使用时，应重置或撤销其 bootstrap token，避免旧设备继续换取 Bearer access token。
-4. 运维脚本
+6. 运维脚本
    - 可使用 `backend/scripts/issue_bootstrap_token.py` 正式签发终端 token。
    - 示例：
 
@@ -323,6 +333,10 @@ docker compose exec -T backend python scripts/issue_bootstrap_token.py `
    - 排查：确认激活码或链接是否复制完整、是否已被重置、是否属于当前 terminal。
 9. 症状：终端打开激活链接后仍停留在激活页
    - 排查：确认 backend 可达、`POST /api/v1/auth/session/bootstrap` 返回 `200`、浏览器是否拦截了地址栏跳转参数。
+10. 症状：绑定码一直停留在“Waiting for claim”
+   - 排查：确认管理端已完成 PIN 验证、认领的是当前屏幕展示的最新绑定码、目标 terminal 已预注册且网络可达。
+11. 症状：管理端认领成功但终端没有自动激活
+   - 排查：确认 `GET /api/v1/terminals/{terminal_id}/pairing-code-sessions/{pairing_id}` 轮询返回正常、服务端时间未漂移、终端页面未进入休眠或被浏览器节流。
 
 ---
 

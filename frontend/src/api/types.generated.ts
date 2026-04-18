@@ -656,6 +656,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/terminals/pairing-code-claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Terminal Pairing Code */
+        post: operations["post_api_v1_terminals_pairing_code_claims"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/terminals/{terminal_id}/bootstrap-token": {
         parameters: {
             query?: never;
@@ -668,6 +685,40 @@ export interface paths {
         put?: never;
         /** Create Or Reset Bootstrap Token */
         post: operations["post_api_v1_terminals_terminal_id_bootstrap_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/terminals/{terminal_id}/pairing-code-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Terminal Pairing Code */
+        post: operations["post_api_v1_terminals_terminal_id_pairing_code_sessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/terminals/{terminal_id}/pairing-code-sessions/{pairing_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Poll Terminal Pairing Code */
+        get: operations["get_api_v1_terminals_terminal_id_pairing_code_sessions_pairing_id"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2793,6 +2844,42 @@ export interface components {
              */
             success: boolean;
         };
+        /** SuccessEnvelope[TerminalPairingClaimResponse] */
+        SuccessEnvelope_TerminalPairingClaimResponse_: {
+            data: components["schemas"]["TerminalPairingClaimResponse"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        };
+        /** SuccessEnvelope[TerminalPairingIssueResponse] */
+        SuccessEnvelope_TerminalPairingIssueResponse_: {
+            data: components["schemas"]["TerminalPairingIssueResponse"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        };
+        /** SuccessEnvelope[TerminalPairingPollResponse] */
+        SuccessEnvelope_TerminalPairingPollResponse_: {
+            data: components["schemas"]["TerminalPairingPollResponse"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        };
         /** SuccessEnvelope[dict[str, Any]] */
         SuccessEnvelope_dict_str__Any__: {
             /** Data */
@@ -2968,6 +3055,74 @@ export interface components {
             terminal_mode: string;
             /** Token Configured */
             token_configured: boolean;
+        };
+        /** TerminalPairingClaimBody */
+        TerminalPairingClaimBody: {
+            /** Pairing Code */
+            pairing_code: string;
+        };
+        /** TerminalPairingClaimResponse */
+        TerminalPairingClaimResponse: {
+            /** Bootstrap Token Expires At */
+            bootstrap_token_expires_at: string;
+            /** Claimed At */
+            claimed_at: string;
+            /** Pairing Id */
+            pairing_id: string;
+            /** Rotated */
+            rotated: boolean;
+            /** Status */
+            status: string;
+            /** Terminal Code */
+            terminal_code: string;
+            /** Terminal Id */
+            terminal_id: string;
+            /** Terminal Mode */
+            terminal_mode: string;
+            /** Terminal Name */
+            terminal_name: string;
+        };
+        /** TerminalPairingIssueResponse */
+        TerminalPairingIssueResponse: {
+            /** Expires At */
+            expires_at: string;
+            /** Pairing Code */
+            pairing_code: string;
+            /** Pairing Id */
+            pairing_id: string;
+            /** Status */
+            status: string;
+            /** Terminal Code */
+            terminal_code: string;
+            /** Terminal Id */
+            terminal_id: string;
+            /** Terminal Mode */
+            terminal_mode: string;
+            /** Terminal Name */
+            terminal_name: string;
+        };
+        /** TerminalPairingPollResponse */
+        TerminalPairingPollResponse: {
+            /** Bootstrap Token */
+            bootstrap_token?: string | null;
+            /** Bootstrap Token Expires At */
+            bootstrap_token_expires_at?: string | null;
+            /** Claimed At */
+            claimed_at?: string | null;
+            /** Expires At */
+            expires_at: string;
+            /** Pairing Id */
+            pairing_id: string;
+            /** Status */
+            status: string;
+            /** Terminal Code */
+            terminal_code: string;
+            /** Terminal Id */
+            terminal_id: string;
+            /** Terminal Mode */
+            terminal_mode: string;
+            /** Terminal Name */
+            terminal_name: string;
         };
         /** UnbindMediaBody */
         UnbindMediaBody: {
@@ -11406,6 +11561,200 @@ export interface operations {
             };
         };
     };
+    post_api_v1_terminals_pairing_code_claims: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalPairingClaimBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_TerminalPairingClaimResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
     get_api_v1_terminals_terminal_id_bootstrap_token: {
         parameters: {
             query?: never;
@@ -11616,6 +11965,391 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuccessEnvelope_TerminalBootstrapTokenResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    post_api_v1_terminals_terminal_id_pairing_code_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                terminal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_TerminalPairingIssueResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    get_api_v1_terminals_terminal_id_pairing_code_sessions_pairing_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                terminal_id: string;
+                pairing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_TerminalPairingPollResponse_"];
                 };
             };
             /** @description Invalid request parameters */

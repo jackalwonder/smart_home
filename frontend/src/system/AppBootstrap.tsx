@@ -11,6 +11,7 @@ import { syncRealtimeSession } from "./realtime";
 import { wsClient } from "../ws/wsClient";
 import { clearAccessToken } from "../auth/accessToken";
 import { consumeBootstrapTokenFromUrl, setBootstrapToken } from "../auth/bootstrapToken";
+import { getRequestContext } from "../config/requestContext";
 import { TerminalActivationPage } from "../pages/TerminalActivationPage";
 
 export function AppBootstrap({ children }: PropsWithChildren) {
@@ -119,6 +120,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
   if (activationRequired) {
     return (
       <TerminalActivationPage
+        terminalId={getRequestContext().terminalId}
         error={appStore.getSnapshot().session.error}
         loading={activationLoading}
         onActivate={handleActivate}

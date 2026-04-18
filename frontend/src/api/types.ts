@@ -292,3 +292,39 @@ export interface TerminalBootstrapTokenAuditItemDto {
 export interface TerminalBootstrapTokenAuditListDto {
   items: TerminalBootstrapTokenAuditItemDto[];
 }
+
+export interface TerminalPairingIssueDto {
+  pairing_id: string;
+  terminal_id: string;
+  terminal_code: string;
+  terminal_name: string;
+  terminal_mode: string;
+  pairing_code: string;
+  expires_at: string;
+  status: string;
+}
+
+export interface TerminalPairingPollDto {
+  pairing_id: string;
+  terminal_id: string;
+  terminal_code: string;
+  terminal_name: string;
+  terminal_mode: string;
+  status: string;
+  expires_at: string;
+  claimed_at: string | null;
+  bootstrap_token: string | null;
+  bootstrap_token_expires_at: string | null;
+}
+
+export interface TerminalPairingClaimDto {
+  pairing_id: string;
+  terminal_id: string;
+  terminal_code: string;
+  terminal_name: string;
+  terminal_mode: string;
+  status: string;
+  claimed_at: string;
+  bootstrap_token_expires_at: string;
+  rotated: boolean;
+}

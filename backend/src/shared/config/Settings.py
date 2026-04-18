@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     bootstrap_token_secret: str = "smart-home-local-bootstrap-token-secret"
     bootstrap_token_ttl_seconds: int = 2592000
     bootstrap_token_leeway_seconds: int = 0
+    pairing_code_ttl_seconds: int = 600
     readiness_check_timeout_seconds: float = 3.0
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_latitude: float = 31.2304
