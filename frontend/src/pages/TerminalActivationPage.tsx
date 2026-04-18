@@ -37,9 +37,9 @@ function formatDateTime(value: string | null | undefined) {
 function pairingStatusCopy(status: string) {
   switch (status) {
     case "CLAIMED":
-      return "Claimed. Waiting for terminal handoff.";
+      return "Claimed. Waiting for secure handoff.";
     case "DELIVERED":
-      return "Activation token delivered. Completing sign-in.";
+      return "Token delivered. Completing sign-in.";
     case "COMPLETED":
       return "Activation already completed.";
     case "EXPIRED":
@@ -48,6 +48,20 @@ function pairingStatusCopy(status: string) {
       return "Pairing code was replaced. Refresh to issue a new one.";
     default:
       return "Waiting for claim.";
+  }
+}
+
+function pairingStatusTone(status: string) {
+  switch (status) {
+    case "CLAIMED":
+    case "DELIVERED":
+    case "COMPLETED":
+      return "success";
+    case "EXPIRED":
+    case "INVALIDATED":
+      return "warning";
+    default:
+      return "waiting";
   }
 }
 
@@ -171,6 +185,8 @@ export function TerminalActivationPage({
   }
 
   const displayError = localError ?? pairingError ?? error;
+  const pairingCode = pairingSession?.pairing_code ?? (pairingBusy ? "Loading..." : "-");
+  const pairingTone = pairingError ? "warning" : pairingStatusTone(pairingStatus);
 
   return (
     <main className="terminal-activation">
@@ -190,11 +206,11 @@ export function TerminalActivationPage({
             id="terminal-activation-title"
             aria-label="激活这台中控"
           >
-            Activate this terminal
+            Activate this terminal with a pairing code
           </h1>
           <p>
-            Claim the pairing code from the management workspace, or paste a bootstrap token,
-            activation link, or activation code below.
+            Ask a PIN-verified operator to claim the code below. This terminal will finish setup
+            automatically after the secure handoff.
           </p>
         </div>
 
@@ -203,8 +219,7 @@ export function TerminalActivationPage({
             <div>
               <h2 id="pairing-title">Pairing code</h2>
               <p className="muted-copy">
-                Short-lived and one-time use. Claim this code from a PIN-verified management
-                workspace. Terminal ID: <span data-testid="pairing-terminal-id">{terminalId}</span>
+                Short-lived, one-time use, and safe to replace after the refresh cooldown.
               </p>
             </div>
             <button
@@ -221,10 +236,10 @@ export function TerminalActivationPage({
             <div className="terminal-activation__pairing-code">
               <span className="terminal-activation__pairing-label">Code</span>
               <strong data-testid="pairing-code-value">
-                {pairingSession?.pairing_code ?? (pairingBusy ? "Loading..." : "-")}
+                {pairingCode}
               </strong>
             </div>
-            <div className="terminal-activation__pairing-meta">
+            <div className={`terminal-activation__pairing-meta is-${pairingTone}`}>
               <span>Status</span>
               <strong data-testid="pairing-status-value">{pairingStatusCopy(pairingStatus)}</strong>
             </div>
@@ -233,14 +248,32 @@ export function TerminalActivationPage({
               <strong>{formatDateTime(pairingSession?.expires_at)}</strong>
             </div>
           </div>
+          <ol className="terminal-activation__steps" aria-label="Pairing steps">
+            <li>Open Settings, then System.</li>
+            <li>Verify management PIN.</li>
+            <li>Claim this code from Pairing claim.</li>
+          </ol>
+          <p className="terminal-activation__terminal-id">
+            Terminal ID <span data-testid="pairing-terminal-id">{terminalId}</span>
+          </p>
         </section>
 
         <form className="terminal-activation__form" onSubmit={handleSubmit}>
-          <label htmlFor="bootstrap-token">Bootstrap token / activation link / activation code</label>
+          <div className="terminal-activation__manual-header">
+            <div>
+              <label htmlFor="bootstrap-token">Manual recovery</label>
+              <p className="terminal-activation__hint">
+                Paste a bootstrap token, activation link, or activation code when pairing is not
+                available.
+              </p>
+            </div>
+            <span>Fallback</span>
+          </div>
           <textarea
             ref={inputRef}
             id="bootstrap-token"
             name="bootstrap-token"
+            aria-label="Bootstrap token / activation link / activation code"
             autoComplete="off"
             spellCheck={false}
             value={token}
@@ -259,8 +292,7 @@ export function TerminalActivationPage({
             </p>
           ) : (
             <p className="terminal-activation__hint">
-              The pairing code above is the fastest path. Manual bootstrap entry stays available as
-              a fallback.
+              Keep this page open while the management workspace claims the pairing code.
             </p>
           )}
           <button

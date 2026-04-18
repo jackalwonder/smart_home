@@ -221,6 +221,56 @@
   position: relative;
 }
 
+.delivery-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: delivery-step;
+}
+
+.delivery-steps li {
+  counter-increment: delivery-step;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.delivery-steps li::before {
+  content: counter(delivery-step);
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(255, 198, 106, 0.14);
+  color: #ffe3a9;
+  font-weight: 700;
+}
+
+.delivery-steps strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.delivery-steps span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pairing-claim-input {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .bootstrap-token-reveal {
   display: grid;
   gap: 12px;
@@ -278,6 +328,10 @@
   display: grid;
   gap: 10px;
   min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(3, 8, 19, 0.42);
 }
 
 .bootstrap-token-delivery__qr-image,
@@ -303,6 +357,16 @@
 
 .bootstrap-token-delivery__code h4 {
   margin: 0 0 6px;
+}
+
+.delivery-method-label {
+  justify-self: start;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(88, 224, 170, 0.1);
+  color: #b6f4de;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .policy-editor,
@@ -579,6 +643,7 @@
   }
 
   .settings-form-grid,
+  .delivery-steps,
   .favorite-editor__row,
   .policy-editor__row,
   .backup-panel__toolbar,

@@ -175,6 +175,8 @@ test(TERMINAL_ACTIVATION_TEST, async ({ page }) => {
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "激活这台中控" })).toBeVisible();
+  await expect(page.getByText("Activate this terminal with a pairing code")).toBeVisible();
+  await expect(page.getByText("Verify management PIN.")).toBeVisible();
   await expect(page.locator(".control-shell")).toHaveCount(0);
 
   await page.getByLabel("Bootstrap token").fill(token);
@@ -204,6 +206,7 @@ test(TERMINAL_ACTIVATION_CODE_TEST, async ({ page }) => {
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "激活这台中控" })).toBeVisible();
+  await expect(page.getByText("Manual recovery")).toBeVisible();
 
   await page.locator("#bootstrap-token").fill(activationCode);
   await page.getByRole("button", { name: "激活终端" }).click();
@@ -219,6 +222,7 @@ test(TERMINAL_PAIRING_TEST, async ({ page, request }) => {
   clearPairingSessions(TERMINAL_ID);
 
   await page.goto("/");
+  await expect(page.getByText("Claim this code from Pairing claim.")).toBeVisible();
   await expect
     .poll(async () => (await page.getByTestId("pairing-code-value").textContent())?.trim() ?? "")
     .not.toBe("Loading...");
