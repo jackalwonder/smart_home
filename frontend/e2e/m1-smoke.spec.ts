@@ -746,6 +746,39 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(page.getByText("快照摘要").first()).toBeVisible();
 });
 
+test("settings can rotate bootstrap token and revoke the previous token", async ({
+  page,
+  request,
+}) => {
+  const previousToken = issueBootstrapToken(TERMINAL_ID);
+
+  await unlockManagementPin(page);
+  await page.locator(".settings-side-nav__item").nth(1).click();
+  await expect(page.getByRole("heading", { level: 3, name: "Bootstrap token" })).toBeVisible();
+
+  await page.getByRole("button", { name: "重置 bootstrap token" }).click();
+  await expect(page.getByRole("heading", { level: 4, name: "本次签发结果" })).toBeVisible();
+
+  const revealedToken = await page
+    .locator("section[aria-label='bootstrap token reveal'] textarea")
+    .inputValue();
+  expect(revealedToken).toBeTruthy();
+  expect(revealedToken).not.toBe(previousToken);
+  bootstrapTokens.set(TERMINAL_ID, revealedToken);
+
+  const revokedResponse = await request.post("/api/v1/auth/session/bootstrap", {
+    headers: { authorization: `Bootstrap ${previousToken}` },
+  });
+  expect(revokedResponse.status()).toBe(401);
+
+  const rotatedSession = await expectEnvelope<AuthSession>(
+    await request.post("/api/v1/auth/session/bootstrap", {
+      headers: { authorization: `Bootstrap ${revealedToken}` },
+    }),
+  );
+  expect(rotatedSession.terminal_id).toBe(TERMINAL_ID);
+});
+
 test("editor UI opens an edit session, saves draft, and publishes", async ({ page, request }) => {
   const session = await bootstrapSession(request);
   await ensureDevicesReady(request, session.access_token);

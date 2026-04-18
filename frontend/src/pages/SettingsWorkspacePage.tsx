@@ -16,12 +16,20 @@ import {
   testHomeAssistantConnection,
 } from "../api/systemConnectionsApi";
 import {
+  createOrResetTerminalBootstrapToken,
+  fetchTerminalBootstrapTokenAudits,
+  fetchTerminalBootstrapTokenDirectory,
+} from "../api/terminalBootstrapTokensApi";
+import {
   BackupListItemDto,
   BackupRestoreAuditItemDto,
   DefaultMediaDto,
   DeviceListItemDto,
   EnergyDto,
   SystemConnectionsEnvelopeDto,
+  TerminalBootstrapTokenAuditItemDto,
+  TerminalBootstrapTokenCreateDto,
+  TerminalBootstrapTokenDirectoryItemDto,
 } from "../api/types";
 import { normalizeApiError } from "../api/httpClient";
 import { PinAccessCard } from "../components/auth/PinAccessCard";
@@ -42,6 +50,7 @@ import {
   PolicyEntryDraftType,
 } from "../components/settings/StructuredPolicyEditor";
 import { SystemConnectionPanel } from "../components/settings/SystemConnectionPanel";
+import { TerminalBootstrapTokenPanel } from "../components/settings/TerminalBootstrapTokenPanel";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { SettingsSectionViewModel, mapSettingsViewModel } from "../view-models/settings";
 import { asArray, asBoolean, asNumber, asRecord, asString } from "../view-models/utils";
@@ -81,6 +90,11 @@ interface SystemConnectionDraftState {
   lastTestResult: string | null;
   lastSyncAt: string | null;
   lastSyncResult: string | null;
+}
+
+interface FeedbackState {
+  tone: "success" | "error";
+  text: string;
 }
 
 function isMediaCandidateDevice(device: DeviceListItemDto) {
@@ -246,6 +260,17 @@ export function SettingsWorkspacePage() {
   const [systemSaveBusy, setSystemSaveBusy] = useState(false);
   const [systemTestBusy, setSystemTestBusy] = useState(false);
   const [systemSyncBusy, setSystemSyncBusy] = useState(false);
+  const [bootstrapTokenDirectory, setBootstrapTokenDirectory] = useState<
+    TerminalBootstrapTokenDirectoryItemDto[]
+  >([]);
+  const [selectedBootstrapTerminalId, setSelectedBootstrapTerminalId] = useState("");
+  const [bootstrapTokenReveal, setBootstrapTokenReveal] =
+    useState<TerminalBootstrapTokenCreateDto | null>(null);
+  const [bootstrapTokenAudits, setBootstrapTokenAudits] = useState<TerminalBootstrapTokenAuditItemDto[]>([]);
+  const [bootstrapTokenFeedback, setBootstrapTokenFeedback] = useState<FeedbackState | null>(null);
+  const [bootstrapTokenLoading, setBootstrapTokenLoading] = useState(false);
+  const [bootstrapTokenAuditLoading, setBootstrapTokenAuditLoading] = useState(false);
+  const [bootstrapTokenCreateBusy, setBootstrapTokenCreateBusy] = useState(false);
   const [energyState, setEnergyState] = useState<EnergyDto | null>(null);
   const [energyPayloadText, setEnergyPayloadText] = useState('{\n  "account_id": "demo",\n  "provider": "utility"\n}');
   const [energyMessage, setEnergyMessage] = useState<string | null>(null);
@@ -304,17 +329,85 @@ export function SettingsWorkspacePage() {
   async function loadSettings() {
     appStore.setSettingsLoading();
     try {
-      const [settingsData, systemData] = await Promise.all([
+      const bootstrapDirectoryPromise = pin.active
+        ? fetchTerminalBootstrapTokenDirectory()
+        : Promise.resolve(null);
+      const [settingsData, systemData, bootstrapDirectory] = await Promise.all([
         fetchSettings(),
         fetchSystemConnections(),
+        bootstrapDirectoryPromise,
       ]);
       const nextSettingsData = settingsData as unknown as Record<string, unknown>;
       appStore.setSettingsData(nextSettingsData);
       setSettingsDraft(createSettingsDraft(nextSettingsData));
       setDraftSourceSettingsVersion(getSettingsVersion(nextSettingsData));
       setSystemDraft(createSystemDraft(systemData));
+      const items = bootstrapDirectory?.items ?? [];
+      setBootstrapTokenDirectory(items);
+      setSelectedBootstrapTerminalId((current) => {
+        if (current && items.some((item) => item.terminal_id === current)) {
+          return current;
+        }
+        if (session.data?.terminalId && items.some((item) => item.terminal_id === session.data?.terminalId)) {
+          return session.data.terminalId;
+        }
+        return items[0]?.terminal_id ?? "";
+      });
     } catch (error) {
       appStore.setSettingsError(normalizeApiError(error).message);
+    }
+  }
+
+  async function loadBootstrapTokenDirectory() {
+    if (!pin.active) {
+      setBootstrapTokenDirectory([]);
+      setSelectedBootstrapTerminalId("");
+      return;
+    }
+
+    setBootstrapTokenLoading(true);
+    try {
+      const response = await fetchTerminalBootstrapTokenDirectory();
+      setBootstrapTokenDirectory(response.items);
+      setSelectedBootstrapTerminalId((current) => {
+        if (current && response.items.some((item) => item.terminal_id === current)) {
+          return current;
+        }
+        if (
+          session.data?.terminalId &&
+          response.items.some((item) => item.terminal_id === session.data?.terminalId)
+        ) {
+          return session.data.terminalId;
+        }
+        return response.items[0]?.terminal_id ?? "";
+      });
+    } catch (error) {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: normalizeApiError(error).message,
+      });
+    } finally {
+      setBootstrapTokenLoading(false);
+    }
+  }
+
+  async function loadBootstrapTokenAudits() {
+    if (!pin.active) {
+      setBootstrapTokenAudits([]);
+      return;
+    }
+
+    setBootstrapTokenAuditLoading(true);
+    try {
+      const response = await fetchTerminalBootstrapTokenAudits();
+      setBootstrapTokenAudits(response.items);
+    } catch (error) {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: normalizeApiError(error).message,
+      });
+    } finally {
+      setBootstrapTokenAuditLoading(false);
     }
   }
 
@@ -370,7 +463,15 @@ export function SettingsWorkspacePage() {
       return;
     }
     void loadMediaCandidates();
-  }, [activeSection, session.data?.accessToken, session.status]);
+    if (pin.active) {
+      void loadBootstrapTokenDirectory();
+      void loadBootstrapTokenAudits();
+    } else {
+      setBootstrapTokenDirectory([]);
+      setSelectedBootstrapTerminalId("");
+      setBootstrapTokenAudits([]);
+    }
+  }, [activeSection, pin.active, session.data?.accessToken, session.status]);
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -430,6 +531,9 @@ export function SettingsWorkspacePage() {
   }, [latestWsEvent]);
 
   const viewModel = mapSettingsViewModel(settings.data);
+  const selectedBootstrapTerminal =
+    bootstrapTokenDirectory.find((item) => item.terminal_id === selectedBootstrapTerminalId) ?? null;
+  const bootstrapTokenState = selectedBootstrapTerminal;
   const overviewRows = [
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
@@ -438,6 +542,10 @@ export function SettingsWorkspacePage() {
     { label: "备份", value: `${backupItems.length} 条` },
     { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
   ];
+  overviewRows.splice(1, 0, {
+    label: "终端激活",
+    value: bootstrapTokenState?.token_configured ? "已配置" : "待配置",
+  });
   const activeSectionConfig =
     viewModel.sections.find((section) => section.key === activeSection) ?? viewModel.sections[0];
 
@@ -744,6 +852,62 @@ export function SettingsWorkspacePage() {
     }
   }
 
+  async function handleCreateOrResetBootstrapToken() {
+    if (!pin.active) {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: "创建终端激活令牌前，请先验证管理 PIN。",
+      });
+      return;
+    }
+    if (!selectedBootstrapTerminalId) {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: "当前终端会话还未就绪，请稍后重试。",
+      });
+      return;
+    }
+
+    setBootstrapTokenFeedback(null);
+    setBootstrapTokenCreateBusy(true);
+    try {
+      const response = await createOrResetTerminalBootstrapToken(selectedBootstrapTerminalId);
+      setBootstrapTokenReveal(response);
+      setBootstrapTokenFeedback({
+        tone: "success",
+        text: response.rotated
+          ? "Bootstrap token 已重置，旧令牌已立即失效。"
+          : "Bootstrap token 已创建，可用于新终端激活。",
+      });
+      await Promise.all([loadBootstrapTokenDirectory(), loadBootstrapTokenAudits()]);
+    } catch (error) {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: normalizeApiError(error).message,
+      });
+    } finally {
+      setBootstrapTokenCreateBusy(false);
+    }
+  }
+
+  async function handleCopyBootstrapToken() {
+    if (!bootstrapTokenReveal?.bootstrap_token) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(bootstrapTokenReveal.bootstrap_token);
+      setBootstrapTokenFeedback({
+        tone: "success",
+        text: "Bootstrap token 已复制到剪贴板。",
+      });
+    } catch {
+      setBootstrapTokenFeedback({
+        tone: "error",
+        text: "复制失败，请手动复制当前展示的 bootstrap token。",
+      });
+    }
+  }
+
   async function handleCreateBackup() {
     if (!pin.active) {
       setBackupMessage("创建备份前，请先验证管理 PIN。");
@@ -962,6 +1126,26 @@ export function SettingsWorkspacePage() {
           onUnbind={() => void handleUnbindDefaultMedia()}
           selectedDeviceId={selectedMediaDeviceId}
           unbindBusy={mediaUnbindBusy}
+        />
+        <TerminalBootstrapTokenPanel
+          audits={bootstrapTokenAudits}
+          auditLoading={bootstrapTokenAuditLoading}
+          availableTerminals={bootstrapTokenDirectory}
+          canEdit={pin.active}
+          createBusy={bootstrapTokenCreateBusy}
+          loading={bootstrapTokenLoading}
+          message={bootstrapTokenFeedback}
+          onCopy={() => void handleCopyBootstrapToken()}
+          onCreateOrReset={() => void handleCreateOrResetBootstrapToken()}
+          onRefresh={() => void loadBootstrapTokenDirectory()}
+          onRefreshAudits={() => void loadBootstrapTokenAudits()}
+          onSelectTerminalId={(value) => {
+            setSelectedBootstrapTerminalId(value);
+            setBootstrapTokenReveal(null);
+          }}
+          revealedToken={bootstrapTokenReveal}
+          selectedTerminalId={selectedBootstrapTerminalId}
+          status={selectedBootstrapTerminal}
         />
       </>
     );

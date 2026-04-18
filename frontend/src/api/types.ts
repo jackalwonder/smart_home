@@ -237,3 +237,58 @@ export type PinVerifyInput = Omit<Schema<"PinVerifyRequestBody">, "member_id">;
 export type PinVerifyDto = Schema<"PinVerifyResponse">;
 
 export type PinSessionDto = RequireFields<Schema<"PinSessionResponse">, "pin_session_expires_at">;
+
+export interface TerminalBootstrapTokenStatusDto {
+  terminal_id: string;
+  terminal_mode: string;
+  token_configured: boolean;
+  issued_at: string | null;
+  expires_at: string | null;
+  last_used_at: string | null;
+}
+
+export interface TerminalBootstrapTokenCreateDto {
+  terminal_id: string;
+  bootstrap_token: string;
+  expires_at: string;
+  token_type: "Bootstrap";
+  scope: string[];
+  rotated: boolean;
+}
+
+export interface TerminalBootstrapTokenDirectoryItemDto {
+  terminal_id: string;
+  terminal_code: string;
+  terminal_name: string;
+  terminal_mode: string;
+  token_configured: boolean;
+  issued_at: string | null;
+  expires_at: string | null;
+  last_used_at: string | null;
+}
+
+export interface TerminalBootstrapTokenDirectoryDto {
+  items: TerminalBootstrapTokenDirectoryItemDto[];
+}
+
+export interface TerminalBootstrapTokenAuditItemDto {
+  audit_id: string;
+  terminal_id: string;
+  terminal_code: string;
+  terminal_name: string;
+  action_type: string;
+  operator_id: string | null;
+  operator_name: string | null;
+  acting_terminal_id: string | null;
+  acting_terminal_name: string | null;
+  before_version: string | null;
+  after_version: string | null;
+  result_status: string;
+  expires_at: string | null;
+  rotated: boolean | null;
+  created_at: string;
+}
+
+export interface TerminalBootstrapTokenAuditListDto {
+  items: TerminalBootstrapTokenAuditItemDto[];
+}
