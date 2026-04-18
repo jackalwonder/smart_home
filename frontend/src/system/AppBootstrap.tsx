@@ -6,45 +6,63 @@ import {
   isBootstrapTokenActivationError,
 } from "../api/authApi";
 import { SessionModel } from "../api/types";
-import { appStore } from "../store/useAppStore";
-import { syncRealtimeSession } from "./realtime";
-import { wsClient } from "../ws/wsClient";
 import { clearAccessToken } from "../auth/accessToken";
 import { consumeBootstrapTokenFromUrl, setBootstrapToken } from "../auth/bootstrapToken";
 import { getRequestContext } from "../config/requestContext";
-import { TerminalActivationPage } from "../pages/TerminalActivationPage";
+import {
+  TerminalActivationEntryMode,
+  TerminalActivationPage,
+  TerminalActivationSuccessState,
+} from "../pages/TerminalActivationPage";
+import { appStore } from "../store/useAppStore";
+import { wsClient } from "../ws/wsClient";
+import { syncRealtimeSession } from "./realtime";
+
+const ACTIVATION_SUCCESS_HOLD_MS = 2200;
 
 export function AppBootstrap({ children }: PropsWithChildren) {
   const [activationRequired, setActivationRequired] = useState(false);
   const [activationLoading, setActivationLoading] = useState(false);
+  const [activationSuccess, setActivationSuccess] = useState<TerminalActivationSuccessState | null>(
+    null,
+  );
 
-  const completeSession = useCallback(async (data: SessionModel, active: () => boolean) => {
-    if (!active()) {
-      return;
-    }
-    appStore.setSessionData(data);
-    appStore.setPinState({
-      active: data.pinSessionActive,
-      expiresAt: data.pinSessionExpiresAt,
-      remainingLockSeconds: 0,
-    });
-    syncRealtimeSession(data);
+  const completeSession = useCallback(
+    async (
+      data: SessionModel,
+      active: () => boolean,
+      options?: { preserveActivationView?: boolean },
+    ) => {
+      if (!active()) {
+        return;
+      }
+      appStore.setSessionData(data);
+      appStore.setPinState({
+        active: data.pinSessionActive,
+        expiresAt: data.pinSessionExpiresAt,
+        remainingLockSeconds: 0,
+      });
+      syncRealtimeSession(data);
 
-    const pinStatus = await fetchPinSessionStatus();
-    if (!active()) {
-      return;
-    }
-    appStore.setPinState({
-      active: pinStatus.pin_session_active,
-      expiresAt: pinStatus.pin_session_expires_at,
-      remainingLockSeconds: pinStatus.remaining_lock_seconds,
-    });
-    setActivationRequired(false);
-  }, []);
+      const pinStatus = await fetchPinSessionStatus();
+      if (!active()) {
+        return;
+      }
+      appStore.setPinState({
+        active: pinStatus.pin_session_active,
+        expiresAt: pinStatus.pin_session_expires_at,
+        remainingLockSeconds: pinStatus.remaining_lock_seconds,
+      });
+      if (!options?.preserveActivationView) {
+        setActivationRequired(false);
+      }
+    },
+    [],
+  );
 
   const setBootError = useCallback((error: unknown) => {
     clearAccessToken();
-    const message = error instanceof Error ? error.message : "启动会话加载失败";
+    const message = error instanceof Error ? error.message : "终端启动失败，请稍后重试。";
     appStore.setSessionError(message);
     if (isBootstrapTokenActivationError(error)) {
       if (
@@ -55,9 +73,42 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       ) {
         setBootstrapToken(null);
       }
+      setActivationSuccess(null);
       setActivationRequired(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!activationSuccess) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setActivationSuccess(null);
+      setActivationRequired(false);
+    }, ACTIVATION_SUCCESS_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [activationSuccess]);
+
+  const finishActivation = useCallback(
+    async (
+      bootstrapToken: string,
+      source: TerminalActivationEntryMode,
+      active: () => boolean,
+    ) => {
+      const data = await activateSessionWithBootstrapToken(bootstrapToken);
+      setBootstrapToken(bootstrapToken);
+      await completeSession(data, active, { preserveActivationView: true });
+      if (!active()) {
+        return;
+      }
+      setActivationSuccess({
+        destinationLabel: "首页",
+        mode: source,
+      });
+      setActivationRequired(true);
+    },
+    [completeSession],
+  );
 
   useEffect(() => {
     let active = true;
@@ -71,9 +122,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
             setActivationRequired(true);
             setActivationLoading(true);
           }
-          const data = await activateSessionWithBootstrapToken(deliveredBootstrapToken);
-          setBootstrapToken(deliveredBootstrapToken);
-          await completeSession(data, () => active);
+          await finishActivation(deliveredBootstrapToken, "scan", () => active);
           return;
         }
         const data = await fetchCurrentSession();
@@ -97,19 +146,20 @@ export function AppBootstrap({ children }: PropsWithChildren) {
         connectionStatus: "idle",
         lastEventType: null,
         lastSequence: null,
-        reconnectAttempt: 0,
         notice: null,
+        reconnectAttempt: 0,
       });
     };
-  }, [completeSession, setBootError]);
+  }, [completeSession, finishActivation, setBootError]);
 
-  async function handleActivate(bootstrapToken: string) {
+  async function handleActivate(
+    bootstrapToken: string,
+    mode: TerminalActivationEntryMode,
+  ) {
     setActivationLoading(true);
     appStore.setSessionLoading();
     try {
-      const data = await activateSessionWithBootstrapToken(bootstrapToken);
-      setBootstrapToken(bootstrapToken);
-      await completeSession(data, () => true);
+      await finishActivation(bootstrapToken, mode, () => true);
     } catch (error) {
       setBootError(error);
     } finally {
@@ -124,6 +174,11 @@ export function AppBootstrap({ children }: PropsWithChildren) {
         error={appStore.getSnapshot().session.error}
         loading={activationLoading}
         onActivate={handleActivate}
+        onContinueAfterSuccess={() => {
+          setActivationSuccess(null);
+          setActivationRequired(false);
+        }}
+        successState={activationSuccess}
       />
     );
   }

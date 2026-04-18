@@ -1,5 +1,5 @@
-import { ApiEnvelope, ApiError, ApiErrorPayload } from "./types";
 import { getAccessToken } from "../auth/accessToken";
+import { ApiEnvelope, ApiError, ApiErrorPayload } from "./types";
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "";
 
@@ -11,10 +11,7 @@ interface ApiRequestOptions extends RequestInit {
   useAccessToken?: boolean;
 }
 
-export async function apiRequest<T>(
-  input: string,
-  init?: ApiRequestOptions,
-): Promise<T> {
+export async function apiRequest<T>(input: string, init?: ApiRequestOptions): Promise<T> {
   const url = new URL(`${API_BASE_URL}${input}`);
   const accessToken = getAccessToken();
   const useAccessToken = init?.useAccessToken ?? true;
@@ -41,7 +38,7 @@ export async function apiRequest<T>(
   } catch {
     throw new ApiError({
       code: "BAD_RESPONSE",
-      message: "服务端未返回可解析的 JSON 响应",
+      message: "服务端没有返回可解析的 JSON 响应。",
     });
   }
 
@@ -49,7 +46,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       envelope.error ?? {
         code: "REQUEST_FAILED",
-        message: "请求失败",
+        message: "请求失败。",
       },
     );
   }

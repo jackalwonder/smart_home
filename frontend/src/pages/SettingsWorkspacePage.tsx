@@ -418,13 +418,16 @@ function getSettingsVersion(data: Record<string, unknown> | null): string | null
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function createSystemDraft(data: SystemConnectionsEnvelopeDto | null): SystemConnectionDraftState {
+function createSystemDraft(
+  data: SystemConnectionsEnvelopeDto | null,
+  previousDraft?: SystemConnectionDraftState | null,
+): SystemConnectionDraftState {
   const current = data?.home_assistant ?? null;
 
   return {
     connectionMode: current?.connection_mode ?? "TOKEN",
-    baseUrl: "",
-    accessToken: "",
+    baseUrl: previousDraft?.baseUrl ?? "",
+    accessToken: previousDraft?.accessToken ?? "",
     baseUrlMasked: current?.base_url_masked ?? null,
     connectionStatus: current?.connection_status ?? "DISCONNECTED",
     authConfigured: current?.auth_configured ?? false,
@@ -493,7 +496,7 @@ export function SettingsWorkspacePage() {
 
   async function loadSystemConnection() {
     const response = await fetchSystemConnections();
-    setSystemDraft(createSystemDraft(response));
+    setSystemDraft((current) => createSystemDraft(response, current));
   }
 
   async function loadEnergyState() {
@@ -539,7 +542,7 @@ export function SettingsWorkspacePage() {
       appStore.setSettingsData(nextSettingsData);
       setSettingsDraft(createSettingsDraft(nextSettingsData));
       setDraftSourceSettingsVersion(getSettingsVersion(nextSettingsData));
-      setSystemDraft(createSystemDraft(systemData));
+      setSystemDraft((current) => createSystemDraft(systemData, current));
       const items = bootstrapDirectory?.items ?? [];
       setBootstrapTokenDirectory(items);
       setSelectedBootstrapTerminalId((current) => {

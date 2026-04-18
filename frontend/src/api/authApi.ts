@@ -1,3 +1,5 @@
+import { setAccessToken } from "../auth/accessToken";
+import { getBootstrapToken } from "../auth/bootstrapToken";
 import { apiRequest } from "./httpClient";
 import {
   ApiError,
@@ -7,8 +9,6 @@ import {
   SessionDto,
   SessionModel,
 } from "./types";
-import { setAccessToken } from "../auth/accessToken";
-import { getBootstrapToken } from "../auth/bootstrapToken";
 
 export class BootstrapTokenActivationError extends Error {
   reason:
@@ -42,13 +42,15 @@ export function isBootstrapTokenActivationError(error: unknown) {
 export async function fetchCurrentSession(): Promise<SessionModel> {
   const bootstrapToken = getBootstrapToken();
   if (!bootstrapToken) {
-    throw new BootstrapTokenActivationError("请先激活终端。", "missing");
+    throw new BootstrapTokenActivationError("请先完成终端激活。", "missing");
   }
   const dto = await exchangeBootstrapToken(bootstrapToken);
   return mapSession(dto);
 }
 
-export async function activateSessionWithBootstrapToken(bootstrapToken: string): Promise<SessionModel> {
+export async function activateSessionWithBootstrapToken(
+  bootstrapToken: string,
+): Promise<SessionModel> {
   const dto = await exchangeBootstrapToken(bootstrapToken);
   return mapSession(dto);
 }
@@ -56,10 +58,10 @@ export async function activateSessionWithBootstrapToken(bootstrapToken: string):
 async function exchangeBootstrapToken(bootstrapToken: string) {
   try {
     return await apiRequest<SessionDto>("/api/v1/auth/session/bootstrap", {
-      method: "POST",
       headers: {
         Authorization: `Bootstrap ${bootstrapToken}`,
       },
+      method: "POST",
       useAccessToken: false,
     });
   } catch (error) {
@@ -67,10 +69,13 @@ async function exchangeBootstrapToken(bootstrapToken: string) {
       if (error.payload.code === "UNAUTHORIZED") {
         const message = error.payload.message.toLowerCase();
         if (message.includes("expired")) {
-          throw new BootstrapTokenActivationError("激活信息已过期，请在管理端重新创建。", "expired");
+          throw new BootstrapTokenActivationError(
+            "激活信息已经过期，请在管理端重新签发。",
+            "expired",
+          );
         }
         throw new BootstrapTokenActivationError(
-          "激活信息无效，可能已被重置、复制不完整，或不属于这台终端。",
+          "激活信息无效，可能已经被重置、内容不完整，或不属于这台终端。",
           "invalid",
         );
       }
@@ -81,7 +86,7 @@ async function exchangeBootstrapToken(bootstrapToken: string) {
     }
     if (error instanceof TypeError) {
       throw new BootstrapTokenActivationError(
-        "当前无法连接服务端，请检查网络或稍后再试。",
+        "当前无法连接服务端，请检查网络或稍后重试。",
         "network",
       );
     }
@@ -93,16 +98,16 @@ function mapSession(dto: SessionDto): SessionModel {
   setAccessToken(dto.access_token);
 
   return {
-    homeId: dto.home_id,
-    operatorId: dto.operator_id,
-    terminalId: dto.terminal_id,
-    loginMode: dto.login_mode,
-    terminalMode: dto.terminal_mode,
     accessToken: dto.access_token,
     accessTokenExpiresAt: dto.access_token_expires_at,
+    features: dto.features,
+    homeId: dto.home_id,
+    loginMode: dto.login_mode,
+    operatorId: dto.operator_id,
     pinSessionActive: dto.pin_session_active,
     pinSessionExpiresAt: dto.pin_session_expires_at,
-    features: dto.features,
+    terminalId: dto.terminal_id,
+    terminalMode: dto.terminal_mode,
   };
 }
 
@@ -112,7 +117,7 @@ export function fetchPinSessionStatus() {
 
 export function verifyManagementPin(input: PinVerifyInput) {
   return apiRequest<PinVerifyDto>("/api/v1/auth/pin/verify", {
-    method: "POST",
     body: JSON.stringify(input),
+    method: "POST",
   });
 }
