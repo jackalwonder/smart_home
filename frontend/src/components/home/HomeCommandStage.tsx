@@ -65,6 +65,23 @@ export function HomeCommandStage({
       </div>
 
       <div className="home-command-stage__surface">
+        <div className="home-command-stage__statusbar">
+          <div>
+            <span className="card-eyebrow">Home Overview</span>
+            <h2>家庭总览</h2>
+            <p>点选户型图上的热点，查看状态或直接控制设备。</p>
+          </div>
+          <div className="home-command-stage__chips">
+            <span className={`state-chip ${connectionTone}`}>
+              {connectionLabel}
+            </span>
+            <span className="state-chip">
+              {cacheMode ? "缓存模式" : "实时模式"}
+            </span>
+            <span className="state-chip">{hotspotStatusLabel}</span>
+            <span className="state-chip">{runningHotspots} 个运行中</span>
+          </div>
+        </div>
         <div className="home-command-stage__canvas">
           <div className="home-command-stage__ambient" aria-hidden="true" />
           {resolvedBackgroundImageUrl ? (
@@ -93,23 +110,6 @@ export function HomeCommandStage({
               </div>
             </div>
           )}
-          <div className="home-command-stage__statusbar">
-            <div>
-              <span className="card-eyebrow">Home Overview</span>
-              <h2>家庭总览</h2>
-              <p>点选户型图上的热点，查看状态或直接控制设备。</p>
-            </div>
-            <div className="home-command-stage__chips">
-              <span className={`state-chip ${connectionTone}`}>
-                {connectionLabel}
-              </span>
-              <span className="state-chip">
-                {cacheMode ? "缓存模式" : "实时模式"}
-              </span>
-              <span className="state-chip">{hotspotStatusLabel}</span>
-              <span className="state-chip">{runningHotspots} 个运行中</span>
-            </div>
-          </div>
           <HomeHotspotOverlay
             hotspots={hotspots}
             onSelectHotspot={onSelectHotspot}
