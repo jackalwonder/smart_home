@@ -6,7 +6,11 @@ interface BottomStatsStripProps {
   connectionStatus: string;
 }
 
-export function BottomStatsStrip({ stats, events, connectionStatus }: BottomStatsStripProps) {
+export function BottomStatsStrip({
+  stats,
+  events,
+  connectionStatus,
+}: BottomStatsStripProps) {
   const normalizedStatus = connectionStatus.toLowerCase();
   const connectionTone =
     normalizedStatus === "connected"
@@ -20,34 +24,43 @@ export function BottomStatsStrip({ stats, events, connectionStatus }: BottomStat
       : normalizedStatus === "reconnecting"
         ? "重连中"
         : normalizedStatus === "connecting"
-        ? "连接中"
-        : "未连接";
+          ? "连接中"
+          : "未连接";
 
   return (
     <div className="bottom-stats-area">
-      <section className="bottom-stats-strip">
-        {stats.map((stat) => (
-          <article key={stat.label} className="bottom-stats-strip__item">
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </article>
-        ))}
-      </section>
       <section className="bottom-event-strip">
         <div className="bottom-event-strip__header">
-          <span className="card-eyebrow">实时流</span>
-          <strong className={`bottom-event-strip__status ${connectionTone}`}>{connectionLabel}</strong>
+          <div>
+            <span className="card-eyebrow">实时流</span>
+            <h3>最近动态</h3>
+          </div>
+          <div className="bottom-event-strip__chips">
+            <strong className={`bottom-event-strip__status ${connectionTone}`}>
+              {connectionLabel}
+            </strong>
+            {stats.map((stat) => (
+              <span key={stat.label} className="bottom-event-strip__status">
+                {stat.label} {stat.value}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="bottom-event-strip__list">
           {events.length ? (
             events.map((event, index) => (
-              <article key={`${event.title}-${index}`} className="bottom-event-strip__item">
+              <article
+                key={`${event.title}-${index}`}
+                className="bottom-event-strip__item"
+              >
                 <strong>{event.title}</strong>
                 <span>{event.subtitle}</span>
               </article>
             ))
           ) : (
-            <p className="muted-copy">当前还没有收到实时事件，后续到达后会在这里滚动显示。</p>
+            <p className="muted-copy">
+              当前还没有收到实时事件，后续到达后会在这里滚动显示。
+            </p>
           )}
         </div>
       </section>
