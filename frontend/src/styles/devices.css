@@ -86,13 +86,22 @@
 }
 
 .devices-table__mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
   font-size: 12px;
 }
 
 .devices-table__action {
   min-height: 34px;
   padding: 0 12px;
+}
+
+.devices-table__action-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .devices-status-chip {
@@ -150,6 +159,21 @@
   gap: 16px;
   overflow: auto;
   padding-right: 4px;
+}
+
+.devices-home-entry-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(88, 224, 170, 0.18);
+  background: rgba(88, 224, 170, 0.08);
+}
+
+.devices-home-entry-card p {
+  margin: 4px 0 0;
 }
 
 .devices-detail-section {
@@ -215,5 +239,9 @@
   .devices-detail-drawer {
     inset: 72px 12px 12px;
     width: auto;
+  }
+
+  .devices-home-entry-card {
+    grid-template-columns: 1fr;
   }
 }
