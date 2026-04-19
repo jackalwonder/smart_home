@@ -153,10 +153,15 @@ export function BackupManagementPanel({
                 <strong>{backup.backup_id}</strong>
                 <span>{backup.note || "无备注"}</span>
               </div>
-              <div className="backup-snapshot" aria-label={`快照摘要 ${backup.backup_id}`}>
+              <div
+                className="backup-snapshot"
+                aria-label={`快照摘要 ${backup.backup_id}`}
+              >
                 <div className="backup-snapshot__header">
                   <strong>快照摘要</strong>
-                  <span>{formatSnapshotStatus(backup.summary.snapshot_status)}</span>
+                  <span>
+                    {formatSnapshotStatus(backup.summary.snapshot_status)}
+                  </span>
                 </div>
                 <dl className="backup-snapshot__grid">
                   <div>
@@ -182,14 +187,17 @@ export function BackupManagementPanel({
                   <div>
                     <dt>内容数量</dt>
                     <dd>
-                      收藏 {backup.summary.favorite_count}，热点 {backup.summary.hotspot_count}
+                      首页常用 {backup.summary.favorite_count}，热点{" "}
+                      {backup.summary.hotspot_count}
                     </dd>
                   </div>
                   <div>
                     <dt>包含内容</dt>
                     <dd>
-                      页面设置 {backup.summary.has_page_settings ? "有" : "无"}，功能设置{" "}
-                      {backup.summary.has_function_settings ? "有" : "无"}，背景图{" "}
+                      页面设置 {backup.summary.has_page_settings ? "有" : "无"}
+                      ，功能设置{" "}
+                      {backup.summary.has_function_settings ? "有" : "无"}
+                      ，背景图{" "}
                       {backup.summary.has_background_asset ? "有" : "无"}
                     </dd>
                   </div>
@@ -224,7 +232,9 @@ export function BackupManagementPanel({
                 onClick={() => onRestoreBackup(backup)}
                 type="button"
               >
-                {restoreBusyId === backup.backup_id ? "恢复中..." : "恢复此备份"}
+                {restoreBusyId === backup.backup_id
+                  ? "恢复中..."
+                  : "恢复此备份"}
               </button>
             </div>
           ))
@@ -239,7 +249,9 @@ export function BackupManagementPanel({
         <div className="backup-audit__header">
           <div>
             <h4>恢复历史</h4>
-            <p className="muted-copy">按最近恢复时间查看审计记录和恢复后的版本。</p>
+            <p className="muted-copy">
+              按最近恢复时间查看审计记录和恢复后的版本。
+            </p>
           </div>
           <button
             className="button button--ghost"

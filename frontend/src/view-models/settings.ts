@@ -1,4 +1,11 @@
-import { asArray, asBoolean, asRecord, asString, formatValue, labelize } from "./utils";
+import {
+  asArray,
+  asBoolean,
+  asRecord,
+  asString,
+  formatValue,
+  labelize,
+} from "./utils";
 
 export interface SettingsSectionViewModel {
   key: "favorites" | "system" | "delivery" | "page" | "function" | "backup";
@@ -35,7 +42,9 @@ function mapFields(value: unknown): SettingsFieldViewModel[] {
   }));
 }
 
-export function mapSettingsViewModel(value: Record<string, unknown> | null): SettingsViewModel {
+export function mapSettingsViewModel(
+  value: Record<string, unknown> | null,
+): SettingsViewModel {
   const system = asRecord(value?.system_settings_summary);
   const favorites = asArray<Record<string, unknown>>(value?.favorites);
 
@@ -45,9 +54,10 @@ export function mapSettingsViewModel(value: Record<string, unknown> | null): Set
     sections: [
       {
         key: "favorites",
-        label: "常用设备",
-        eyebrow: "快捷入口",
-        description: "首页快捷区所使用的常用设备与固定入口。",
+        label: "首页入口管理",
+        eyebrow: "首页编排",
+        description:
+          "管理首页常用设备、快捷入口开关和显示规则；设备浏览与排查留在设备页。",
       },
       {
         key: "system",
@@ -82,14 +92,25 @@ export function mapSettingsViewModel(value: Record<string, unknown> | null): Set
     ],
     overview: [
       { label: "设置版本", value: asString(value?.settings_version ?? "-") },
-      { label: "需要 PIN", value: asBoolean(value?.pin_session_required, true) ? "是" : "否" },
+      {
+        label: "需要 PIN",
+        value: asBoolean(value?.pin_session_required, true) ? "是" : "否",
+      },
       {
         label: "系统连接",
-        value: asBoolean(system?.system_connections_configured) ? "已配置" : "待配置",
+        value: asBoolean(system?.system_connections_configured)
+          ? "已配置"
+          : "待配置",
       },
-      { label: "能耗绑定", value: asString(system?.energy_binding_status ?? "-") },
-      { label: "媒体绑定", value: asString(system?.default_media_binding_status ?? "-") },
-      { label: "常用设备数", value: String(favorites.length) },
+      {
+        label: "能耗绑定",
+        value: asString(system?.energy_binding_status ?? "-"),
+      },
+      {
+        label: "媒体绑定",
+        value: asString(system?.default_media_binding_status ?? "-"),
+      },
+      { label: "首页常用设备", value: String(favorites.length) },
     ],
     favorites:
       favorites.length > 0
@@ -99,7 +120,7 @@ export function mapSettingsViewModel(value: Record<string, unknown> | null): Set
               value: formatValue(fieldValue),
             })),
           )
-        : [{ label: "常用设备", value: "当前还没有固定设备" }],
+        : [{ label: "首页常用设备", value: "当前还没有加入首页的设备" }],
     system: mapFields(value?.system_settings_summary),
     page: mapFields(value?.page_settings),
     function: mapFields(value?.function_settings),

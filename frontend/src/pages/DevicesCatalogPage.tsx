@@ -23,11 +23,25 @@ function getStatusTone(device: DeviceListItemDto): "online" | "offline" {
   return device.is_offline ? "offline" : "online";
 }
 
+function getHomeEntryLabel(device: DeviceListItemDto): string {
+  if (device.is_favorite) {
+    return "已在首页";
+  }
+  if (device.is_favorite_candidate) {
+    return "可加入首页";
+  }
+  return device.favorite_exclude_reason || "不可加入首页";
+}
+
 function compactJson(value: unknown): string {
   if (value === null || value === undefined) {
     return "-";
   }
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return String(value);
   }
   return JSON.stringify(value, null, 2);
@@ -39,7 +53,9 @@ function getEntityLinks(detail: DeviceDetailDto): DeviceEntityLinkDto[] {
 }
 
 function describeControlSchema(schema: DeviceControlSchemaItemDto) {
-  const target = [schema.target_scope, schema.target_key].filter(Boolean).join(" / ");
+  const target = [schema.target_scope, schema.target_key]
+    .filter(Boolean)
+    .join(" / ");
   const value = schema.allowed_values?.length
     ? schema.allowed_values.join(", ")
     : schema.value_range
@@ -59,11 +75,16 @@ export function DevicesCatalogPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
   const [totalFromServer, setTotalFromServer] = useState(0);
-  const [selectedDevice, setSelectedDevice] = useState<DeviceDetailDto | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceDetailDto | null>(
+    null,
+  );
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  async function loadCatalog(nextKeyword = keyword, nextRoomFilter = roomFilter) {
+  async function loadCatalog(
+    nextKeyword = keyword,
+    nextRoomFilter = roomFilter,
+  ) {
     setLoading(true);
     setError(null);
     try {
@@ -116,13 +137,21 @@ export function DevicesCatalogPage() {
   }, [devices, offlineFilter]);
 
   const stats = useMemo(() => {
-    const onlineCount = visibleDevices.filter((device) => !device.is_offline).length;
+    const onlineCount = visibleDevices.filter(
+      (device) => !device.is_offline,
+    ).length;
     const offlineCount = visibleDevices.length - onlineCount;
-    const readonlyCount = visibleDevices.filter((device) => device.is_readonly_device).length;
+    const readonlyCount = visibleDevices.filter(
+      (device) => device.is_readonly_device,
+    ).length;
+    const homeEntryCount = visibleDevices.filter(
+      (device) => device.is_favorite,
+    ).length;
     return {
       onlineCount,
       offlineCount,
       readonlyCount,
+      homeEntryCount,
     };
   }, [visibleDevices]);
 
@@ -132,10 +161,10 @@ export function DevicesCatalogPage() {
 
       <header className="panel devices-header">
         <div className="devices-header__copy">
-          <span className="card-eyebrow">设备目录</span>
-          <h2>设备池</h2>
+          <span className="card-eyebrow">设备中心</span>
+          <h2>设备浏览与加入首页</h2>
           <p className="muted-copy">
-            这里展示 Home Assistant 同步到后端后的当前设备结果。
+            这里用于查找设备、查看状态并确认是否可加入首页；排序和显示规则在设置的首页入口管理中处理。
           </p>
         </div>
         <div className="badge-row">
@@ -143,6 +172,7 @@ export function DevicesCatalogPage() {
           <span className="state-chip">{`在线 ${stats.onlineCount}`}</span>
           <span className="state-chip">{`离线 ${stats.offlineCount}`}</span>
           <span className="state-chip">{`只读 ${stats.readonlyCount}`}</span>
+          <span className="state-chip">{`已在首页 ${stats.homeEntryCount}`}</span>
         </div>
         <div className="devices-header__controls">
           <label className="form-field">
@@ -179,7 +209,9 @@ export function DevicesCatalogPage() {
             <span>在线筛选</span>
             <select
               className="control-input"
-              onChange={(event) => setOfflineFilter(event.target.value as OfflineFilter)}
+              onChange={(event) =>
+                setOfflineFilter(event.target.value as OfflineFilter)
+              }
               value={offlineFilter}
             >
               <option value="ALL">全部</option>
@@ -212,19 +244,19 @@ export function DevicesCatalogPage() {
             >
               清空筛选
             </button>
-          <button
-            className="button button--primary"
-            onClick={() => void loadCatalog(keyword, roomFilter)}
-            type="button"
-          >
-            刷新目录
-          </button>
-          <Link className="button button--ghost" to="/editor">
-            去编辑器布点
-          </Link>
+            <button
+              className="button button--primary"
+              onClick={() => void loadCatalog(keyword, roomFilter)}
+              type="button"
+            >
+              刷新目录
+            </button>
+            <Link className="button button--ghost" to="/editor">
+              去编辑器布点
+            </Link>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
       <section className="panel devices-table-panel">
         <div className="devices-table-panel__meta">
@@ -248,7 +280,7 @@ export function DevicesCatalogPage() {
                   <th>房间</th>
                   <th>类型</th>
                   <th>状态</th>
-                  <th>收藏候选</th>
+                  <th>首页展示</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -265,15 +297,13 @@ export function DevicesCatalogPage() {
                     <td>{device.room_name || "-"}</td>
                     <td>{device.device_type}</td>
                     <td>
-                      <span className={`devices-status-chip is-${getStatusTone(device)}`}>
+                      <span
+                        className={`devices-status-chip is-${getStatusTone(device)}`}
+                      >
                         {getStatusLabel(device)}
                       </span>
                     </td>
-                    <td>
-                      {device.is_favorite_candidate
-                        ? "可加入"
-                        : device.favorite_exclude_reason || "不可加入"}
-                    </td>
+                    <td>{getHomeEntryLabel(device)}</td>
                     <td>
                       <button
                         className="button button--ghost devices-table__action"
@@ -311,7 +341,9 @@ export function DevicesCatalogPage() {
             </button>
           </div>
           {detailError ? <p className="inline-error">{detailError}</p> : null}
-          {detailLoading ? <p className="muted-copy">正在读取设备详情...</p> : null}
+          {detailLoading ? (
+            <p className="muted-copy">正在读取设备详情...</p>
+          ) : null}
           {selectedDevice ? (
             <div className="devices-detail-drawer__body">
               <dl className="field-grid">
@@ -333,17 +365,31 @@ export function DevicesCatalogPage() {
                 </div>
                 <div>
                   <dt>聚合状态</dt>
-                  <dd>{selectedDevice.runtime_state?.aggregated_state ?? "-"}</dd>
+                  <dd>
+                    {selectedDevice.runtime_state?.aggregated_state ?? "-"}
+                  </dd>
                 </div>
                 <div>
                   <dt>最近更新</dt>
-                  <dd>{selectedDevice.runtime_state?.last_state_update_at ?? "-"}</dd>
+                  <dd>
+                    {selectedDevice.runtime_state?.last_state_update_at ?? "-"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>户型图热点</dt>
+                  <dd>
+                    {selectedDevice.editor_config?.hotspots?.length
+                      ? `${selectedDevice.editor_config.hotspots.length} 个`
+                      : "未布点"}
+                  </dd>
                 </div>
               </dl>
 
               <section className="devices-detail-section">
                 <h4>运行态</h4>
-                <pre>{compactJson(selectedDevice.runtime_state?.telemetry ?? {})}</pre>
+                <pre>
+                  {compactJson(selectedDevice.runtime_state?.telemetry ?? {})}
+                </pre>
               </section>
 
               <section className="devices-detail-section">
@@ -362,7 +408,9 @@ export function DevicesCatalogPage() {
                           <span>{`取值 ${described.value}${schema.unit ? ` ${schema.unit}` : ""}`}</span>
                           <span>
                             {schema.is_quick_action ? "快捷动作" : "详情动作"}
-                            {schema.requires_detail_entry ? " · 需要详情入口" : ""}
+                            {schema.requires_detail_entry
+                              ? " · 需要详情入口"
+                              : ""}
                           </span>
                         </div>
                       );
@@ -378,7 +426,10 @@ export function DevicesCatalogPage() {
                 {getEntityLinks(selectedDevice).length ? (
                   <div className="devices-detail-list">
                     {getEntityLinks(selectedDevice).map((entity) => (
-                      <div className="devices-detail-list__item" key={entity.entity_id}>
+                      <div
+                        className="devices-detail-list__item"
+                        key={entity.entity_id}
+                      >
                         <strong>{entity.entity_id}</strong>
                         <span>{`${entity.domain || "-"} · ${entity.platform || "-"}`}</span>
                         <span>{`角色 ${entity.entity_role || "-"}${entity.is_primary ? " · 主实体" : ""}`}</span>

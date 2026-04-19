@@ -5,7 +5,7 @@ interface QuickSceneCardProps {
 }
 
 function actionGlyph(title: string) {
-  if (title.includes("收藏")) {
+  if (title.includes("首页常用") || title.includes("收藏")) {
     return "常";
   }
   if (title.includes("场景")) {
@@ -44,7 +44,7 @@ export function QuickSceneCard({ actions }: QuickSceneCardProps) {
           ))
         ) : (
           <p className="muted-copy">
-            在设置中启用收藏、场景、媒体或能耗入口后，这里会自动显示。
+            在设置中启用首页常用、场景、媒体或能耗入口后，这里会自动显示。
           </p>
         )}
       </div>
