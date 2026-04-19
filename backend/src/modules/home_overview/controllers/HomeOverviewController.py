@@ -188,6 +188,22 @@ class HomeOverviewQuickEntryResponse(ApiSchema):
     badge_count: int | str | None = None
 
 
+class HomeOverviewFavoriteDeviceResponse(ApiSchema):
+    device_id: str
+    display_name: str
+    device_type: str
+    room_id: str | None = None
+    room_name: str | None = None
+    status: str
+    is_offline: bool
+    is_complex_device: bool
+    is_readonly_device: bool
+    entry_behavior: str
+    alert_badges: list[dict[str, Any]] = Field(default_factory=list)
+    status_summary: dict[str, Any] = Field(default_factory=dict)
+    favorite_order: int | None = None
+
+
 class HomeOverviewResponse(ApiSchema):
     home_info: HomeOverviewHomeInfoResponse
     layout_version: str
@@ -195,6 +211,7 @@ class HomeOverviewResponse(ApiSchema):
     stage: HomeOverviewStageResponse
     sidebar: HomeOverviewSidebarResponse
     quick_entries: dict[str, Any] | list[HomeOverviewQuickEntryResponse]
+    favorite_devices: list[HomeOverviewFavoriteDeviceResponse] = Field(default_factory=list)
     energy_bar: HomeOverviewEnergyBarResponse | None = None
     system_state: HomeOverviewSystemStateResponse
     cache_mode: bool
@@ -253,6 +270,24 @@ async def get_home_overview(
     view = await service.get_overview(HomeOverviewQueryInput(home_id=context.home_id))
     overview = view.overview
     devices = [asdict(device) for device in overview.devices]
+    favorite_devices = [
+        {
+            "device_id": device.device_id,
+            "display_name": device.display_name,
+            "device_type": device.device_type,
+            "room_id": device.room_id,
+            "room_name": device.room_name,
+            "status": device.status,
+            "is_offline": device.is_offline,
+            "is_complex_device": device.is_complex_device,
+            "is_readonly_device": device.is_readonly_device,
+            "entry_behavior": device.entry_behavior,
+            "alert_badges": device.alert_badges,
+            "status_summary": device.status_summary,
+            "favorite_order": device.favorite_order,
+        }
+        for device in overview.favorite_devices
+    ]
     weather = asdict(view.weather) if view.weather is not None else None
     payload = {
         "home_info": {"home_id": overview.layout.home_id},
@@ -281,6 +316,7 @@ async def get_home_overview(
             "summary": _build_summary(devices),
         },
         "quick_entries": overview.function_settings.quick_entry_policy or {},
+        "favorite_devices": favorite_devices,
         "energy_bar": asdict(overview.energy) if overview.energy is not None else None,
         "system_state": {
             "home_assistant": asdict(overview.system_connection)

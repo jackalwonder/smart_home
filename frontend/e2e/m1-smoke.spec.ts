@@ -1,5 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { expect, test, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type APIResponse,
+  type Page,
+} from "@playwright/test";
 
 const HOME_ID = "11111111-1111-1111-1111-111111111111";
 const TERMINAL_ID = "22222222-2222-2222-2222-222222222222";
@@ -8,12 +14,18 @@ const DEV_PIN = "1234";
 const SMOKE_ROOM_ID = "11111111-1111-1111-1111-000000000010";
 const SMOKE_DEVICE_ID = "11111111-1111-1111-1111-000000000101";
 const BOOTSTRAP_TOKEN_STORAGE_KEY = "smart_home.bootstrap_token";
-const TERMINAL_ACTIVATION_TEST = "terminal activation stores bootstrap token and enters shell";
-const TERMINAL_ACTIVATION_LINK_TEST = "terminal activation link auto-activates and persists bootstrap token";
-const TERMINAL_ACTIVATION_CODE_TEST = "terminal activation code can be pasted and persists bootstrap token";
-const TERMINAL_PAIRING_TEST = "terminal pairing code can be claimed and auto-activates the terminal";
-const TERMINAL_ACTIVATION_ENTRY_TEST = "terminal activation exposes scan code and pairing task entries";
-const TERMINAL_ACTIVATION_LANDING_TEST = "terminal activation success landing shows destination before home";
+const TERMINAL_ACTIVATION_TEST =
+  "terminal activation stores bootstrap token and enters shell";
+const TERMINAL_ACTIVATION_LINK_TEST =
+  "terminal activation link auto-activates and persists bootstrap token";
+const TERMINAL_ACTIVATION_CODE_TEST =
+  "terminal activation code can be pasted and persists bootstrap token";
+const TERMINAL_PAIRING_TEST =
+  "terminal pairing code can be claimed and auto-activates the terminal";
+const TERMINAL_ACTIVATION_ENTRY_TEST =
+  "terminal activation exposes scan code and pairing task entries";
+const TERMINAL_ACTIVATION_LANDING_TEST =
+  "terminal activation success landing shows destination before home";
 const DEVICE_SYNC_TIMEOUT_MS = 45_000;
 const DEVICE_SYNC_POLL_INTERVAL_MS = 1_000;
 const bootstrapTokens = new Map<string, string>();
@@ -118,7 +130,9 @@ type EditorDraft = {
   } | null;
 };
 
-function successEnvelope<T>(data: T): Envelope<T> & { meta: { trace_id: string; server_time: string } } {
+function successEnvelope<T>(
+  data: T,
+): Envelope<T> & { meta: { trace_id: string; server_time: string } } {
   return {
     success: true,
     data,
@@ -131,14 +145,19 @@ function successEnvelope<T>(data: T): Envelope<T> & { meta: { trace_id: string; 
 }
 
 async function expectEnvelope<T>(response: APIResponse): Promise<T> {
-  expect(response.ok(), `${response.url()} returned ${response.status()}`).toBeTruthy();
+  expect(
+    response.ok(),
+    `${response.url()} returned ${response.status()}`,
+  ).toBeTruthy();
   const envelope = (await response.json()) as Envelope<T>;
   expect(envelope.success, envelope.error?.message).toBe(true);
   expect(envelope.data).toBeTruthy();
   return envelope.data;
 }
 
-function toEditorSaveHotspots(hotspots: NonNullable<EditorDraft["layout"]>["hotspots"]) {
+function toEditorSaveHotspots(
+  hotspots: NonNullable<EditorDraft["layout"]>["hotspots"],
+) {
   return hotspots.map((hotspot) => ({
     hotspot_id: hotspot.hotspot_id,
     device_id: hotspot.device_id,
@@ -151,7 +170,10 @@ function toEditorSaveHotspots(hotspots: NonNullable<EditorDraft["layout"]>["hots
   }));
 }
 
-async function bootstrapSession(request: APIRequestContext, terminalId = TERMINAL_ID) {
+async function bootstrapSession(
+  request: APIRequestContext,
+  terminalId = TERMINAL_ID,
+) {
   const bootstrapToken = issueBootstrapToken(terminalId);
   const session = await expectEnvelope<AuthSession>(
     await request.post("/api/v1/auth/session/bootstrap", {
@@ -175,8 +197,12 @@ test(TERMINAL_ACTIVATION_TEST, async ({ page }) => {
   const token = issueBootstrapToken(TERMINAL_ID);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "激活这台中控" })).toBeVisible();
-  await expect(page.getByText("Activate this terminal with a pairing code")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "激活这台中控" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Activate this terminal with a pairing code"),
+  ).toBeVisible();
   await expect(page.getByText("Verify management PIN.")).toBeVisible();
   await expect(page.locator(".control-shell")).toHaveCount(0);
 
@@ -185,7 +211,12 @@ test(TERMINAL_ACTIVATION_TEST, async ({ page }) => {
 
   await expect(page.locator(".control-shell")).toBeVisible();
   await expect
-    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .poll(() =>
+      page.evaluate(
+        (key) => window.localStorage.getItem(key),
+        BOOTSTRAP_TOKEN_STORAGE_KEY,
+      ),
+    )
     .toBe(token);
 });
 
@@ -196,7 +227,12 @@ test(TERMINAL_ACTIVATION_LINK_TEST, async ({ page }) => {
 
   await expect(page.locator(".control-shell")).toBeVisible();
   await expect
-    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .poll(() =>
+      page.evaluate(
+        (key) => window.localStorage.getItem(key),
+        BOOTSTRAP_TOKEN_STORAGE_KEY,
+      ),
+    )
     .toBe(token);
   await expect.poll(() => page.evaluate(() => window.location.search)).toBe("");
 });
@@ -206,7 +242,9 @@ test(TERMINAL_ACTIVATION_CODE_TEST, async ({ page }) => {
   const activationCode = buildActivationCode(token);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "激活这台中控" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "激活这台中控" }),
+  ).toBeVisible();
   await expect(page.getByText("Manual recovery")).toBeVisible();
 
   await page.locator("#bootstrap-token").fill(activationCode);
@@ -214,7 +252,12 @@ test(TERMINAL_ACTIVATION_CODE_TEST, async ({ page }) => {
 
   await expect(page.locator(".control-shell")).toBeVisible();
   await expect
-    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .poll(() =>
+      page.evaluate(
+        (key) => window.localStorage.getItem(key),
+        BOOTSTRAP_TOKEN_STORAGE_KEY,
+      ),
+    )
     .toBe(token);
 });
 
@@ -223,15 +266,26 @@ test(TERMINAL_PAIRING_TEST, async ({ page, request }) => {
   clearPairingSessions(TERMINAL_ID);
 
   await page.goto("/");
-  await expect(page.getByText("Claim this code from Pairing claim.")).toBeVisible();
+  await expect(
+    page.getByText("Claim this code from Pairing claim."),
+  ).toBeVisible();
   await expect
-    .poll(async () => (await page.getByTestId("pairing-code-value").textContent())?.trim() ?? "")
+    .poll(
+      async () =>
+        (await page.getByTestId("pairing-code-value").textContent())?.trim() ??
+        "",
+    )
     .not.toBe("Loading...");
-  const pairingCode = ((await page.getByTestId("pairing-code-value").textContent()) ?? "").trim();
+  const pairingCode = (
+    (await page.getByTestId("pairing-code-value").textContent()) ?? ""
+  ).trim();
   expect(pairingCode).toBeTruthy();
   expect(pairingCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
 
-  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  const secondarySession = await bootstrapSession(
+    request,
+    SECONDARY_TERMINAL_ID,
+  );
   await expectEnvelope(
     await request.post("/api/v1/terminals/pairing-code-claims", {
       headers: { authorization: `Bearer ${secondarySession.access_token}` },
@@ -243,9 +297,17 @@ test(TERMINAL_PAIRING_TEST, async ({ page, request }) => {
 
   await expect(page.locator(".control-shell")).toBeVisible();
   await expect
-    .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
+    .poll(() =>
+      page.evaluate(
+        (key) => window.localStorage.getItem(key),
+        BOOTSTRAP_TOKEN_STORAGE_KEY,
+      ),
+    )
     .not.toBeNull();
-  const activatedToken = await page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY);
+  const activatedToken = await page.evaluate(
+    (key) => window.localStorage.getItem(key),
+    BOOTSTRAP_TOKEN_STORAGE_KEY,
+  );
   expect(activatedToken).toBeTruthy();
   bootstrapTokens.set(TERMINAL_ID, activatedToken as string);
 });
@@ -255,7 +317,9 @@ test(TERMINAL_ACTIVATION_ENTRY_TEST, async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "扫码激活" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "输入激活码" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "等待绑定码认领" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "等待绑定码认领" }),
+  ).toBeVisible();
   await expect(page.getByText("新装终端优先用扫码或绑定码认领")).toBeVisible();
 });
 
@@ -266,7 +330,9 @@ test(TERMINAL_ACTIVATION_LANDING_TEST, async ({ page }) => {
   await page.locator("#bootstrap-token").fill(token);
   await page.getByRole("button", { name: "激活终端" }).click();
 
-  await expect(page.getByRole("heading", { name: "恢复激活完成" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "恢复激活完成" }),
+  ).toBeVisible();
   await expect(page.getByText("即将进入")).toBeVisible();
   await expect(page.getByText("首页", { exact: true }).nth(1)).toBeVisible();
 
@@ -406,14 +472,21 @@ function seedSmokeDeviceFixture() {
     "conn.close()",
   ].join("\n");
 
-  execFileSync("docker", ["compose", "exec", "-T", "backend", "python", "-c", script], {
-    cwd: process.cwd(),
-    encoding: "utf-8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  execFileSync(
+    "docker",
+    ["compose", "exec", "-T", "backend", "python", "-c", script],
+    {
+      cwd: process.cwd(),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
 }
 
-async function ensureControllableHotspot(request: APIRequestContext, accessToken: string) {
+async function ensureControllableHotspot(
+  request: APIRequestContext,
+  accessToken: string,
+) {
   const headers = { authorization: `Bearer ${accessToken}` };
   const catalog = await expectEnvelope<{ items: Array<{ device_id: string }> }>(
     await request.get("/api/v1/devices?page=1&page_size=50", { headers }),
@@ -442,7 +515,8 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
       return (
         actionType.includes("POWER") ||
         actionType.includes("TOGGLE") ||
-        (Array.isArray(schema.allowed_values) && schema.allowed_values.length > 0) ||
+        (Array.isArray(schema.allowed_values) &&
+          schema.allowed_values.length > 0) ||
         Boolean(schema.value_range) ||
         (valueType.length > 0 && valueType !== "NONE")
       );
@@ -462,7 +536,10 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
     }),
   );
   const draft = await expectEnvelope<EditorDraft>(
-    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+    await request.get(
+      `/api/v1/editor/draft?lease_id=${editorSession.lease_id}`,
+      { headers },
+    ),
   );
   const layout = draft.layout ?? {
     background_asset_id: null,
@@ -470,7 +547,9 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
     layout_meta: {},
     hotspots: [],
   };
-  const existingHotspot = layout.hotspots.find((hotspot) => hotspot.device_id === controllableDeviceId);
+  const existingHotspot = layout.hotspots.find(
+    (hotspot) => hotspot.device_id === controllableDeviceId,
+  );
   const hotspots = existingHotspot
     ? toEditorSaveHotspots(layout.hotspots)
     : [
@@ -502,7 +581,10 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
   );
 
   const refreshedDraft = await expectEnvelope<EditorDraft>(
-    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+    await request.get(
+      `/api/v1/editor/draft?lease_id=${editorSession.lease_id}`,
+      { headers },
+    ),
   );
   await expectEnvelope<{ published: boolean }>(
     await request.post("/api/v1/editor/publish", {
@@ -523,7 +605,9 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
       }>;
     };
   }>(await request.get("/api/v1/home/overview", { headers }));
-  const preparedHotspot = home.stage?.hotspots?.find((hotspot) => hotspot.device_id === controllableDeviceId);
+  const preparedHotspot = home.stage?.hotspots?.find(
+    (hotspot) => hotspot.device_id === controllableDeviceId,
+  );
   expect(preparedHotspot).toBeTruthy();
   return {
     deviceId: controllableDeviceId as string,
@@ -570,7 +654,8 @@ async function tryFindSupportedControlRequest(
       return (
         actionType.includes("POWER") ||
         actionType.includes("TOGGLE") ||
-        (Array.isArray(candidate.allowed_values) && candidate.allowed_values.length > 0) ||
+        (Array.isArray(candidate.allowed_values) &&
+          candidate.allowed_values.length > 0) ||
         Boolean(candidate.value_range) ||
         (valueType.length > 0 && valueType !== "NONE")
       );
@@ -586,9 +671,13 @@ async function tryFindSupportedControlRequest(
       Array.isArray(schema.allowed_values) && schema.allowed_values.length > 0
         ? schema.allowed_values[0]
         : (schema.value_range?.min ??
-          (actionType.includes("POWER") || actionType.includes("TOGGLE") || valueType.includes("BOOL")
+          (actionType.includes("POWER") ||
+          actionType.includes("TOGGLE") ||
+          valueType.includes("BOOL")
             ? true
-            : valueType.includes("NUMBER") || valueType.includes("INT") || valueType.includes("FLOAT")
+            : valueType.includes("NUMBER") ||
+                valueType.includes("INT") ||
+                valueType.includes("FLOAT")
               ? 1
               : "1"));
 
@@ -607,9 +696,15 @@ async function tryFindSupportedControlRequest(
   return null;
 }
 
-async function ensureDevicesReady(request: APIRequestContext, accessToken: string): Promise<SupportedControlRequest> {
+async function ensureDevicesReady(
+  request: APIRequestContext,
+  accessToken: string,
+): Promise<SupportedControlRequest> {
   if (primedHomes.has(HOME_ID)) {
-    const supported = await tryFindSupportedControlRequest(request, accessToken);
+    const supported = await tryFindSupportedControlRequest(
+      request,
+      accessToken,
+    );
     if (supported) {
       return supported;
     }
@@ -622,7 +717,10 @@ async function ensureDevicesReady(request: APIRequestContext, accessToken: strin
   const deadline = Date.now() + DEVICE_SYNC_TIMEOUT_MS;
   let lastKnownState = "device catalog still empty";
   while (Date.now() < deadline) {
-    const supported = await tryFindSupportedControlRequest(request, accessToken);
+    const supported = await tryFindSupportedControlRequest(
+      request,
+      accessToken,
+    );
     if (supported) {
       primedHomes.add(HOME_ID);
       return supported;
@@ -635,10 +733,14 @@ async function ensureDevicesReady(request: APIRequestContext, accessToken: strin
       catalog.items.length === 0
         ? "device catalog still empty"
         : `device catalog has ${catalog.items.length} device(s), but no controllable schema yet`;
-    await new Promise((resolve) => setTimeout(resolve, DEVICE_SYNC_POLL_INTERVAL_MS));
+    await new Promise((resolve) =>
+      setTimeout(resolve, DEVICE_SYNC_POLL_INTERVAL_MS),
+    );
   }
 
-  throw new Error(`No supported controllable device found for smoke test: ${lastKnownState}`);
+  throw new Error(
+    `No supported controllable device found for smoke test: ${lastKnownState}`,
+  );
 }
 
 async function saveCurrentSettingsSnapshot(
@@ -661,17 +763,20 @@ async function saveCurrentSettingsSnapshot(
         },
         function_settings: {
           low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
-          offline_threshold_seconds: functionSettings?.offline_threshold_seconds ?? 90,
+          offline_threshold_seconds:
+            functionSettings?.offline_threshold_seconds ?? 90,
           quick_entry_policy: functionSettings?.quick_entry_policy ?? {
             favorites: true,
           },
           music_enabled: functionSettings?.music_enabled ?? true,
           favorite_limit: functionSettings?.favorite_limit ?? 8,
-          auto_home_timeout_seconds: functionSettings?.auto_home_timeout_seconds ?? 180,
-          position_device_thresholds: functionSettings?.position_device_thresholds ?? {
-            closed_max: 5,
-            opened_min: 95,
-          },
+          auto_home_timeout_seconds:
+            functionSettings?.auto_home_timeout_seconds ?? 180,
+          position_device_thresholds:
+            functionSettings?.position_device_thresholds ?? {
+              closed_max: 5,
+              opened_min: 95,
+            },
         },
         favorites: settings.favorites,
       },
@@ -755,7 +860,8 @@ async function openRealtimeProbe(page: Page, accessToken: string) {
           __m1WsEvents?: unknown[];
         }
       ).__m1Ws = ws;
-      (window as typeof window & { __m1WsEvents?: unknown[] }).__m1WsEvents = events;
+      (window as typeof window & { __m1WsEvents?: unknown[] }).__m1WsEvents =
+        events;
 
       const timer = window.setTimeout(() => {
         reject(new Error("Timed out waiting for realtime connection"));
@@ -789,7 +895,9 @@ async function unlockManagementPin(page: Page) {
     await page.getByRole("button", { name: "验证 PIN" }).click();
   }
 
-  await expect(page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first()).toBeVisible();
+  await expect(
+    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
+  ).toBeVisible();
 }
 
 async function readEditorFieldValue(page: Page, label: string) {
@@ -831,12 +939,16 @@ async function ensureEditorWritable(page: Page) {
       return;
     }
     if (await clickIfEnabled(takeoverButton)) {
-      await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
+      await expect(
+        page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/),
+      ).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
     }
     if (await clickIfEnabled(noticeTakeoverButton)) {
-      await expect(page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/)).toBeVisible();
+      await expect(
+        page.getByText(/已接管编辑租约|已接管终端 .* 的编辑租约/),
+      ).toBeVisible();
       await expect(saveButton).toBeEnabled();
       return;
     }
@@ -867,30 +979,51 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
     await page.getByRole("button", { name: "验证 PIN" }).click();
   }
 
-  await expect(page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first()).toBeVisible();
+  await expect(
+    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "保存全部" })).toBeEnabled();
 
   const settingsNav = page.getByRole("navigation", { name: "设置分区" });
-  await expect(settingsNav.getByRole("button", { name: /终端交付/ })).toBeVisible();
+  await expect(
+    settingsNav.getByRole("button", { name: /终端交付/ }),
+  ).toBeVisible();
   await settingsNav.getByRole("button", { name: /系统连接/ }).click();
   const taskFlow = page.locator("section[aria-label='现场任务流']");
-  await expect(taskFlow.getByRole("button", { name: /新装终端/ })).toBeVisible();
-  await expect(taskFlow.getByRole("button", { name: /换机恢复/ })).toBeVisible();
-  await expect(taskFlow.getByRole("button", { name: /备份恢复/ })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "系统连接" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "激活凭据交付" })).toHaveCount(0);
+  await expect(
+    taskFlow.getByRole("button", { name: /新装终端/ }),
+  ).toBeVisible();
+  await expect(
+    taskFlow.getByRole("button", { name: /换机恢复/ }),
+  ).toBeVisible();
+  await expect(
+    taskFlow.getByRole("button", { name: /备份恢复/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "系统连接" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "激活凭据交付" }),
+  ).toHaveCount(0);
 
   await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
-  await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "备份恢复" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "恢复历史" })).toBeVisible();
-  await page.getByPlaceholder("例如：联调前、夜间稳定版").fill("e2e smoke backup");
+  await page
+    .getByPlaceholder("例如：联调前、夜间稳定版")
+    .fill("e2e smoke backup");
   await page.getByRole("button", { name: "创建备份" }).click();
   await expect(page.getByText(/备份 bk_/)).toBeVisible();
   await expect(page.getByText("e2e smoke backup").first()).toBeVisible();
   await expect(page.getByText("快照摘要").first()).toBeVisible();
 });
 
-test("settings can rotate bootstrap token and revoke the previous token", async ({ page, request }) => {
+test("settings can rotate bootstrap token and revoke the previous token", async ({
+  page,
+  request,
+}) => {
   const previousToken = issueBootstrapToken(TERMINAL_ID);
 
   await unlockManagementPin(page);
@@ -902,19 +1035,36 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
   await taskFlow.getByRole("button", { name: /换机恢复/ }).click();
   await expect(taskFlow.getByText("重置激活凭据")).toBeVisible();
   await expect(taskFlow.getByText("必要时复查系统连接")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "终端交付现场台" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "认领绑定码" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "激活凭据交付" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "终端交付现场台" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "认领绑定码" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "激活凭据交付" }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "重置激活凭据" }).click();
-  await expect(page.getByRole("heading", { level: 4, name: "本次签发结果" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 4, name: "本次签发结果" }),
+  ).toBeVisible();
   await expect(page.getByText("推荐扫码")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 4, name: "二维码交付" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 4, name: "激活链接" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 4, name: "激活码" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 4, name: "二维码交付" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 4, name: "激活链接" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 4, name: "激活码" }),
+  ).toBeVisible();
   await expect(page.getByText("现场排障提示")).toBeVisible();
 
-  const revealedToken = await page.locator("section[aria-label='激活凭据签发结果'] textarea").first().inputValue();
+  const revealedToken = await page
+    .locator("section[aria-label='激活凭据签发结果'] textarea")
+    .first()
+    .inputValue();
   expect(revealedToken).toBeTruthy();
   expect(revealedToken).not.toBe(previousToken);
   bootstrapTokens.set(TERMINAL_ID, revealedToken);
@@ -932,20 +1082,50 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
   expect(rotatedSession.terminal_id).toBe(TERMINAL_ID);
 });
 
-test("devices page can add and remove a home entry", async ({ page, request }) => {
+test("devices page can add and remove a home entry", async ({
+  page,
+  request,
+}) => {
   const session = await bootstrapSession(request);
   const headers = { authorization: `Bearer ${session.access_token}` };
   seedSmokeDeviceFixture();
 
-  const settings = await expectEnvelope<SettingsSnapshot>(await request.get("/api/v1/settings", { headers }));
+  const settings = await expectEnvelope<SettingsSnapshot>(
+    await request.get("/api/v1/settings", { headers }),
+  );
   await saveCurrentSettingsSnapshot(request, session.access_token, {
     ...settings,
-    favorites: settings.favorites.filter((favorite) => favorite.device_id !== SMOKE_DEVICE_ID),
+    function_settings: {
+      low_battery_threshold:
+        settings.function_settings?.low_battery_threshold ?? 20,
+      offline_threshold_seconds:
+        settings.function_settings?.offline_threshold_seconds ?? 90,
+      quick_entry_policy: {
+        ...(settings.function_settings?.quick_entry_policy ?? {}),
+        favorites: true,
+      },
+      music_enabled: settings.function_settings?.music_enabled ?? true,
+      favorite_limit: settings.function_settings?.favorite_limit ?? 8,
+      auto_home_timeout_seconds:
+        settings.function_settings?.auto_home_timeout_seconds ?? 180,
+      position_device_thresholds: settings.function_settings
+        ?.position_device_thresholds ?? {
+        closed_max: 5,
+        opened_min: 95,
+      },
+    },
+    favorites: settings.favorites.filter(
+      (favorite) => favorite.device_id !== SMOKE_DEVICE_ID,
+    ),
   });
 
+  const topNav = page.getByRole("navigation", { name: "Primary" });
+
   await page.goto("/");
-  await page.getByRole("link", { name: "设备" }).click();
-  await expect(page.getByRole("heading", { name: "设备浏览与加入首页" })).toBeVisible();
+  await topNav.getByRole("link", { name: "设备", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "设备浏览与加入首页" }),
+  ).toBeVisible();
 
   const row = page.locator("tbody tr").filter({ hasText: SMOKE_DEVICE_ID });
   await expect(row).toContainText("可加入首页");
@@ -953,20 +1133,74 @@ test("devices page can add and remove a home entry", async ({ page, request }) =
   await expect(page.getByText(/已加入首页/)).toBeVisible();
   await expect(row).toContainText("已在首页");
 
-  const afterAdd = await expectEnvelope<SettingsSnapshot>(await request.get("/api/v1/settings", { headers }));
-  expect(afterAdd.favorites.some((favorite) => favorite.device_id === SMOKE_DEVICE_ID && favorite.selected)).toBe(true);
+  const afterAdd = await expectEnvelope<SettingsSnapshot>(
+    await request.get("/api/v1/settings", { headers }),
+  );
+  expect(
+    afterAdd.favorites.some(
+      (favorite) => favorite.device_id === SMOKE_DEVICE_ID && favorite.selected,
+    ),
+  ).toBe(true);
 
+  await topNav.getByRole("link", { name: "总览", exact: true }).click();
+  const favoriteSection = page.locator("section[aria-label='首页常用设备']");
+  await expect(
+    favoriteSection.getByRole("button", { name: /E2E 客厅主灯/ }),
+  ).toBeVisible();
+  await favoriteSection.getByRole("button", { name: /E2E 客厅主灯/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "E2E 客厅主灯" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "关闭控制面板" }).click();
+
+  await topNav.getByRole("link", { name: "设备", exact: true }).click();
   await row.getByRole("button", { name: "移出首页" }).click();
   await expect(page.getByText(/已移出首页/)).toBeVisible();
   await expect(row).toContainText("可加入首页");
 
-  const afterRemove = await expectEnvelope<SettingsSnapshot>(await request.get("/api/v1/settings", { headers }));
-  expect(afterRemove.favorites.some((favorite) => favorite.device_id === SMOKE_DEVICE_ID && favorite.selected)).toBe(
-    false,
+  const afterRemove = await expectEnvelope<SettingsSnapshot>(
+    await request.get("/api/v1/settings", { headers }),
   );
+  expect(
+    afterRemove.favorites.some(
+      (favorite) => favorite.device_id === SMOKE_DEVICE_ID && favorite.selected,
+    ),
+  ).toBe(false);
+
+  await topNav.getByRole("link", { name: "总览", exact: true }).click();
+  await expect(page.getByText("还没有首页常用设备")).toBeVisible();
+  await expect(page.getByRole("link", { name: "去设备页添加" })).toBeVisible();
+
+  await saveCurrentSettingsSnapshot(request, session.access_token, {
+    ...afterRemove,
+    function_settings: {
+      low_battery_threshold:
+        afterRemove.function_settings?.low_battery_threshold ?? 20,
+      offline_threshold_seconds:
+        afterRemove.function_settings?.offline_threshold_seconds ?? 90,
+      quick_entry_policy: {
+        ...(afterRemove.function_settings?.quick_entry_policy ?? {}),
+        favorites: false,
+      },
+      music_enabled: afterRemove.function_settings?.music_enabled ?? true,
+      favorite_limit: afterRemove.function_settings?.favorite_limit ?? 8,
+      auto_home_timeout_seconds:
+        afterRemove.function_settings?.auto_home_timeout_seconds ?? 180,
+      position_device_thresholds: afterRemove.function_settings
+        ?.position_device_thresholds ?? {
+        closed_max: 5,
+        opened_min: 95,
+      },
+    },
+  });
+  await page.reload();
+  await expect(favoriteSection).toHaveCount(0);
 });
 
-test("editor UI opens an edit session, saves draft, and publishes", async ({ page, request }) => {
+test("editor UI opens an edit session, saves draft, and publishes", async ({
+  page,
+  request,
+}) => {
   const session = await bootstrapSession(request);
   await ensureDevicesReady(request, session.access_token);
 
@@ -1001,7 +1235,8 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
       message: "waiting for bindable devices to appear in the editor",
     })
     .toBeGreaterThan(1);
-  const deviceOptionText = (await deviceSelect.locator("option").nth(1).textContent())?.trim() ?? "";
+  const deviceOptionText =
+    (await deviceSelect.locator("option").nth(1).textContent())?.trim() ?? "";
   const deviceLabel = deviceOptionText.split(" · ")[0];
   const customLabel = `E2E 热点 ${Date.now()}`;
   await deviceSelect.selectOption({ index: 1 });
@@ -1014,17 +1249,26 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await page.getByRole("button", { name: "复制热点" }).click();
   await page.getByRole("button", { name: "全选当前" }).click();
   await expect(page.getByRole("button", { name: "左对齐" })).toBeEnabled();
-  const canvasHotspot = page.locator(".editor-selection-layer__item", { hasText: customLabel }).first();
+  const canvasHotspot = page
+    .locator(".editor-selection-layer__item", { hasText: customLabel })
+    .first();
   const hotspotBox = await canvasHotspot.boundingBox();
   expect(hotspotBox).toBeTruthy();
   if (!hotspotBox) {
     throw new Error("Canvas hotspot not found");
   }
-  await page.mouse.move(hotspotBox.x + hotspotBox.width / 2, hotspotBox.y + hotspotBox.height / 2);
+  await page.mouse.move(
+    hotspotBox.x + hotspotBox.width / 2,
+    hotspotBox.y + hotspotBox.height / 2,
+  );
   await page.mouse.down();
-  await page.mouse.move(hotspotBox.x + hotspotBox.width / 2 + 40, hotspotBox.y + hotspotBox.height / 2 + 30, {
-    steps: 8,
-  });
+  await page.mouse.move(
+    hotspotBox.x + hotspotBox.width / 2 + 40,
+    hotspotBox.y + hotspotBox.height / 2 + 30,
+    {
+      steps: 8,
+    },
+  );
   await page.mouse.up();
   await page.getByRole("button", { name: "左对齐" }).click();
   await page.getByLabel("统一 X (%)").fill("40");
@@ -1039,7 +1283,9 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
   await expect(page.getByText(customLabel).first()).toBeVisible();
   await page.getByRole("button", { name: "首页预览" }).click();
   await expect(page.getByText("首页预览仅显示可见热点。")).toBeVisible();
-  await expect(page.getByRole("button", { name: customLabel }).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: customLabel }).first(),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
@@ -1052,10 +1298,15 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({ pag
 
   await page.getByRole("link", { name: "总览" }).click();
   await expect(page.getByAltText("家庭户型图")).toBeVisible();
-  await expect(page.getByRole("button", { name: customLabel }).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: customLabel }).first(),
+  ).toBeVisible();
 });
 
-test("editor downgrades to readonly after takeover and can recover", async ({ page, request }) => {
+test("editor downgrades to readonly after takeover and can recover", async ({
+  page,
+  request,
+}) => {
   await unlockManagementPin(page);
   await page.getByRole("link", { name: "编辑" }).click();
 
@@ -1063,7 +1314,10 @@ test("editor downgrades to readonly after takeover and can recover", async ({ pa
   await ensureEditorWritable(page);
 
   ensureSecondaryTerminal();
-  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  const secondarySession = await bootstrapSession(
+    request,
+    SECONDARY_TERMINAL_ID,
+  );
   await expectEnvelope(
     await request.post("/api/v1/editor/sessions", {
       headers: { authorization: `Bearer ${secondarySession.access_token}` },
@@ -1085,7 +1339,10 @@ test("editor downgrades to readonly after takeover and can recover", async ({ pa
   await expect(page.getByRole("button", { name: "保存草稿" })).toBeEnabled();
 });
 
-test("editor save surfaces version conflict and retries after refresh", async ({ page, request }) => {
+test("editor save surfaces version conflict and retries after refresh", async ({
+  page,
+  request,
+}) => {
   await unlockManagementPin(page);
   await page.getByRole("link", { name: "编辑" }).click();
   await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
@@ -1114,13 +1371,18 @@ test("editor save surfaces version conflict and retries after refresh", async ({
 
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("保存前草稿版本已更新")).toBeVisible();
-  await expect(page.getByText(new RegExp(`本次提交基于 ${draft.draft_version}`))).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`本次提交基于 ${draft.draft_version}`)),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "重新保存" })).toBeVisible();
   await page.getByRole("button", { name: "重新保存" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
 });
 
-test("editor publish surfaces version conflict and retries after refresh", async ({ page, request }) => {
+test("editor publish surfaces version conflict and retries after refresh", async ({
+  page,
+  request,
+}) => {
   await unlockManagementPin(page);
   await page.getByRole("link", { name: "编辑" }).click();
   await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
@@ -1149,13 +1411,18 @@ test("editor publish surfaces version conflict and retries after refresh", async
 
   await page.getByRole("button", { name: "发布到首页" }).click();
   await expect(page.getByText("发布前草稿版本已更新")).toBeVisible();
-  await expect(page.getByText(new RegExp(`本次提交基于 ${draft.draft_version}`))).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`本次提交基于 ${draft.draft_version}`)),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "重新发布" })).toBeVisible();
   await page.getByRole("button", { name: "重新发布" }).click();
   await expect(page.getByText("草稿已发布")).toBeVisible();
 });
 
-test("settings save emits realtime settings_updated event", async ({ page, request }) => {
+test("settings save emits realtime settings_updated event", async ({
+  page,
+  request,
+}) => {
   const session = await bootstrapSession(request);
   await openRealtimeProbe(page, session.access_token);
 
@@ -1164,7 +1431,11 @@ test("settings save emits realtime settings_updated event", async ({ page, reque
       headers: { authorization: `Bearer ${session.access_token}` },
     }),
   );
-  const saved = await saveCurrentSettingsSnapshot(request, session.access_token, settings);
+  const saved = await saveCurrentSettingsSnapshot(
+    request,
+    session.access_token,
+    settings,
+  );
 
   await page.waitForFunction((settingsVersion) => {
     const events = (
@@ -1174,15 +1445,24 @@ test("settings save emits realtime settings_updated event", async ({ page, reque
     ).__m1WsEvents;
     return events?.some((event) => {
       const payload = event.payload as Record<string, unknown> | undefined;
-      return event.event_type === "settings_updated" && payload?.settings_version === settingsVersion;
+      return (
+        event.event_type === "settings_updated" &&
+        payload?.settings_version === settingsVersion
+      );
     });
   }, saved.settings_version);
 });
 
-test("realtime reconnect resumes with last_event_id and refreshes settings snapshot", async ({ page, request }) => {
+test("realtime reconnect resumes with last_event_id and refreshes settings snapshot", async ({
+  page,
+  request,
+}) => {
   await unlockManagementPin(page);
   ensureSecondaryTerminal();
-  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  const secondarySession = await bootstrapSession(
+    request,
+    SECONDARY_TERMINAL_ID,
+  );
   const secondaryHeaders = {
     authorization: `Bearer ${secondarySession.access_token}`,
   };
@@ -1192,17 +1472,32 @@ test("realtime reconnect resumes with last_event_id and refreshes settings snaps
   );
 
   await forceRealtimeDisconnect(page);
-  await expect(page.getByText(/实时连接已断开，正在尝试第 1 次重连/)).toBeVisible();
+  await expect(
+    page.getByText(/实时连接已断开，正在尝试第 1 次重连/),
+  ).toBeVisible();
 
-  const saved = await saveCurrentSettingsSnapshot(request, secondarySession.access_token, settings);
+  const saved = await saveCurrentSettingsSnapshot(
+    request,
+    secondarySession.access_token,
+    settings,
+  );
 
-  await expect(page.getByText("实时连接已恢复，正在刷新最新状态。")).toBeVisible();
-  await expect(page.getByText(new RegExp(`当前版本 ${saved.settings_version}`))).toBeVisible();
+  await expect(
+    page.getByText("实时连接已恢复，正在刷新最新状态。"),
+  ).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`当前版本 ${saved.settings_version}`)),
+  ).toBeVisible();
 });
 
-test("device control request can be accepted and queried to final result", async ({ request }) => {
+test("device control request can be accepted and queried to final result", async ({
+  request,
+}) => {
   const session = await bootstrapSession(request);
-  const supportedRequest = await ensureDevicesReady(request, session.access_token);
+  const supportedRequest = await ensureDevicesReady(
+    request,
+    session.access_token,
+  );
   const requestId = `e2e-control-${Date.now()}`;
   const headers = { authorization: `Bearer ${session.access_token}` };
 
@@ -1245,10 +1540,18 @@ test("device control request can be accepted and queried to final result", async
 
   expect(queried).not.toBeNull();
   expect(queried?.request_id).toBe(requestId);
-  expect(["SUCCESS", "FAILED", "TIMEOUT", "STATE_MISMATCH", "PENDING"]).toContain(queried?.execution_status);
+  expect([
+    "SUCCESS",
+    "FAILED",
+    "TIMEOUT",
+    "STATE_MISMATCH",
+    "PENDING",
+  ]).toContain(queried?.execution_status);
 });
 
-test("home control UI sends null payload for no-value actions and shows result", async ({ page }) => {
+test("home control UI sends null payload for no-value actions and shows result", async ({
+  page,
+}) => {
   const deviceId = "11111111-1111-1111-1111-000000000101";
   const requestId = "home-ui-none-control";
   let postedBody: Record<string, unknown> | null = null;
@@ -1421,7 +1724,10 @@ test("home control UI sends null payload for no-value actions and shows result",
   });
 
   await page.route("**/api/v1/device-controls", async (route) => {
-    postedBody = (await route.request().postDataJSON()) as Record<string, unknown>;
+    postedBody = (await route.request().postDataJSON()) as Record<
+      string,
+      unknown
+    >;
     await route.fulfill({
       status: 202,
       contentType: "application/json",
@@ -1445,24 +1751,40 @@ test("home control UI sends null payload for no-value actions and shows result",
   await unlockManagementPin(page);
   await page.getByRole("link", { name: "总览" }).click();
   await page.getByRole("button", { name: "无值测试开关" }).click();
-  await expect(page.getByRole("heading", { name: "无值测试开关" })).toBeVisible();
-  await expect(page.getByText("这个动作不需要输入取值，发送时会使用空值。")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "无值测试开关" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("这个动作不需要输入取值，发送时会使用空值。"),
+  ).toBeVisible();
   await page.getByRole("button", { name: "发送控制" }).click();
   await expect(page.getByText("Control request accepted")).toBeVisible();
   await expect(page.getByText("控制已完成")).toBeVisible();
 
   expect(postedBody).toBeTruthy();
-  expect((postedBody?.payload as { value?: unknown } | undefined)?.value).toBeNull();
-  expect((postedBody?.payload as { target_key?: unknown } | undefined)?.target_key).toBe("button.trigger");
+  expect(
+    (postedBody?.payload as { value?: unknown } | undefined)?.value,
+  ).toBeNull();
+  expect(
+    (postedBody?.payload as { target_key?: unknown } | undefined)?.target_key,
+  ).toBe("button.trigger");
 });
 
-test("backup restore syncs to another terminal through realtime", async ({ page, request }) => {
+test("backup restore syncs to another terminal through realtime", async ({
+  page,
+  request,
+}) => {
   await unlockManagementPin(page);
   await page.getByRole("button", { name: /备份恢复/ }).click();
-  await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "备份恢复" }),
+  ).toBeVisible();
 
   ensureSecondaryTerminal();
-  const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
+  const secondarySession = await bootstrapSession(
+    request,
+    SECONDARY_TERMINAL_ID,
+  );
   const secondaryHeaders = {
     authorization: `Bearer ${secondarySession.access_token}`,
   };
@@ -1485,10 +1807,14 @@ test("backup restore syncs to another terminal through realtime", async ({ page,
   );
 
   await expect(page.getByText(created.backup_id).first()).toBeVisible();
-  await expect(page.getByText(`当前版本 ${restored.settings_version}`).first()).toBeVisible();
+  await expect(
+    page.getByText(`当前版本 ${restored.settings_version}`).first(),
+  ).toBeVisible();
 });
 
-test("editor draft can be saved and published through M1 contract", async ({ request }) => {
+test("editor draft can be saved and published through M1 contract", async ({
+  request,
+}) => {
   const session = await bootstrapSession(request);
   const headers = { authorization: `Bearer ${session.access_token}` };
 
@@ -1502,7 +1828,10 @@ test("editor draft can be saved and published through M1 contract", async ({ req
   expect(editorSession.lease_id).toBeTruthy();
 
   const draft = await expectEnvelope<EditorDraft>(
-    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+    await request.get(
+      `/api/v1/editor/draft?lease_id=${editorSession.lease_id}`,
+      { headers },
+    ),
   );
   const layout = draft.layout ?? {
     background_asset_id: null,
@@ -1526,7 +1855,10 @@ test("editor draft can be saved and published through M1 contract", async ({ req
   );
 
   const refreshedDraft = await expectEnvelope<EditorDraft>(
-    await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
+    await request.get(
+      `/api/v1/editor/draft?lease_id=${editorSession.lease_id}`,
+      { headers },
+    ),
   );
 
   const published = await expectEnvelope<{

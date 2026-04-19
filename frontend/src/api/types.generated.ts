@@ -1870,6 +1870,39 @@ export interface components {
             /** Yesterday Usage */
             yesterday_usage?: number | null;
         };
+        /** HomeOverviewFavoriteDeviceResponse */
+        HomeOverviewFavoriteDeviceResponse: {
+            /** Alert Badges */
+            alert_badges?: {
+                [key: string]: unknown;
+            }[];
+            /** Device Id */
+            device_id: string;
+            /** Device Type */
+            device_type: string;
+            /** Display Name */
+            display_name: string;
+            /** Entry Behavior */
+            entry_behavior: string;
+            /** Favorite Order */
+            favorite_order?: number | null;
+            /** Is Complex Device */
+            is_complex_device: boolean;
+            /** Is Offline */
+            is_offline: boolean;
+            /** Is Readonly Device */
+            is_readonly_device: boolean;
+            /** Room Id */
+            room_id?: string | null;
+            /** Room Name */
+            room_name?: string | null;
+            /** Status */
+            status: string;
+            /** Status Summary */
+            status_summary?: {
+                [key: string]: unknown;
+            };
+        };
         /** HomeOverviewHomeInfoResponse */
         HomeOverviewHomeInfoResponse: {
             /** Home Id */
@@ -1965,6 +1998,8 @@ export interface components {
             /** Cache Mode */
             cache_mode: boolean;
             energy_bar?: components["schemas"]["HomeOverviewEnergyBarResponse"] | null;
+            /** Favorite Devices */
+            favorite_devices?: components["schemas"]["HomeOverviewFavoriteDeviceResponse"][];
             home_info: components["schemas"]["HomeOverviewHomeInfoResponse"];
             /** Layout Version */
             layout_version: string;

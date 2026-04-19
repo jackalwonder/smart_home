@@ -7,6 +7,7 @@ from src.repositories.read_models.index import (
     CurrentLayoutVersion,
     DefaultMediaReadModel,
     DeviceCardReadModel,
+    FavoriteDeviceCardReadModel,
     FavoriteDeviceReadModel,
     FunctionSettingsReadModel,
     PageSettingsReadModel,
@@ -39,6 +40,7 @@ class HomeOverviewReadModel:
     hotspots: list[dict[str, Any]]
     devices: list[DeviceCardReadModel]
     favorites: list[FavoriteDeviceReadModel]
+    favorite_devices: list[FavoriteDeviceCardReadModel]
     page_settings: PageSettingsReadModel
     function_settings: FunctionSettingsReadModel
     energy: EnergySummaryReadModel | None
