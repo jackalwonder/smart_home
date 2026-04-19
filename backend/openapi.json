@@ -3566,6 +3566,101 @@
         "title": "HomeOverviewEnergyBarResponse",
         "type": "object"
       },
+      "HomeOverviewFavoriteDeviceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_badges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Alert Badges",
+            "type": "array"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_type": {
+            "title": "Device Type",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "entry_behavior": {
+            "title": "Entry Behavior",
+            "type": "string"
+          },
+          "favorite_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Order"
+          },
+          "is_complex_device": {
+            "title": "Is Complex Device",
+            "type": "boolean"
+          },
+          "is_offline": {
+            "title": "Is Offline",
+            "type": "boolean"
+          },
+          "is_readonly_device": {
+            "title": "Is Readonly Device",
+            "type": "boolean"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_summary": {
+            "additionalProperties": true,
+            "title": "Status Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "device_id",
+          "display_name",
+          "device_type",
+          "status",
+          "is_offline",
+          "is_complex_device",
+          "is_readonly_device",
+          "entry_behavior"
+        ],
+        "title": "HomeOverviewFavoriteDeviceResponse",
+        "type": "object"
+      },
       "HomeOverviewHomeInfoResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3894,6 +3989,13 @@
                 "type": "null"
               }
             ]
+          },
+          "favorite_devices": {
+            "items": {
+              "$ref": "#/components/schemas/HomeOverviewFavoriteDeviceResponse"
+            },
+            "title": "Favorite Devices",
+            "type": "array"
           },
           "home_info": {
             "$ref": "#/components/schemas/HomeOverviewHomeInfoResponse"

@@ -15,6 +15,7 @@ from src.repositories.read_models.index import (
     CurrentLayoutVersion,
     DefaultMediaReadModel,
     DeviceCardReadModel,
+    FavoriteDeviceCardReadModel,
     FavoriteDeviceReadModel,
     FunctionSettingsReadModel,
     PageSettingsReadModel,
@@ -216,6 +217,29 @@ class FakeHomeOverviewQueryService:
                     )
                 ],
                 favorites=[FavoriteDeviceReadModel(device_id="device-1", selected=True, favorite_order=1)],
+                favorite_devices=[
+                    FavoriteDeviceCardReadModel(
+                        device_id="device-1",
+                        room_id="room-1",
+                        room_name="Living Room",
+                        display_name="Living Room Lamp",
+                        raw_name="lamp.raw",
+                        device_type="light",
+                        status="ON",
+                        is_offline=False,
+                        is_complex_device=False,
+                        is_readonly_device=False,
+                        confirmation_type="ACK_DRIVEN",
+                        entry_behavior="QUICK_ACTION",
+                        default_control_target="light",
+                        is_homepage_visible=True,
+                        is_primary_device=True,
+                        capabilities={"brightness": True},
+                        status_summary={"state": "ON"},
+                        alert_badges=[],
+                        favorite_order=1,
+                    )
+                ],
                 page_settings=PageSettingsReadModel(
                     room_label_mode="ROOM_NAME",
                     homepage_display_policy={"stage": "FULL"},
@@ -302,6 +326,7 @@ def test_catalog_routes_are_wrapped(app, client):
     assert overview_response.json()["success"] is True
     assert overview_response.json()["data"]["layout_version"] == "layout-v1"
     assert overview_response.json()["data"]["stage"]["hotspots"][0]["device_id"] == "device-1"
+    assert overview_response.json()["data"]["favorite_devices"][0]["device_id"] == "device-1"
     assert overview_response.json()["data"]["sidebar"]["music_card"]["binding_status"] == "MEDIA_SET"
 
     assert devices_response.status_code == 200

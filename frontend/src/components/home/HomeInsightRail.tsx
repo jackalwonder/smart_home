@@ -1,4 +1,5 @@
 import {
+  HomeFavoriteDeviceViewModel,
   HomeMetricViewModel,
   HomeModuleField,
   HomeQuickActionViewModel,
@@ -16,6 +17,9 @@ interface HomeInsightRailProps {
   humidity: string;
   metrics: HomeMetricViewModel[];
   actions: HomeQuickActionViewModel[];
+  favoriteDevices: HomeFavoriteDeviceViewModel[];
+  showFavoriteDevices: boolean;
+  onOpenFavoriteDevice: (deviceId: string) => void;
   mediaFields: HomeModuleField[];
   energyFields: HomeModuleField[];
 }
@@ -31,8 +35,16 @@ export function HomeInsightRail(props: HomeInsightRailProps) {
         weatherTemperature={props.weatherTemperature}
       />
       <DeviceSummaryCard metrics={props.metrics} />
-      <QuickSceneCard actions={props.actions} />
-      <MediaEnergyCard energyFields={props.energyFields} mediaFields={props.mediaFields} />
+      <QuickSceneCard
+        actions={props.actions}
+        favoriteDevices={props.favoriteDevices}
+        onOpenFavoriteDevice={props.onOpenFavoriteDevice}
+        showFavoriteDevices={props.showFavoriteDevices}
+      />
+      <MediaEnergyCard
+        energyFields={props.energyFields}
+        mediaFields={props.mediaFields}
+      />
     </aside>
   );
 }

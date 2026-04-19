@@ -47,6 +47,11 @@ class DeviceCardReadModel:
 
 
 @dataclass(frozen=True)
+class FavoriteDeviceCardReadModel(DeviceCardReadModel):
+    favorite_order: int | None
+
+
+@dataclass(frozen=True)
 class FavoriteDeviceReadModel:
     device_id: str
     selected: bool

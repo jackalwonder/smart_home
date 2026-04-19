@@ -8,6 +8,8 @@ interface HomeCommandStageProps {
   hotspots: HomeHotspotViewModel[];
   selectedHotspotId: string | null;
   onSelectHotspot: (hotspotId: string | null) => void;
+  selectedExternalHotspot?: HomeHotspotViewModel | null;
+  onClearSelectedExternalHotspot?: () => void;
   cacheMode: boolean;
   connectionStatus: string;
 }
@@ -17,11 +19,14 @@ export function HomeCommandStage({
   hotspots,
   selectedHotspotId,
   onSelectHotspot,
+  selectedExternalHotspot = null,
+  onClearSelectedExternalHotspot,
   cacheMode,
   connectionStatus,
 }: HomeCommandStageProps) {
-  const selectedHotspot =
+  const selectedStageHotspot =
     hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? null;
+  const selectedHotspot = selectedStageHotspot ?? selectedExternalHotspot;
   const resolvedBackgroundImageUrl =
     useResolvedAssetImageUrl(backgroundImageUrl);
   const activeHotspots = hotspots.filter(
@@ -118,7 +123,13 @@ export function HomeCommandStage({
           {selectedHotspot ? (
             <HomeDeviceControlPanel
               hotspot={selectedHotspot}
-              onClose={() => onSelectHotspot(null)}
+              onClose={() => {
+                if (selectedStageHotspot) {
+                  onSelectHotspot(null);
+                  return;
+                }
+                onClearSelectedExternalHotspot?.();
+              }}
             />
           ) : null}
         </div>

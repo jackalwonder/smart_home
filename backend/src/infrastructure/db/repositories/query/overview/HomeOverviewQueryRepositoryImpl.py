@@ -15,6 +15,7 @@ from src.repositories.read_models.index import (
     CurrentLayoutVersion,
     DefaultMediaReadModel,
     DeviceCardReadModel,
+    FavoriteDeviceCardReadModel,
     FavoriteDeviceReadModel,
     FunctionSettingsReadModel,
     PageSettingsReadModel,
@@ -140,35 +141,6 @@ class HomeOverviewQueryRepositoryImpl:
             ).mappings().all()
             device_ids = [row["device_id"] for row in device_rows]
 
-            badge_map: dict[str, list[dict]] = {}
-            if device_ids:
-                badge_rows = (
-                    await session.execute(
-                        text(
-                            """
-                            SELECT
-                                device_id::text AS device_id,
-                                code,
-                                level,
-                                text
-                            FROM device_alert_badges
-                            WHERE is_active = true
-                              AND device_id IN :device_ids
-                            ORDER BY created_at ASC
-                            """
-                        ).bindparams(bindparam("device_ids", expanding=True)),
-                        {"device_ids": device_ids},
-                    )
-                ).mappings().all()
-                for row in badge_rows:
-                    badge_map.setdefault(row["device_id"], []).append(
-                        {
-                            "code": row["code"],
-                            "level": row["level"],
-                            "text": row["text"],
-                        }
-                    )
-
             settings_row = (
                 await session.execute(
                     text(
@@ -239,6 +211,83 @@ class HomeOverviewQueryRepositoryImpl:
                         {"settings_version_id": settings_row["id"]},
                     )
                 ).mappings().all()
+
+            selected_favorite_rows = [row for row in favorite_rows if row["selected"]]
+            favorite_order_map = {
+                row["device_id"]: row["favorite_order"] for row in selected_favorite_rows
+            }
+            favorite_device_rows = []
+            if favorite_order_map:
+                favorite_device_rows = (
+                    await session.execute(
+                        text(
+                            """
+                            SELECT
+                                d.id::text AS device_id,
+                                d.room_id::text AS room_id,
+                                r.room_name,
+                                d.display_name,
+                                d.raw_name,
+                                d.device_type,
+                                COALESCE(drs.status, 'UNKNOWN') AS status,
+                                COALESCE(drs.is_offline, true) AS is_offline,
+                                d.is_complex_device,
+                                d.is_readonly_device,
+                                d.confirmation_type::text AS confirmation_type,
+                                d.entry_behavior::text AS entry_behavior,
+                                d.default_control_target,
+                                d.is_homepage_visible,
+                                d.is_primary_device,
+                                COALESCE(d.capabilities_json, '{}'::jsonb) AS capabilities_json,
+                                COALESCE(drs.status_summary_json, '{}'::jsonb) AS status_summary_json
+                            FROM devices d
+                            LEFT JOIN rooms r
+                              ON r.id = d.room_id
+                            LEFT JOIN device_runtime_states drs
+                              ON drs.device_id = d.id
+                            WHERE d.home_id = :home_id
+                              AND d.id::text IN :favorite_device_ids
+                            """
+                        ).bindparams(bindparam("favorite_device_ids", expanding=True)),
+                        {
+                            "home_id": home_id,
+                            "favorite_device_ids": list(favorite_order_map.keys()),
+                        },
+                    )
+                ).mappings().all()
+
+            badge_map: dict[str, list[dict]] = {}
+            badge_device_ids = sorted(
+                set(device_ids)
+                | {row["device_id"] for row in favorite_device_rows}
+            )
+            if badge_device_ids:
+                badge_rows = (
+                    await session.execute(
+                        text(
+                            """
+                            SELECT
+                                device_id::text AS device_id,
+                                code,
+                                level,
+                                text
+                            FROM device_alert_badges
+                            WHERE is_active = true
+                              AND device_id IN :device_ids
+                            ORDER BY created_at ASC
+                            """
+                        ).bindparams(bindparam("device_ids", expanding=True)),
+                        {"device_ids": badge_device_ids},
+                    )
+                ).mappings().all()
+                for row in badge_rows:
+                    badge_map.setdefault(row["device_id"], []).append(
+                        {
+                            "code": row["code"],
+                            "level": row["level"],
+                            "text": row["text"],
+                        }
+                    )
 
             energy_row = (
                 await session.execute(
@@ -369,6 +418,37 @@ class HomeOverviewQueryRepositoryImpl:
                 )
                 for row in favorite_rows
             ],
+            favorite_devices=sorted(
+                [
+                    FavoriteDeviceCardReadModel(
+                        device_id=row["device_id"],
+                        room_id=row["room_id"],
+                        room_name=row["room_name"],
+                        display_name=row["display_name"],
+                        raw_name=row["raw_name"],
+                        device_type=row["device_type"],
+                        status=row["status"],
+                        is_offline=row["is_offline"],
+                        is_complex_device=row["is_complex_device"],
+                        is_readonly_device=row["is_readonly_device"],
+                        confirmation_type=row["confirmation_type"],
+                        entry_behavior=row["entry_behavior"],
+                        default_control_target=row["default_control_target"],
+                        is_homepage_visible=row["is_homepage_visible"],
+                        is_primary_device=row["is_primary_device"],
+                        capabilities=as_dict(row["capabilities_json"]),
+                        status_summary=as_dict(row["status_summary_json"]),
+                        alert_badges=badge_map.get(row["device_id"], []),
+                        favorite_order=favorite_order_map.get(row["device_id"]),
+                    )
+                    for row in favorite_device_rows
+                ],
+                key=lambda item: (
+                    item.favorite_order if item.favorite_order is not None else 1_000_000,
+                    item.display_name,
+                    item.device_id,
+                ),
+            ),
             page_settings=PageSettingsReadModel(
                 room_label_mode=page_settings_row["room_label_mode"]
                 if page_settings_row is not None

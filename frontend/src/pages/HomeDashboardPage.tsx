@@ -6,7 +6,10 @@ import { HomeCommandStage } from "../components/home/HomeCommandStage";
 import { HomeInsightRail } from "../components/home/HomeInsightRail";
 import { PageFrame } from "../components/layout/PageFrame";
 import { appStore, useAppStore } from "../store/useAppStore";
-import { mapHomeOverviewViewModel } from "../view-models/home";
+import {
+  homeFavoriteDeviceToHotspot,
+  mapHomeOverviewViewModel,
+} from "../view-models/home";
 import { formatRealtimeEvent } from "../ws/eventPresentation";
 
 export function HomeDashboardPage() {
@@ -17,6 +20,9 @@ export function HomeDashboardPage() {
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(
     null,
   );
+  const [selectedFavoriteDeviceId, setSelectedFavoriteDeviceId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -46,6 +52,16 @@ export function HomeDashboardPage() {
   }, [session.data?.accessToken, session.status]);
 
   const viewModel = mapHomeOverviewViewModel(home.data);
+  const selectedFavoriteDeviceIndex = viewModel.favoriteDevices.findIndex(
+    (device) => device.deviceId === selectedFavoriteDeviceId,
+  );
+  const selectedFavoriteHotspot =
+    selectedFavoriteDeviceIndex >= 0
+      ? homeFavoriteDeviceToHotspot(
+          viewModel.favoriteDevices[selectedFavoriteDeviceIndex],
+          selectedFavoriteDeviceIndex,
+        )
+      : null;
 
   return (
     <section className="page page--home">
@@ -56,9 +72,15 @@ export function HomeDashboardPage() {
             actions={viewModel.quickActions}
             date={viewModel.timeline.date}
             energyFields={viewModel.energyFields}
+            favoriteDevices={viewModel.favoriteDevices}
             humidity={viewModel.timeline.humidity}
             mediaFields={viewModel.mediaFields}
             metrics={viewModel.metrics}
+            onOpenFavoriteDevice={(deviceId) => {
+              setSelectedHotspotId(null);
+              setSelectedFavoriteDeviceId(deviceId);
+            }}
+            showFavoriteDevices={viewModel.showFavoriteDevices}
             time={viewModel.timeline.time}
             weatherCondition={viewModel.timeline.weatherCondition}
             weatherTemperature={viewModel.timeline.weatherTemperature}
@@ -78,7 +100,14 @@ export function HomeDashboardPage() {
           cacheMode={viewModel.cacheMode}
           connectionStatus={realtime.connectionStatus}
           hotspots={viewModel.stage.hotspots}
-          onSelectHotspot={setSelectedHotspotId}
+          onClearSelectedExternalHotspot={() =>
+            setSelectedFavoriteDeviceId(null)
+          }
+          onSelectHotspot={(hotspotId) => {
+            setSelectedFavoriteDeviceId(null);
+            setSelectedHotspotId(hotspotId);
+          }}
+          selectedExternalHotspot={selectedFavoriteHotspot}
           selectedHotspotId={selectedHotspotId}
         />
       </PageFrame>

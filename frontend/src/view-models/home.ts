@@ -31,6 +31,26 @@ export interface HomeHotspotViewModel {
   entryBehaviorLabel: string;
 }
 
+export interface HomeFavoriteDeviceViewModel {
+  id: string;
+  deviceId: string;
+  label: string;
+  roomName: string;
+  deviceType: string;
+  deviceTypeLabel: string;
+  status: string;
+  statusLabel: string;
+  statusSummary: string | null;
+  isOffline: boolean;
+  isComplex: boolean;
+  isReadonly: boolean;
+  entryBehavior: string;
+  entryBehaviorLabel: string;
+  iconGlyph: string;
+  tone: "accent" | "warm" | "neutral";
+  favoriteOrder: number | null;
+}
+
 export interface HomeQuickActionViewModel {
   key: string;
   title: string;
@@ -64,6 +84,8 @@ export interface HomeViewModel {
   };
   metrics: HomeMetricViewModel[];
   quickActions: HomeQuickActionViewModel[];
+  favoriteDevices: HomeFavoriteDeviceViewModel[];
+  showFavoriteDevices: boolean;
   mediaFields: HomeModuleField[];
   energyFields: HomeModuleField[];
   bottomStats: HomeMetricViewModel[];
@@ -205,6 +227,39 @@ function translateDeviceType(value: string) {
   return "设备";
 }
 
+function extractStatusSummary(value: unknown) {
+  const record = asRecord(value);
+  return (
+    asOptionalString(record?.primary) ??
+    asOptionalString(record?.state) ??
+    asOptionalString(record?.text) ??
+    asOptionalString(value)
+  );
+}
+
+function isPolicyEnabled(
+  value: Record<string, unknown> | null,
+  key: string,
+  fallback = true,
+) {
+  if (!value || !(key in value)) {
+    return fallback;
+  }
+
+  return value[key] !== false;
+}
+
+function shouldShowFavoriteDevices(value: Record<string, unknown> | null) {
+  const uiPolicy = asRecord(value?.ui_policy);
+  const homepageDisplayPolicy = asRecord(uiPolicy?.homepage_display_policy);
+  const quickEntries = asRecord(value?.quick_entries);
+
+  return (
+    isPolicyEnabled(homepageDisplayPolicy, "show_favorites") &&
+    isPolicyEnabled(quickEntries, "favorites")
+  );
+}
+
 function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[] {
   function translateQuickActionTitle(input: string) {
     const normalized = input.toLowerCase();
@@ -224,18 +279,20 @@ function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[] {
   }
 
   if (Array.isArray(value)) {
-    return value.map((entry, index) => {
-      const record = asRecord(entry);
-      return {
-        key: asString(record?.key ?? `quick-${index}`),
-        title: translateQuickActionTitle(
-          asString(record?.title ?? record?.key ?? `快捷 ${index + 1}`),
-        ),
-        badgeCount: asString(record?.badge_count ?? "待命")
-          .replace("Ready", "待命")
-          .replace("Active", "可用"),
-      };
-    });
+    return value
+      .map((entry, index) => {
+        const record = asRecord(entry);
+        return {
+          key: asString(record?.key ?? `quick-${index}`),
+          title: translateQuickActionTitle(
+            asString(record?.title ?? record?.key ?? `快捷 ${index + 1}`),
+          ),
+          badgeCount: asString(record?.badge_count ?? "待命")
+            .replace("Ready", "待命")
+            .replace("Active", "可用"),
+        };
+      })
+      .filter((action) => action.key !== "favorites");
   }
 
   const record = asRecord(value);
@@ -244,12 +301,79 @@ function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[] {
   }
 
   return Object.entries(record)
-    .filter(([, enabled]) => Boolean(enabled))
+    .filter(([key, enabled]) => key !== "favorites" && Boolean(enabled))
     .map(([key]) => ({
       key,
       title: translateQuickActionTitle(key),
       badgeCount: "可用",
     }));
+}
+
+function normalizeFavoriteDevices(
+  value: unknown,
+): HomeFavoriteDeviceViewModel[] {
+  return asArray<Record<string, unknown>>(value)
+    .map((device, index) => {
+      const deviceType = asString(device.device_type ?? "device");
+      const status = asString(device.status ?? "unknown");
+      const isOffline = asBoolean(device.is_offline);
+      const iconGlyph = deriveHotspotGlyph(deviceType, "device");
+
+      return {
+        id: asString(device.device_id ?? `favorite-${index}`),
+        deviceId: asString(device.device_id ?? ""),
+        label: asString(
+          device.display_name ?? device.device_id ?? `设备 ${index + 1}`,
+        ),
+        roomName: asString(device.room_name ?? "未分配房间"),
+        deviceType,
+        deviceTypeLabel: translateDeviceType(deviceType),
+        status,
+        statusLabel: translateStatusLabel(status, isOffline),
+        statusSummary: extractStatusSummary(device.status_summary),
+        isOffline,
+        isComplex: asBoolean(device.is_complex_device),
+        isReadonly: asBoolean(device.is_readonly_device),
+        entryBehavior: asString(device.entry_behavior ?? "VIEW"),
+        entryBehaviorLabel: translateEntryBehavior(
+          asString(device.entry_behavior ?? "VIEW"),
+        ),
+        iconGlyph,
+        tone: deriveHotspotTone(deviceType, status, isOffline),
+        favoriteOrder:
+          device.favorite_order === null || device.favorite_order === undefined
+            ? null
+            : asNumber(device.favorite_order),
+      };
+    })
+    .filter((device) => device.deviceId.length > 0);
+}
+
+export function homeFavoriteDeviceToHotspot(
+  device: HomeFavoriteDeviceViewModel,
+  index = 0,
+): HomeHotspotViewModel {
+  return {
+    id: `favorite-${device.deviceId}`,
+    deviceId: device.deviceId,
+    label: device.label,
+    deviceType: device.deviceType,
+    deviceTypeLabel: device.deviceTypeLabel,
+    x: 0.72,
+    y: 0.32 + Math.min(index, 3) * 0.08,
+    iconGlyph: device.iconGlyph,
+    tone: device.tone,
+    iconType: "device",
+    labelMode: "ALWAYS",
+    status: device.status,
+    statusLabel: device.statusLabel,
+    statusSummary: device.statusSummary,
+    isOffline: device.isOffline,
+    isComplex: device.isComplex,
+    isReadonly: device.isReadonly,
+    entryBehavior: device.entryBehavior,
+    entryBehaviorLabel: device.entryBehaviorLabel,
+  };
 }
 
 export function mapHomeOverviewViewModel(
@@ -308,6 +432,8 @@ export function mapHomeOverviewViewModel(
     }),
   );
 
+  const favoriteDevices = normalizeFavoriteDevices(value?.favorite_devices);
+
   return {
     layoutVersion: asString(value?.layout_version ?? "layout_v1"),
     settingsVersion: asString(value?.settings_version ?? "settings_v1"),
@@ -333,6 +459,8 @@ export function mapHomeOverviewViewModel(
       { label: "低电量", value: asString(summary?.low_battery_count ?? 0) },
     ],
     quickActions: normalizeQuickActions(value?.quick_entries),
+    favoriteDevices,
+    showFavoriteDevices: shouldShowFavoriteDevices(value),
     mediaFields: [
       {
         label: "绑定状态",
