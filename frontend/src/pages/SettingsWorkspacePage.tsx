@@ -6,8 +6,17 @@ import {
   restoreBackup,
 } from "../api/backupsApi";
 import { fetchDevices } from "../api/devicesApi";
-import { clearEnergyBinding, fetchEnergy, refreshEnergy, saveEnergyBinding } from "../api/energyApi";
-import { bindDefaultMedia, fetchDefaultMedia, unbindDefaultMedia } from "../api/mediaApi";
+import {
+  clearEnergyBinding,
+  fetchEnergy,
+  refreshEnergy,
+  saveEnergyBinding,
+} from "../api/energyApi";
+import {
+  bindDefaultMedia,
+  fetchDefaultMedia,
+  unbindDefaultMedia,
+} from "../api/mediaApi";
 import { fetchSettings, saveSettings } from "../api/settingsApi";
 import {
   fetchSystemConnections,
@@ -59,8 +68,17 @@ import { TerminalBootstrapTokenPanel } from "../components/settings/TerminalBoot
 import { TerminalDeliveryOverviewPanel } from "../components/settings/TerminalDeliveryOverviewPanel";
 import { TerminalPairingClaimPanel } from "../components/settings/TerminalPairingClaimPanel";
 import { appStore, useAppStore } from "../store/useAppStore";
-import { SettingsSectionViewModel, mapSettingsViewModel } from "../view-models/settings";
-import { asArray, asBoolean, asNumber, asRecord, asString } from "../view-models/utils";
+import {
+  SettingsSectionViewModel,
+  mapSettingsViewModel,
+} from "../view-models/settings";
+import {
+  asArray,
+  asBoolean,
+  asNumber,
+  asRecord,
+  asString,
+} from "../view-models/utils";
 
 interface SettingsDraftState {
   page: {
@@ -104,7 +122,10 @@ interface FeedbackState {
   text: string;
 }
 
-type SettingsTaskFlowKey = "new-terminal" | "replace-terminal" | "backup-restore";
+type SettingsTaskFlowKey =
+  | "new-terminal"
+  | "replace-terminal"
+  | "backup-restore";
 
 interface SettingsTaskFlowStep {
   title: string;
@@ -123,7 +144,8 @@ interface SettingsTaskFlowDefinition {
 }
 
 function isMediaCandidateDevice(device: DeviceListItemDto) {
-  const source = `${device.device_type} ${device.display_name} ${device.raw_name ?? ""}`.toLowerCase();
+  const source =
+    `${device.device_type} ${device.display_name} ${device.raw_name ?? ""}`.toLowerCase();
   return (
     source.includes("media") ||
     source.includes("speaker") ||
@@ -149,7 +171,8 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
     steps: [
       {
         title: "确认系统已就绪",
-        description: "如需现场排障，先检查 Home Assistant、能耗和默认媒体等系统连接。",
+        description:
+          "如需现场排障，先检查 Home Assistant、能耗和默认媒体等系统连接。",
         sectionKey: "system",
       },
       {
@@ -159,7 +182,8 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
       },
       {
         title: "交付激活凭据",
-        description: "生成并交付一次性激活凭据，优先使用二维码，其次激活链接或激活码。",
+        description:
+          "生成并交付一次性激活凭据，优先使用二维码，其次激活链接或激活码。",
         sectionKey: "delivery",
       },
     ],
@@ -174,7 +198,8 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
     steps: [
       {
         title: "核对目标终端",
-        description: "先在终端交付里确认当前待恢复的终端身份，避免把凭据发错设备。",
+        description:
+          "先在终端交付里确认当前待恢复的终端身份，避免把凭据发错设备。",
         sectionKey: "delivery",
       },
       {
@@ -184,7 +209,8 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
       },
       {
         title: "必要时复查系统连接",
-        description: "终端重新上线后，如发现联动异常，可回到系统连接检查外部服务状态。",
+        description:
+          "终端重新上线后，如发现联动异常，可回到系统连接检查外部服务状态。",
         sectionKey: "system",
       },
     ],
@@ -204,12 +230,14 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
       },
       {
         title: "执行恢复",
-        description: "对目标备份执行恢复，记录新的 settings_version 与 layout_version。",
+        description:
+          "对目标备份执行恢复，记录新的 settings_version 与 layout_version。",
         sectionKey: "backup",
       },
       {
         title: "恢复后复核",
-        description: "恢复完成后，可回到系统连接或终端交付确认现场状态是否已经回稳。",
+        description:
+          "恢复完成后，可回到系统连接或终端交付确认现场状态是否已经回稳。",
         sectionKey: "system",
       },
     ],
@@ -222,7 +250,10 @@ function nextPolicyEntryId() {
 }
 
 function getSettingsTaskFlow(flowKey: SettingsTaskFlowKey) {
-  return SETTINGS_TASK_FLOWS.find((flow) => flow.key === flowKey) ?? SETTINGS_TASK_FLOWS[0];
+  return (
+    SETTINGS_TASK_FLOWS.find((flow) => flow.key === flowKey) ??
+    SETTINGS_TASK_FLOWS[0]
+  );
 }
 
 function SettingsOperationsWorkflow({
@@ -246,16 +277,22 @@ function SettingsOperationsWorkflow({
   );
 
   return (
-    <section className="utility-card settings-task-flow" aria-label="现场任务流">
+    <section
+      className="utility-card settings-task-flow"
+      aria-label="现场任务流"
+    >
       <div className="settings-task-flow__header">
         <div>
           <span className="card-eyebrow">现场任务流</span>
           <h3>按场景进入，不用自己拼操作顺序</h3>
           <p className="muted-copy">
-            把“系统连接 / 终端交付 / 备份恢复”还原成现场真正会遇到的三个任务入口。
+            把“系统连接 / 终端交付 /
+            备份恢复”还原成现场真正会遇到的三个任务入口。
           </p>
         </div>
-        <p className="settings-task-flow__summary">{activeFlowConfig.outcome}</p>
+        <p className="settings-task-flow__summary">
+          {activeFlowConfig.outcome}
+        </p>
       </div>
 
       <div className="settings-task-flow__cards">
@@ -278,7 +315,10 @@ function SettingsOperationsWorkflow({
         ))}
       </div>
 
-      <ol className="settings-task-flow__steps" aria-label={`${activeFlowConfig.title}步骤`}>
+      <ol
+        className="settings-task-flow__steps"
+        aria-label={`${activeFlowConfig.title}步骤`}
+      >
         {activeFlowConfig.steps.map((step, index) => (
           <li
             className={
@@ -289,7 +329,9 @@ function SettingsOperationsWorkflow({
             key={`${activeFlowConfig.key}-${step.title}`}
           >
             <div className="settings-task-flow__step-copy">
-              <span className="settings-task-flow__step-index">{index + 1}</span>
+              <span className="settings-task-flow__step-index">
+                {index + 1}
+              </span>
               <div>
                 <strong>{step.title}</strong>
                 <p>{step.description}</p>
@@ -381,7 +423,9 @@ function materializePolicyEntries(
   }, {});
 }
 
-function createSettingsDraft(data: Record<string, unknown> | null): SettingsDraftState {
+function createSettingsDraft(
+  data: Record<string, unknown> | null,
+): SettingsDraftState {
   const page = asRecord(data?.page_settings);
   const functionSettings = asRecord(data?.function_settings);
   const quickEntryPolicy = asRecord(functionSettings?.quick_entry_policy);
@@ -396,8 +440,12 @@ function createSettingsDraft(data: Record<string, unknown> | null): SettingsDraf
     },
     function: {
       musicEnabled: asBoolean(functionSettings?.music_enabled),
-      lowBatteryThreshold: String(asNumber(functionSettings?.low_battery_threshold, 20)),
-      offlineThresholdSeconds: String(asNumber(functionSettings?.offline_threshold_seconds, 90)),
+      lowBatteryThreshold: String(
+        asNumber(functionSettings?.low_battery_threshold, 20),
+      ),
+      offlineThresholdSeconds: String(
+        asNumber(functionSettings?.offline_threshold_seconds, 90),
+      ),
       favoriteLimit: String(asNumber(functionSettings?.favorite_limit, 8)),
       quickEntryFavorites: asBoolean(quickEntryPolicy?.favorites, true),
       autoHomeTimeoutSeconds: String(
@@ -406,15 +454,19 @@ function createSettingsDraft(data: Record<string, unknown> | null): SettingsDraf
       closedMax: String(asNumber(thresholds?.closed_max, 5)),
       openedMin: String(asNumber(thresholds?.opened_min, 95)),
     },
-    favorites: asArray<Record<string, unknown>>(data?.favorites).map((favorite, index) => ({
-      deviceId: asString(favorite.device_id ?? ""),
-      selected: asBoolean(favorite.selected, true),
-      favoriteOrder: String(asNumber(favorite.favorite_order, index)),
-    })),
+    favorites: asArray<Record<string, unknown>>(data?.favorites).map(
+      (favorite, index) => ({
+        deviceId: asString(favorite.device_id ?? ""),
+        selected: asBoolean(favorite.selected, true),
+        favoriteOrder: String(asNumber(favorite.favorite_order, index)),
+      }),
+    ),
   };
 }
 
-function getSettingsVersion(data: Record<string, unknown> | null): string | null {
+function getSettingsVersion(
+  data: Record<string, unknown> | null,
+): string | null {
   const value = data?.settings_version;
   return typeof value === "string" && value.trim() ? value : null;
 }
@@ -444,16 +496,20 @@ export function SettingsWorkspacePage() {
   const pin = useAppStore((state) => state.pin);
   const settings = useAppStore((state) => state.settings);
   const latestWsEvent = useAppStore((state) => state.wsEvents[0] ?? null);
-  const [activeSection, setActiveSection] = useState<SettingsSectionViewModel["key"]>("favorites");
-  const [activeTaskFlow, setActiveTaskFlow] = useState<SettingsTaskFlowKey>("new-terminal");
+  const [activeSection, setActiveSection] =
+    useState<SettingsSectionViewModel["key"]>("favorites");
+  const [activeTaskFlow, setActiveTaskFlow] =
+    useState<SettingsTaskFlowKey>("new-terminal");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<SettingsDraftState>(() =>
     createSettingsDraft(null),
   );
-  const [draftSourceSettingsVersion, setDraftSourceSettingsVersion] = useState<string | null>(null);
-  const [systemDraft, setSystemDraft] = useState<SystemConnectionDraftState>(() =>
-    createSystemDraft(null),
+  const [draftSourceSettingsVersion, setDraftSourceSettingsVersion] = useState<
+    string | null
+  >(null);
+  const [systemDraft, setSystemDraft] = useState<SystemConnectionDraftState>(
+    () => createSystemDraft(null),
   );
   const [systemMessage, setSystemMessage] = useState<string | null>(null);
   const [systemSaveBusy, setSystemSaveBusy] = useState(false);
@@ -462,19 +518,28 @@ export function SettingsWorkspacePage() {
   const [bootstrapTokenDirectory, setBootstrapTokenDirectory] = useState<
     TerminalBootstrapTokenDirectoryItemDto[]
   >([]);
-  const [selectedBootstrapTerminalId, setSelectedBootstrapTerminalId] = useState("");
+  const [selectedBootstrapTerminalId, setSelectedBootstrapTerminalId] =
+    useState("");
   const [bootstrapTokenReveal, setBootstrapTokenReveal] =
     useState<TerminalBootstrapTokenCreateDto | null>(null);
-  const [bootstrapTokenAudits, setBootstrapTokenAudits] = useState<TerminalBootstrapTokenAuditItemDto[]>([]);
-  const [bootstrapTokenFeedback, setBootstrapTokenFeedback] = useState<FeedbackState | null>(null);
+  const [bootstrapTokenAudits, setBootstrapTokenAudits] = useState<
+    TerminalBootstrapTokenAuditItemDto[]
+  >([]);
+  const [bootstrapTokenFeedback, setBootstrapTokenFeedback] =
+    useState<FeedbackState | null>(null);
   const [bootstrapTokenLoading, setBootstrapTokenLoading] = useState(false);
-  const [bootstrapTokenAuditLoading, setBootstrapTokenAuditLoading] = useState(false);
-  const [bootstrapTokenCreateBusy, setBootstrapTokenCreateBusy] = useState(false);
+  const [bootstrapTokenAuditLoading, setBootstrapTokenAuditLoading] =
+    useState(false);
+  const [bootstrapTokenCreateBusy, setBootstrapTokenCreateBusy] =
+    useState(false);
   const [pairingCodeInput, setPairingCodeInput] = useState("");
   const [pairingClaimBusy, setPairingClaimBusy] = useState(false);
-  const [pairingClaimFeedback, setPairingClaimFeedback] = useState<FeedbackState | null>(null);
+  const [pairingClaimFeedback, setPairingClaimFeedback] =
+    useState<FeedbackState | null>(null);
   const [energyState, setEnergyState] = useState<EnergyDto | null>(null);
-  const [energyPayloadText, setEnergyPayloadText] = useState('{\n  "account_id": "demo",\n  "provider": "utility"\n}');
+  const [energyPayloadText, setEnergyPayloadText] = useState(
+    '{\n  "account_id": "demo",\n  "provider": "utility"\n}',
+  );
   const [energyMessage, setEnergyMessage] = useState<string | null>(null);
   const [energySaveBusy, setEnergySaveBusy] = useState(false);
   const [energyClearBusy, setEnergyClearBusy] = useState(false);
@@ -484,16 +549,22 @@ export function SettingsWorkspacePage() {
   const [mediaBindBusy, setMediaBindBusy] = useState(false);
   const [mediaUnbindBusy, setMediaUnbindBusy] = useState(false);
   const [mediaCandidateLoading, setMediaCandidateLoading] = useState(false);
-  const [mediaCandidates, setMediaCandidates] = useState<DeviceListItemDto[]>([]);
+  const [mediaCandidates, setMediaCandidates] = useState<DeviceListItemDto[]>(
+    [],
+  );
   const [selectedMediaDeviceId, setSelectedMediaDeviceId] = useState("");
   const [backupItems, setBackupItems] = useState<BackupListItemDto[]>([]);
   const [backupNote, setBackupNote] = useState("");
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
-  const [backupRestoreAudits, setBackupRestoreAudits] = useState<BackupRestoreAuditItemDto[]>([]);
+  const [backupRestoreAudits, setBackupRestoreAudits] = useState<
+    BackupRestoreAuditItemDto[]
+  >([]);
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupAuditLoading, setBackupAuditLoading] = useState(false);
   const [backupCreateBusy, setBackupCreateBusy] = useState(false);
-  const [backupRestoreBusyId, setBackupRestoreBusyId] = useState<string | null>(null);
+  const [backupRestoreBusyId, setBackupRestoreBusyId] = useState<string | null>(
+    null,
+  );
 
   async function loadSystemConnection() {
     const response = await fetchSystemConnections();
@@ -515,9 +586,13 @@ export function SettingsWorkspacePage() {
     setMediaCandidateLoading(true);
     try {
       const response = await fetchDevices({ page: 1, page_size: 200 });
-      const candidates = response.items.filter((device) => !device.is_readonly_device);
+      const candidates = response.items.filter(
+        (device) => !device.is_readonly_device,
+      );
       const preferredCandidates = candidates.filter(isMediaCandidateDevice);
-      const nextCandidates = (preferredCandidates.length ? preferredCandidates : candidates).sort((left, right) =>
+      const nextCandidates = (
+        preferredCandidates.length ? preferredCandidates : candidates
+      ).sort((left, right) =>
         left.display_name.localeCompare(right.display_name, "zh-CN"),
       );
       setMediaCandidates(nextCandidates);
@@ -539,7 +614,10 @@ export function SettingsWorkspacePage() {
         fetchSystemConnections(),
         bootstrapDirectoryPromise,
       ]);
-      const nextSettingsData = settingsData as unknown as Record<string, unknown>;
+      const nextSettingsData = settingsData as unknown as Record<
+        string,
+        unknown
+      >;
       appStore.setSettingsData(nextSettingsData);
       setSettingsDraft(createSettingsDraft(nextSettingsData));
       setDraftSourceSettingsVersion(getSettingsVersion(nextSettingsData));
@@ -550,7 +628,10 @@ export function SettingsWorkspacePage() {
         if (current && items.some((item) => item.terminal_id === current)) {
           return current;
         }
-        if (session.data?.terminalId && items.some((item) => item.terminal_id === session.data?.terminalId)) {
+        if (
+          session.data?.terminalId &&
+          items.some((item) => item.terminal_id === session.data?.terminalId)
+        ) {
           return session.data.terminalId;
         }
         return items[0]?.terminal_id ?? "";
@@ -572,12 +653,17 @@ export function SettingsWorkspacePage() {
       const response = await fetchTerminalBootstrapTokenDirectory();
       setBootstrapTokenDirectory(response.items);
       setSelectedBootstrapTerminalId((current) => {
-        if (current && response.items.some((item) => item.terminal_id === current)) {
+        if (
+          current &&
+          response.items.some((item) => item.terminal_id === current)
+        ) {
           return current;
         }
         if (
           session.data?.terminalId &&
-          response.items.some((item) => item.terminal_id === session.data?.terminalId)
+          response.items.some(
+            (item) => item.terminal_id === session.data?.terminalId,
+          )
         ) {
           return session.data.terminalId;
         }
@@ -741,7 +827,9 @@ export function SettingsWorkspacePage() {
 
   const viewModel = mapSettingsViewModel(settings.data);
   const selectedBootstrapTerminal =
-    bootstrapTokenDirectory.find((item) => item.terminal_id === selectedBootstrapTerminalId) ?? null;
+    bootstrapTokenDirectory.find(
+      (item) => item.terminal_id === selectedBootstrapTerminalId,
+    ) ?? null;
   const bootstrapTokenState = selectedBootstrapTerminal;
   const bootstrapActivationLink = bootstrapTokenReveal
     ? buildBootstrapActivationLink(bootstrapTokenReveal.bootstrap_token)
@@ -753,7 +841,10 @@ export function SettingsWorkspacePage() {
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
     { label: "能耗状态", value: energyState?.binding_status ?? "-" },
-    { label: "默认媒体", value: mediaState?.display_name ?? mediaState?.binding_status ?? "-" },
+    {
+      label: "默认媒体",
+      value: mediaState?.display_name ?? mediaState?.binding_status ?? "-",
+    },
     { label: "备份", value: `${backupItems.length} 条` },
     { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
   ];
@@ -762,13 +853,12 @@ export function SettingsWorkspacePage() {
     value: bootstrapTokenState?.token_configured ? "已配置" : "待配置",
   });
   const activeSectionConfig =
-    viewModel.sections.find((section) => section.key === activeSection) ?? viewModel.sections[0];
+    viewModel.sections.find((section) => section.key === activeSection) ??
+    viewModel.sections[0];
   const activeTaskFlowConfig = getSettingsTaskFlow(activeTaskFlow);
 
   const canSave =
-    Boolean(session.data?.terminalId) &&
-    pin.active &&
-    Boolean(settings.data);
+    Boolean(session.data?.terminalId) && pin.active && Boolean(settings.data);
 
   function handleSelectSection(nextSection: SettingsSectionViewModel["key"]) {
     setActiveSection(nextSection);
@@ -842,7 +932,9 @@ export function SettingsWorkspacePage() {
   function removeFavoriteDraft(index: number) {
     setSettingsDraft((current) => ({
       ...current,
-      favorites: current.favorites.filter((_, favoriteIndex) => favoriteIndex !== index),
+      favorites: current.favorites.filter(
+        (_, favoriteIndex) => favoriteIndex !== index,
+      ),
     }));
   }
 
@@ -884,7 +976,9 @@ export function SettingsWorkspacePage() {
     }));
   }
 
-  function addPolicyDraft(policy: "homepageDisplayPolicy" | "iconPolicy" | "layoutPreference") {
+  function addPolicyDraft(
+    policy: "homepageDisplayPolicy" | "iconPolicy" | "layoutPreference",
+  ) {
     setSettingsDraft((current) => ({
       ...current,
       page: {
@@ -910,7 +1004,9 @@ export function SettingsWorkspacePage() {
       ...current,
       page: {
         ...current.page,
-        [policy]: current.page[policy].filter((_, entryIndex) => entryIndex !== index),
+        [policy]: current.page[policy].filter(
+          (_, entryIndex) => entryIndex !== index,
+        ),
       },
     }));
   }
@@ -923,10 +1019,13 @@ export function SettingsWorkspacePage() {
   ) {
     setSettingsDraft((current) => {
       const currentEntries = current.page[policy];
-      const existingIndex = currentEntries.findIndex((entry) => entry.key === key);
-      const nextEntry = existingIndex >= 0
-        ? { ...currentEntries[existingIndex], type, value }
-        : { id: nextPolicyEntryId(), key, type, value };
+      const existingIndex = currentEntries.findIndex(
+        (entry) => entry.key === key,
+      );
+      const nextEntry =
+        existingIndex >= 0
+          ? { ...currentEntries[existingIndex], type, value }
+          : { id: nextPolicyEntryId(), key, type, value };
 
       return {
         ...current,
@@ -934,7 +1033,9 @@ export function SettingsWorkspacePage() {
           ...current.page,
           [policy]:
             existingIndex >= 0
-              ? currentEntries.map((entry, index) => (index === existingIndex ? nextEntry : entry))
+              ? currentEntries.map((entry, index) =>
+                  index === existingIndex ? nextEntry : entry,
+                )
               : [...currentEntries, nextEntry],
         },
       };
@@ -957,14 +1058,18 @@ export function SettingsWorkspacePage() {
     setIsSaving(true);
     try {
       const response = await saveSettings({
-        settings_version: (settings.data.settings_version as string | null | undefined) ?? null,
+        settings_version:
+          (settings.data.settings_version as string | null | undefined) ?? null,
         page_settings: {
           room_label_mode: settingsDraft.page.roomLabelMode,
           homepage_display_policy: materializePolicyEntries(
             settingsDraft.page.homepageDisplayPolicy,
             "首页展示策略",
           ),
-          icon_policy: materializePolicyEntries(settingsDraft.page.iconPolicy, "图标策略"),
+          icon_policy: materializePolicyEntries(
+            settingsDraft.page.iconPolicy,
+            "图标策略",
+          ),
           layout_preference: materializePolicyEntries(
             settingsDraft.page.layoutPreference,
             "布局偏好",
@@ -972,13 +1077,19 @@ export function SettingsWorkspacePage() {
         },
         function_settings: {
           music_enabled: settingsDraft.function.musicEnabled,
-          low_battery_threshold: Number(settingsDraft.function.lowBatteryThreshold),
-          offline_threshold_seconds: Number(settingsDraft.function.offlineThresholdSeconds),
+          low_battery_threshold: Number(
+            settingsDraft.function.lowBatteryThreshold,
+          ),
+          offline_threshold_seconds: Number(
+            settingsDraft.function.offlineThresholdSeconds,
+          ),
           favorite_limit: Number(settingsDraft.function.favoriteLimit),
           quick_entry_policy: {
             favorites: settingsDraft.function.quickEntryFavorites,
           },
-          auto_home_timeout_seconds: Number(settingsDraft.function.autoHomeTimeoutSeconds),
+          auto_home_timeout_seconds: Number(
+            settingsDraft.function.autoHomeTimeoutSeconds,
+          ),
           position_device_thresholds: {
             closed_max: Number(settingsDraft.function.closedMax),
             opened_min: Number(settingsDraft.function.openedMin),
@@ -994,7 +1105,9 @@ export function SettingsWorkspacePage() {
               : index,
           })),
       });
-      setSaveMessage(`保存完成，settings_version 已更新为 ${response.settings_version}。`);
+      setSaveMessage(
+        `保存完成，settings_version 已更新为 ${response.settings_version}。`,
+      );
       await loadSettings();
     } catch (error) {
       appStore.setSettingsError(normalizeApiError(error).message);
@@ -1075,7 +1188,9 @@ export function SettingsWorkspacePage() {
     setSystemMessage(null);
     setSystemSyncBusy(true);
     try {
-      const response = await reloadHomeAssistantDevices({ force_full_sync: true });
+      const response = await reloadHomeAssistantDevices({
+        force_full_sync: true,
+      });
       setSystemMessage(response.message);
       await loadSystemConnection();
     } catch (error) {
@@ -1104,7 +1219,9 @@ export function SettingsWorkspacePage() {
     setBootstrapTokenFeedback(null);
     setBootstrapTokenCreateBusy(true);
     try {
-      const response = await createOrResetTerminalBootstrapToken(selectedBootstrapTerminalId);
+      const response = await createOrResetTerminalBootstrapToken(
+        selectedBootstrapTerminalId,
+      );
       setBootstrapTokenReveal(response);
       setBootstrapTokenFeedback({
         tone: "success",
@@ -1112,7 +1229,10 @@ export function SettingsWorkspacePage() {
           ? "激活凭据已重置，旧凭据已立即失效。"
           : "激活凭据已生成，可用于新终端激活。",
       });
-      await Promise.all([loadBootstrapTokenDirectory(), loadBootstrapTokenAudits()]);
+      await Promise.all([
+        loadBootstrapTokenDirectory(),
+        loadBootstrapTokenAudits(),
+      ]);
     } catch (error) {
       setBootstrapTokenFeedback({
         tone: "error",
@@ -1150,7 +1270,10 @@ export function SettingsWorkspacePage() {
         tone: "success",
         text: `${response.terminal_name} (${response.terminal_code}) 已认领，终端将自动完成激活。`,
       });
-      await Promise.all([loadBootstrapTokenDirectory(), loadBootstrapTokenAudits()]);
+      await Promise.all([
+        loadBootstrapTokenDirectory(),
+        loadBootstrapTokenAudits(),
+      ]);
     } catch (error) {
       setPairingClaimFeedback({
         tone: "error",
@@ -1245,7 +1368,10 @@ export function SettingsWorkspacePage() {
 
     let payload: Record<string, unknown> = {};
     try {
-      payload = JSON.parse(energyPayloadText || "{}") as Record<string, unknown>;
+      payload = JSON.parse(energyPayloadText || "{}") as Record<
+        string,
+        unknown
+      >;
     } catch {
       setEnergyMessage("绑定负载必须是有效 JSON。");
       return;
@@ -1315,7 +1441,9 @@ export function SettingsWorkspacePage() {
     setMediaMessage(null);
     setMediaBindBusy(true);
     try {
-      const response = await bindDefaultMedia({ device_id: selectedMediaDeviceId });
+      const response = await bindDefaultMedia({
+        device_id: selectedMediaDeviceId,
+      });
       setMediaMessage(
         response.display_name
           ? `默认媒体已切换为 ${response.display_name}。`
@@ -1360,7 +1488,7 @@ export function SettingsWorkspacePage() {
       `恢复备份 ${backup.backup_id} 会生成新的设置和布局版本。`,
       `快照设置版本 ${summary.settings_version ?? "-"}，当前 ${comparison.current_settings_version ?? "-"}。`,
       `快照布局版本 ${summary.layout_version ?? "-"}，当前 ${comparison.current_layout_version ?? "-"}。`,
-      `包含收藏 ${summary.favorite_count} 个，热点 ${summary.hotspot_count} 个。`,
+      `包含首页常用 ${summary.favorite_count} 个，热点 ${summary.hotspot_count} 个。`,
       "是否继续？",
     ].join("\n");
     if (!window.confirm(confirmCopy)) {
@@ -1374,7 +1502,11 @@ export function SettingsWorkspacePage() {
       setBackupMessage(
         `恢复完成，audit_id ${response.audit_id}，settings_version ${response.settings_version}。`,
       );
-      await Promise.all([loadSettings(), loadBackups(), loadBackupRestoreAudits()]);
+      await Promise.all([
+        loadSettings(),
+        loadBackups(),
+        loadBackupRestoreAudits(),
+      ]);
     } catch (error) {
       setBackupMessage(normalizeApiError(error).message);
       await loadBackupRestoreAudits();
@@ -1483,14 +1615,19 @@ export function SettingsWorkspacePage() {
         draft={settingsDraft.page}
         onAddPolicyEntry={addPolicyDraft}
         onChangePolicyEntry={updatePolicyDraft}
-        onChangeRoomLabelMode={(value) => updatePageDraft("roomLabelMode", value)}
+        onChangeRoomLabelMode={(value) =>
+          updatePageDraft("roomLabelMode", value)
+        }
         onRemovePolicyEntry={removePolicyDraft}
         onSetPolicyValue={upsertPolicyDraft}
       />
     );
   } else if (activeSection === "function") {
     sectionPanel = (
-      <FunctionSettingsPanel draft={settingsDraft.function} onChange={updateFunctionDraft} />
+      <FunctionSettingsPanel
+        draft={settingsDraft.function}
+        onChange={updateFunctionDraft}
+      />
     );
   } else if (activeSection === "backup") {
     sectionPanel = (

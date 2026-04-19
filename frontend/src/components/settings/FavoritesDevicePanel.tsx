@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface FavoritesDevicePanelProps {
@@ -23,9 +24,9 @@ export function FavoritesDevicePanel({
 }: FavoritesDevicePanelProps) {
   return (
     <SettingsModuleCard
-      description="这里的常用设备会进入首页右侧的快捷区和收藏入口。"
-      eyebrow="常用设备"
-      title="固定设备"
+      description="这里负责首页常用设备的排序和启停。添加设备的轻量入口在设备页，复杂规则仍在页面策略和功能策略里配置。"
+      eyebrow="首页常用设备"
+      title="首页入口管理"
     >
       <div className="favorite-editor">
         {favorites.length ? (
@@ -35,13 +36,15 @@ export function FavoritesDevicePanel({
                 <span>设备 ID</span>
                 <input
                   className="control-input"
-                  onChange={(event) => onUpdateFavorite(index, "deviceId", event.target.value)}
-                  placeholder="device.xxx"
+                  onChange={(event) =>
+                    onUpdateFavorite(index, "deviceId", event.target.value)
+                  }
+                  placeholder="从设备页复制设备 ID"
                   value={favorite.deviceId}
                 />
               </label>
               <label className="form-field">
-                <span>排序</span>
+                <span>首页排序</span>
                 <input
                   className="control-input"
                   min="0"
@@ -55,26 +58,39 @@ export function FavoritesDevicePanel({
               <label className="toggle-field">
                 <input
                   checked={favorite.selected}
-                  onChange={(event) => onUpdateFavorite(index, "selected", event.target.checked)}
+                  onChange={(event) =>
+                    onUpdateFavorite(index, "selected", event.target.checked)
+                  }
                   type="checkbox"
                 />
-                <span>启用</span>
+                <span>在首页启用</span>
               </label>
               <button
                 className="button button--ghost"
                 onClick={() => onRemoveFavorite(index)}
                 type="button"
               >
-                删除
+                移出首页
               </button>
             </article>
           ))
         ) : (
-          <p className="muted-copy">当前还没有固定设备，新增后保存即可生效。</p>
+          <p className="muted-copy">
+            当前还没有加入首页的设备。先去设备页找到设备并确认可加入，再回到这里排序。
+          </p>
         )}
-        <button className="button button--ghost" onClick={onAddFavorite} type="button">
-          新增设备
-        </button>
+        <div className="badge-row">
+          <button
+            className="button button--ghost"
+            onClick={onAddFavorite}
+            type="button"
+          >
+            手动添加设备 ID
+          </button>
+          <Link className="button button--ghost" to="/devices">
+            去设备页添加更多
+          </Link>
+        </div>
       </div>
     </SettingsModuleCard>
   );

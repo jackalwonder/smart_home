@@ -209,7 +209,7 @@ function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[] {
   function translateQuickActionTitle(input: string) {
     const normalized = input.toLowerCase();
     if (normalized.includes("favorite")) {
-      return "收藏设备";
+      return "首页常用";
     }
     if (normalized.includes("scene")) {
       return "场景入口";

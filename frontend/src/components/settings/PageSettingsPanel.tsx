@@ -1,4 +1,8 @@
-import { PolicyEntryDraft, PolicyEntryDraftType, StructuredPolicyEditor } from "./StructuredPolicyEditor";
+import {
+  PolicyEntryDraft,
+  PolicyEntryDraftType,
+  StructuredPolicyEditor,
+} from "./StructuredPolicyEditor";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 type PolicyKey = "homepageDisplayPolicy" | "iconPolicy" | "layoutPreference";
@@ -58,7 +62,11 @@ function findEntry(entries: PolicyEntryDraft[], key: string) {
   return entries.find((entry) => entry.key === key) ?? null;
 }
 
-function getBoolean(entries: PolicyEntryDraft[], key: string, fallback = false) {
+function getBoolean(
+  entries: PolicyEntryDraft[],
+  key: string,
+  fallback = false,
+) {
   const entry = findEntry(entries, key);
   if (!entry) {
     return fallback;
@@ -70,7 +78,10 @@ function getString(entries: PolicyEntryDraft[], key: string, fallback = "") {
   return findEntry(entries, key)?.value ?? fallback;
 }
 
-function getUnknownEntries(entries: PolicyEntryDraft[], knownKeys: readonly string[]) {
+function getUnknownEntries(
+  entries: PolicyEntryDraft[],
+  knownKeys: readonly string[],
+) {
   return entries.filter((entry) => !knownKeys.includes(entry.key));
 }
 
@@ -86,9 +97,15 @@ export function PageSettingsPanel({
   onAddPolicyEntry,
   onRemovePolicyEntry,
 }: PageSettingsPanelProps) {
-  const homepageUnknownEntries = getUnknownEntries(draft.homepageDisplayPolicy, knownHomepageKeys);
+  const homepageUnknownEntries = getUnknownEntries(
+    draft.homepageDisplayPolicy,
+    knownHomepageKeys,
+  );
   const iconUnknownEntries = getUnknownEntries(draft.iconPolicy, knownIconKeys);
-  const layoutUnknownEntries = getUnknownEntries(draft.layoutPreference, knownLayoutKeys);
+  const layoutUnknownEntries = getUnknownEntries(
+    draft.layoutPreference,
+    knownLayoutKeys,
+  );
 
   return (
     <SettingsModuleCard
@@ -115,13 +132,19 @@ export function PageSettingsPanel({
             <div>
               <span className="card-eyebrow">首页展示</span>
               <h4>首页展示策略</h4>
-              <p className="muted-copy">控制首页右侧卡片、舞台密度和默认聚焦房间。</p>
+              <p className="muted-copy">
+                控制首页右侧卡片、舞台密度和默认聚焦房间。
+              </p>
             </div>
           </div>
           <div className="settings-form-grid">
             <label className="toggle-field toggle-field--panel">
               <input
-                checked={getBoolean(draft.homepageDisplayPolicy, "show_weather", true)}
+                checked={getBoolean(
+                  draft.homepageDisplayPolicy,
+                  "show_weather",
+                  true,
+                )}
                 onChange={(event) =>
                   onSetPolicyValue(
                     "homepageDisplayPolicy",
@@ -136,7 +159,11 @@ export function PageSettingsPanel({
             </label>
             <label className="toggle-field toggle-field--panel">
               <input
-                checked={getBoolean(draft.homepageDisplayPolicy, "show_energy", false)}
+                checked={getBoolean(
+                  draft.homepageDisplayPolicy,
+                  "show_energy",
+                  false,
+                )}
                 onChange={(event) =>
                   onSetPolicyValue(
                     "homepageDisplayPolicy",
@@ -151,7 +178,11 @@ export function PageSettingsPanel({
             </label>
             <label className="toggle-field toggle-field--panel">
               <input
-                checked={getBoolean(draft.homepageDisplayPolicy, "show_media", false)}
+                checked={getBoolean(
+                  draft.homepageDisplayPolicy,
+                  "show_media",
+                  false,
+                )}
                 onChange={(event) =>
                   onSetPolicyValue(
                     "homepageDisplayPolicy",
@@ -166,7 +197,11 @@ export function PageSettingsPanel({
             </label>
             <label className="toggle-field toggle-field--panel">
               <input
-                checked={getBoolean(draft.homepageDisplayPolicy, "show_favorites", true)}
+                checked={getBoolean(
+                  draft.homepageDisplayPolicy,
+                  "show_favorites",
+                  true,
+                )}
                 onChange={(event) =>
                   onSetPolicyValue(
                     "homepageDisplayPolicy",
@@ -177,7 +212,7 @@ export function PageSettingsPanel({
                 }
                 type="checkbox"
               />
-              <span>首页显示收藏快捷入口</span>
+              <span>首页显示常用设备入口</span>
             </label>
             <label className="form-field">
               <span>舞台密度</span>
@@ -191,7 +226,11 @@ export function PageSettingsPanel({
                     event.target.value,
                   )
                 }
-                value={getString(draft.homepageDisplayPolicy, "stage_density", "immersive")}
+                value={getString(
+                  draft.homepageDisplayPolicy,
+                  "stage_density",
+                  "immersive",
+                )}
               >
                 <option value="relaxed">舒展</option>
                 <option value="compact">紧凑</option>
@@ -222,7 +261,9 @@ export function PageSettingsPanel({
             <div>
               <span className="card-eyebrow">图标语义</span>
               <h4>图标策略</h4>
-              <p className="muted-copy">控制热点图标样式、激活态高亮和兜底图标。</p>
+              <p className="muted-copy">
+                控制热点图标样式、激活态高亮和兜底图标。
+              </p>
             </div>
           </div>
           <div className="settings-form-grid">
@@ -230,7 +271,12 @@ export function PageSettingsPanel({
               <input
                 checked={getBoolean(draft.iconPolicy, "use_device_icon", true)}
                 onChange={(event) =>
-                  onSetPolicyValue("iconPolicy", "use_device_icon", "boolean", String(event.target.checked))
+                  onSetPolicyValue(
+                    "iconPolicy",
+                    "use_device_icon",
+                    "boolean",
+                    String(event.target.checked),
+                  )
                 }
                 type="checkbox"
               />
@@ -238,7 +284,11 @@ export function PageSettingsPanel({
             </label>
             <label className="toggle-field toggle-field--panel">
               <input
-                checked={getBoolean(draft.iconPolicy, "highlight_active_devices", true)}
+                checked={getBoolean(
+                  draft.iconPolicy,
+                  "highlight_active_devices",
+                  true,
+                )}
                 onChange={(event) =>
                   onSetPolicyValue(
                     "iconPolicy",
@@ -256,7 +306,12 @@ export function PageSettingsPanel({
               <select
                 className="control-input"
                 onChange={(event) =>
-                  onSetPolicyValue("iconPolicy", "icon_theme", "string", event.target.value)
+                  onSetPolicyValue(
+                    "iconPolicy",
+                    "icon_theme",
+                    "string",
+                    event.target.value,
+                  )
                 }
                 value={getString(draft.iconPolicy, "icon_theme", "neon")}
               >
@@ -270,10 +325,19 @@ export function PageSettingsPanel({
               <input
                 className="control-input"
                 onChange={(event) =>
-                  onSetPolicyValue("iconPolicy", "active_glow_color", "string", event.target.value)
+                  onSetPolicyValue(
+                    "iconPolicy",
+                    "active_glow_color",
+                    "string",
+                    event.target.value,
+                  )
                 }
                 placeholder="#ffb357"
-                value={getString(draft.iconPolicy, "active_glow_color", "#ffb357")}
+                value={getString(
+                  draft.iconPolicy,
+                  "active_glow_color",
+                  "#ffb357",
+                )}
               />
             </label>
             <label className="form-field">
@@ -281,10 +345,19 @@ export function PageSettingsPanel({
               <input
                 className="control-input"
                 onChange={(event) =>
-                  onSetPolicyValue("iconPolicy", "sensor_tone_color", "string", event.target.value)
+                  onSetPolicyValue(
+                    "iconPolicy",
+                    "sensor_tone_color",
+                    "string",
+                    event.target.value,
+                  )
                 }
                 placeholder="#4ed1c4"
-                value={getString(draft.iconPolicy, "sensor_tone_color", "#4ed1c4")}
+                value={getString(
+                  draft.iconPolicy,
+                  "sensor_tone_color",
+                  "#4ed1c4",
+                )}
               />
             </label>
             <label className="form-field">
@@ -292,7 +365,12 @@ export function PageSettingsPanel({
               <input
                 className="control-input"
                 onChange={(event) =>
-                  onSetPolicyValue("iconPolicy", "fallback_icon", "string", event.target.value)
+                  onSetPolicyValue(
+                    "iconPolicy",
+                    "fallback_icon",
+                    "string",
+                    event.target.value,
+                  )
                 }
                 placeholder="如 device"
                 value={getString(draft.iconPolicy, "fallback_icon", "device")}
@@ -338,7 +416,11 @@ export function PageSettingsPanel({
                     event.target.value,
                   )
                 }
-                value={getString(draft.layoutPreference, "sidebar_mode", "rail")}
+                value={getString(
+                  draft.layoutPreference,
+                  "sidebar_mode",
+                  "rail",
+                )}
               >
                 <option value="rail">纵向情报栏</option>
                 <option value="stacked">堆叠卡片</option>
@@ -366,7 +448,12 @@ export function PageSettingsPanel({
               <input
                 className="control-input"
                 onChange={(event) =>
-                  onSetPolicyValue("layoutPreference", "stage_zoom", "number", event.target.value)
+                  onSetPolicyValue(
+                    "layoutPreference",
+                    "stage_zoom",
+                    "number",
+                    event.target.value,
+                  )
                 }
                 type="number"
                 value={getString(draft.layoutPreference, "stage_zoom", "1")}
@@ -374,7 +461,11 @@ export function PageSettingsPanel({
             </label>
             <label className="toggle-field toggle-field--panel">
               <input
-                checked={getBoolean(draft.layoutPreference, "show_grid_overlay", false)}
+                checked={getBoolean(
+                  draft.layoutPreference,
+                  "show_grid_overlay",
+                  false,
+                )}
                 onChange={(event) =>
                   onSetPolicyValue(
                     "layoutPreference",
@@ -399,7 +490,11 @@ export function PageSettingsPanel({
                     event.target.value,
                   )
                 }
-                value={getString(draft.layoutPreference, "animation_level", "standard")}
+                value={getString(
+                  draft.layoutPreference,
+                  "animation_level",
+                  "standard",
+                )}
               >
                 <option value="subtle">轻微</option>
                 <option value="standard">标准</option>
@@ -421,7 +516,12 @@ export function PageSettingsPanel({
                 homepageUnknownEntries[index].id,
               );
               if (originalIndex >= 0) {
-                onChangePolicyEntry("homepageDisplayPolicy", originalIndex, field, value);
+                onChangePolicyEntry(
+                  "homepageDisplayPolicy",
+                  originalIndex,
+                  field,
+                  value,
+                );
               }
             }}
             onRemoveEntry={(index) => {
@@ -443,13 +543,19 @@ export function PageSettingsPanel({
             entries={iconUnknownEntries}
             onAddEntry={() => onAddPolicyEntry("iconPolicy")}
             onChangeEntry={(index, field, value) => {
-              const originalIndex = findOriginalIndex(draft.iconPolicy, iconUnknownEntries[index].id);
+              const originalIndex = findOriginalIndex(
+                draft.iconPolicy,
+                iconUnknownEntries[index].id,
+              );
               if (originalIndex >= 0) {
                 onChangePolicyEntry("iconPolicy", originalIndex, field, value);
               }
             }}
             onRemoveEntry={(index) => {
-              const originalIndex = findOriginalIndex(draft.iconPolicy, iconUnknownEntries[index].id);
+              const originalIndex = findOriginalIndex(
+                draft.iconPolicy,
+                iconUnknownEntries[index].id,
+              );
               if (originalIndex >= 0) {
                 onRemovePolicyEntry("iconPolicy", originalIndex);
               }
@@ -469,7 +575,12 @@ export function PageSettingsPanel({
                 layoutUnknownEntries[index].id,
               );
               if (originalIndex >= 0) {
-                onChangePolicyEntry("layoutPreference", originalIndex, field, value);
+                onChangePolicyEntry(
+                  "layoutPreference",
+                  originalIndex,
+                  field,
+                  value,
+                );
               }
             }}
             onRemoveEntry={(index) => {
