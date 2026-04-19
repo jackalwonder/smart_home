@@ -9,16 +9,11 @@ const SMOKE_ROOM_ID = "11111111-1111-1111-1111-000000000010";
 const SMOKE_DEVICE_ID = "11111111-1111-1111-1111-000000000101";
 const BOOTSTRAP_TOKEN_STORAGE_KEY = "smart_home.bootstrap_token";
 const TERMINAL_ACTIVATION_TEST = "terminal activation stores bootstrap token and enters shell";
-const TERMINAL_ACTIVATION_LINK_TEST =
-  "terminal activation link auto-activates and persists bootstrap token";
-const TERMINAL_ACTIVATION_CODE_TEST =
-  "terminal activation code can be pasted and persists bootstrap token";
-const TERMINAL_PAIRING_TEST =
-  "terminal pairing code can be claimed and auto-activates the terminal";
-const TERMINAL_ACTIVATION_ENTRY_TEST =
-  "terminal activation exposes scan code and pairing task entries";
-const TERMINAL_ACTIVATION_LANDING_TEST =
-  "terminal activation success landing shows destination before home";
+const TERMINAL_ACTIVATION_LINK_TEST = "terminal activation link auto-activates and persists bootstrap token";
+const TERMINAL_ACTIVATION_CODE_TEST = "terminal activation code can be pasted and persists bootstrap token";
+const TERMINAL_PAIRING_TEST = "terminal pairing code can be claimed and auto-activates the terminal";
+const TERMINAL_ACTIVATION_ENTRY_TEST = "terminal activation exposes scan code and pairing task entries";
+const TERMINAL_ACTIVATION_LANDING_TEST = "terminal activation success landing shows destination before home";
 const DEVICE_SYNC_TIMEOUT_MS = 45_000;
 const DEVICE_SYNC_POLL_INTERVAL_MS = 1_000;
 const bootstrapTokens = new Map<string, string>();
@@ -250,10 +245,7 @@ test(TERMINAL_PAIRING_TEST, async ({ page, request }) => {
   await expect
     .poll(() => page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY))
     .not.toBeNull();
-  const activatedToken = await page.evaluate(
-    (key) => window.localStorage.getItem(key),
-    BOOTSTRAP_TOKEN_STORAGE_KEY,
-  );
+  const activatedToken = await page.evaluate((key) => window.localStorage.getItem(key), BOOTSTRAP_TOKEN_STORAGE_KEY);
   expect(activatedToken).toBeTruthy();
   bootstrapTokens.set(TERMINAL_ID, activatedToken as string);
 });
@@ -306,7 +298,11 @@ function issueBootstrapToken(terminalId = TERMINAL_ID) {
       "--created-by-terminal-id",
       terminalId,
     ],
-    { cwd: process.cwd(), encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
+    {
+      cwd: process.cwd(),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
   );
   const token = output
     .trim()
@@ -340,7 +336,7 @@ function seedSmokeDeviceFixture() {
     "conn = psycopg.connect(db_url)",
     "conn.autocommit = True",
     "with conn.cursor() as cur:",
-    "    cur.execute(\"\"\"",
+    '    cur.execute("""',
     "        INSERT INTO rooms (id, home_id, room_name, priority, visible_in_editor, sort_order)",
     "        VALUES (%s, %s, %s, 0, true, 0)",
     "        ON CONFLICT (id) DO UPDATE",
@@ -348,8 +344,8 @@ function seedSmokeDeviceFixture() {
     "            visible_in_editor = EXCLUDED.visible_in_editor,",
     "            sort_order = EXCLUDED.sort_order,",
     "            updated_at = now()",
-    "    \"\"\", (ROOM_ID, HOME_ID, 'E2E 客厅'))",
-    "    cur.execute(\"\"\"",
+    '    """, (ROOM_ID, HOME_ID, \'E2E 客厅\'))',
+    '    cur.execute("""',
     "        INSERT INTO devices (",
     "            id, home_id, room_id, display_name, raw_name, device_type,",
     "            is_complex_device, is_readonly_device, confirmation_type, entry_behavior,",
@@ -373,11 +369,11 @@ function seedSmokeDeviceFixture() {
     "            capabilities_json = EXCLUDED.capabilities_json,",
     "            source_meta_json = EXCLUDED.source_meta_json,",
     "            updated_at = now()",
-    "    \"\"\", (",
+    '    """, (',
     "        DEVICE_ID, HOME_ID, ROOM_ID, 'E2E 客厅主灯', 'E2E 客厅主灯', 'LIGHT',",
-    "        '{\"power\": true}', '{\"fixture\": \"e2e\"}')",
+    '        \'{"power": true}\', \'{"fixture": "e2e"}\')',
     "    )",
-    "    cur.execute(\"\"\"",
+    '    cur.execute("""',
     "        INSERT INTO device_runtime_states (",
     "            device_id, home_id, status, is_offline, status_summary_json, runtime_state_json,",
     "            aggregated_state, aggregated_mode, aggregated_position, last_state_update_at, updated_at)",
@@ -392,8 +388,8 @@ function seedSmokeDeviceFixture() {
     "            aggregated_state = EXCLUDED.aggregated_state,",
     "            last_state_update_at = EXCLUDED.last_state_update_at,",
     "            updated_at = now()",
-    "    \"\"\", (DEVICE_ID, HOME_ID, '{\"primary\": \"在线\"}', '{\"power\": true}'))",
-    "    cur.execute(\"\"\"",
+    '    """, (DEVICE_ID, HOME_ID, \'{"primary": "在线"}\', \'{"power": true}\'))',
+    '    cur.execute("""',
     "        INSERT INTO device_control_schemas (",
     "            id, device_id, action_type, target_scope, target_key, value_type,",
     "            value_range_json, allowed_values_json, unit, is_quick_action,",
@@ -406,7 +402,7 @@ function seedSmokeDeviceFixture() {
     "            requires_detail_entry = EXCLUDED.requires_detail_entry,",
     "            sort_order = EXCLUDED.sort_order,",
     "            updated_at = now()",
-    "    \"\"\", (DEVICE_ID,))",
+    '    """, (DEVICE_ID,))',
     "conn.close()",
   ].join("\n");
 
@@ -436,9 +432,7 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
       is_readonly_device?: boolean;
     }>(
       await request.get(
-        `/api/v1/devices/${encodeURIComponent(
-          item.device_id,
-        )}?include_runtime_fields=true&include_editor_fields=true`,
+        `/api/v1/devices/${encodeURIComponent(item.device_id)}?include_runtime_fields=true&include_editor_fields=true`,
         { headers },
       ),
     );
@@ -529,9 +523,7 @@ async function ensureControllableHotspot(request: APIRequestContext, accessToken
       }>;
     };
   }>(await request.get("/api/v1/home/overview", { headers }));
-  const preparedHotspot = home.stage?.hotspots?.find(
-    (hotspot) => hotspot.device_id === controllableDeviceId,
-  );
+  const preparedHotspot = home.stage?.hotspots?.find((hotspot) => hotspot.device_id === controllableDeviceId);
   expect(preparedHotspot).toBeTruthy();
   return {
     deviceId: controllableDeviceId as string,
@@ -563,9 +555,7 @@ async function tryFindSupportedControlRequest(
       is_readonly_device?: boolean;
     }>(
       await request.get(
-        `/api/v1/devices/${encodeURIComponent(
-          item.device_id,
-        )}?include_runtime_fields=true&include_editor_fields=true`,
+        `/api/v1/devices/${encodeURIComponent(item.device_id)}?include_runtime_fields=true&include_editor_fields=true`,
         { headers },
       ),
     );
@@ -595,13 +585,12 @@ async function tryFindSupportedControlRequest(
     const value =
       Array.isArray(schema.allowed_values) && schema.allowed_values.length > 0
         ? schema.allowed_values[0]
-        : schema.value_range?.min ?? (
-            actionType.includes("POWER") || actionType.includes("TOGGLE") || valueType.includes("BOOL")
-              ? true
-              : valueType.includes("NUMBER") || valueType.includes("INT") || valueType.includes("FLOAT")
-                ? 1
-                : "1"
-          );
+        : (schema.value_range?.min ??
+          (actionType.includes("POWER") || actionType.includes("TOGGLE") || valueType.includes("BOOL")
+            ? true
+            : valueType.includes("NUMBER") || valueType.includes("INT") || valueType.includes("FLOAT")
+              ? 1
+              : "1"));
 
     return {
       action_type: schema.action_type ?? "SET_VALUE",
@@ -618,10 +607,7 @@ async function tryFindSupportedControlRequest(
   return null;
 }
 
-async function ensureDevicesReady(
-  request: APIRequestContext,
-  accessToken: string,
-): Promise<SupportedControlRequest> {
+async function ensureDevicesReady(request: APIRequestContext, accessToken: string): Promise<SupportedControlRequest> {
   if (primedHomes.has(HOME_ID)) {
     const supported = await tryFindSupportedControlRequest(request, accessToken);
     if (supported) {
@@ -642,9 +628,9 @@ async function ensureDevicesReady(
       return supported;
     }
 
-    const catalog = await expectEnvelope<{ items: Array<{ device_id: string }> }>(
-      await request.get("/api/v1/devices?page=1&page_size=50", { headers }),
-    );
+    const catalog = await expectEnvelope<{
+      items: Array<{ device_id: string }>;
+    }>(await request.get("/api/v1/devices?page=1&page_size=50", { headers }));
     lastKnownState =
       catalog.items.length === 0
         ? "device catalog still empty"
@@ -676,7 +662,9 @@ async function saveCurrentSettingsSnapshot(
         function_settings: {
           low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
           offline_threshold_seconds: functionSettings?.offline_threshold_seconds ?? 90,
-          quick_entry_policy: functionSettings?.quick_entry_policy ?? { favorites: true },
+          quick_entry_policy: functionSettings?.quick_entry_policy ?? {
+            favorites: true,
+          },
           music_enabled: functionSettings?.music_enabled ?? true,
           favorite_limit: functionSettings?.favorite_limit ?? 8,
           auto_home_timeout_seconds: functionSettings?.auto_home_timeout_seconds ?? 180,
@@ -761,7 +749,12 @@ async function openRealtimeProbe(page: Page, accessToken: string) {
       url.protocol = url.protocol.replace("http", "ws");
       url.searchParams.set("access_token", token);
       const ws = new WebSocket(url.toString());
-      (window as typeof window & { __m1Ws?: WebSocket; __m1WsEvents?: unknown[] }).__m1Ws = ws;
+      (
+        window as typeof window & {
+          __m1Ws?: WebSocket;
+          __m1WsEvents?: unknown[];
+        }
+      ).__m1Ws = ws;
       (window as typeof window & { __m1WsEvents?: unknown[] }).__m1WsEvents = events;
 
       const timer = window.setTimeout(() => {
@@ -796,9 +789,7 @@ async function unlockManagementPin(page: Page) {
     await page.getByRole("button", { name: "验证 PIN" }).click();
   }
 
-  await expect(
-    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
-  ).toBeVisible();
+  await expect(page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first()).toBeVisible();
 }
 
 async function readEditorFieldValue(page: Page, label: string) {
@@ -876,9 +867,7 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
     await page.getByRole("button", { name: "验证 PIN" }).click();
   }
 
-  await expect(
-    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
-  ).toBeVisible();
+  await expect(page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "保存全部" })).toBeEnabled();
 
   const settingsNav = page.getByRole("navigation", { name: "设置分区" });
@@ -901,10 +890,7 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(page.getByText("快照摘要").first()).toBeVisible();
 });
 
-test("settings can rotate bootstrap token and revoke the previous token", async ({
-  page,
-  request,
-}) => {
+test("settings can rotate bootstrap token and revoke the previous token", async ({ page, request }) => {
   const previousToken = issueBootstrapToken(TERMINAL_ID);
 
   await unlockManagementPin(page);
@@ -928,10 +914,7 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
   await expect(page.getByRole("heading", { level: 4, name: "激活码" })).toBeVisible();
   await expect(page.getByText("现场排障提示")).toBeVisible();
 
-  const revealedToken = await page
-    .locator("section[aria-label='激活凭据签发结果'] textarea")
-    .first()
-    .inputValue();
+  const revealedToken = await page.locator("section[aria-label='激活凭据签发结果'] textarea").first().inputValue();
   expect(revealedToken).toBeTruthy();
   expect(revealedToken).not.toBe(previousToken);
   bootstrapTokens.set(TERMINAL_ID, revealedToken);
@@ -947,6 +930,40 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
     }),
   );
   expect(rotatedSession.terminal_id).toBe(TERMINAL_ID);
+});
+
+test("devices page can add and remove a home entry", async ({ page, request }) => {
+  const session = await bootstrapSession(request);
+  const headers = { authorization: `Bearer ${session.access_token}` };
+  seedSmokeDeviceFixture();
+
+  const settings = await expectEnvelope<SettingsSnapshot>(await request.get("/api/v1/settings", { headers }));
+  await saveCurrentSettingsSnapshot(request, session.access_token, {
+    ...settings,
+    favorites: settings.favorites.filter((favorite) => favorite.device_id !== SMOKE_DEVICE_ID),
+  });
+
+  await page.goto("/");
+  await page.getByRole("link", { name: "设备" }).click();
+  await expect(page.getByRole("heading", { name: "设备浏览与加入首页" })).toBeVisible();
+
+  const row = page.locator("tbody tr").filter({ hasText: SMOKE_DEVICE_ID });
+  await expect(row).toContainText("可加入首页");
+  await row.getByRole("button", { name: "加入首页" }).click();
+  await expect(page.getByText(/已加入首页/)).toBeVisible();
+  await expect(row).toContainText("已在首页");
+
+  const afterAdd = await expectEnvelope<SettingsSnapshot>(await request.get("/api/v1/settings", { headers }));
+  expect(afterAdd.favorites.some((favorite) => favorite.device_id === SMOKE_DEVICE_ID && favorite.selected)).toBe(true);
+
+  await row.getByRole("button", { name: "移出首页" }).click();
+  await expect(page.getByText(/已移出首页/)).toBeVisible();
+  await expect(row).toContainText("可加入首页");
+
+  const afterRemove = await expectEnvelope<SettingsSnapshot>(await request.get("/api/v1/settings", { headers }));
+  expect(afterRemove.favorites.some((favorite) => favorite.device_id === SMOKE_DEVICE_ID && favorite.selected)).toBe(
+    false,
+  );
 });
 
 test("editor UI opens an edit session, saves draft, and publishes", async ({ page, request }) => {
@@ -1150,8 +1167,11 @@ test("settings save emits realtime settings_updated event", async ({ page, reque
   const saved = await saveCurrentSettingsSnapshot(request, session.access_token, settings);
 
   await page.waitForFunction((settingsVersion) => {
-    const events = (window as typeof window & { __m1WsEvents?: Array<Record<string, unknown>> })
-      .__m1WsEvents;
+    const events = (
+      window as typeof window & {
+        __m1WsEvents?: Array<Record<string, unknown>>;
+      }
+    ).__m1WsEvents;
     return events?.some((event) => {
       const payload = event.payload as Record<string, unknown> | undefined;
       return event.event_type === "settings_updated" && payload?.settings_version === settingsVersion;
@@ -1159,14 +1179,13 @@ test("settings save emits realtime settings_updated event", async ({ page, reque
   }, saved.settings_version);
 });
 
-test("realtime reconnect resumes with last_event_id and refreshes settings snapshot", async ({
-  page,
-  request,
-}) => {
+test("realtime reconnect resumes with last_event_id and refreshes settings snapshot", async ({ page, request }) => {
   await unlockManagementPin(page);
   ensureSecondaryTerminal();
   const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
-  const secondaryHeaders = { authorization: `Bearer ${secondarySession.access_token}` };
+  const secondaryHeaders = {
+    authorization: `Bearer ${secondarySession.access_token}`,
+  };
 
   const settings = await expectEnvelope<SettingsSnapshot>(
     await request.get("/api/v1/settings", { headers: secondaryHeaders }),
@@ -1187,7 +1206,10 @@ test("device control request can be accepted and queried to final result", async
   const requestId = `e2e-control-${Date.now()}`;
   const headers = { authorization: `Bearer ${session.access_token}` };
 
-  const accepted = await expectEnvelope<{ accepted: boolean; request_id: string }>(
+  const accepted = await expectEnvelope<{
+    accepted: boolean;
+    request_id: string;
+  }>(
     await request.post("/api/v1/device-controls", {
       headers,
       data: {
@@ -1202,12 +1224,10 @@ test("device control request can be accepted and queried to final result", async
   expect(accepted.accepted).toBe(true);
   expect(accepted.request_id).toBe(requestId);
 
-  let queried:
-    | {
-        execution_status: string;
-        request_id: string;
-      }
-    | null = null;
+  let queried: {
+    execution_status: string;
+    request_id: string;
+  } | null = null;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     queried = await expectEnvelope<{
       execution_status: string;
@@ -1225,9 +1245,7 @@ test("device control request can be accepted and queried to final result", async
 
   expect(queried).not.toBeNull();
   expect(queried?.request_id).toBe(requestId);
-  expect(["SUCCESS", "FAILED", "TIMEOUT", "STATE_MISMATCH", "PENDING"]).toContain(
-    queried?.execution_status,
-  );
+  expect(["SUCCESS", "FAILED", "TIMEOUT", "STATE_MISMATCH", "PENDING"]).toContain(queried?.execution_status);
 });
 
 test("home control UI sends null payload for no-value actions and shows result", async ({ page }) => {
@@ -1445,7 +1463,9 @@ test("backup restore syncs to another terminal through realtime", async ({ page,
 
   ensureSecondaryTerminal();
   const secondarySession = await bootstrapSession(request, SECONDARY_TERMINAL_ID);
-  const secondaryHeaders = { authorization: `Bearer ${secondarySession.access_token}` };
+  const secondaryHeaders = {
+    authorization: `Bearer ${secondarySession.access_token}`,
+  };
 
   const created = await expectEnvelope<{ backup_id: string }>(
     await request.post("/api/v1/system/backups", {
@@ -1454,7 +1474,10 @@ test("backup restore syncs to another terminal through realtime", async ({ page,
     }),
   );
 
-  const restored = await expectEnvelope<{ backup_id?: string; settings_version: string }>(
+  const restored = await expectEnvelope<{
+    backup_id?: string;
+    settings_version: string;
+  }>(
     await request.post(`/api/v1/system/backups/${created.backup_id}/restore`, {
       headers: secondaryHeaders,
       data: {},
@@ -1506,7 +1529,10 @@ test("editor draft can be saved and published through M1 contract", async ({ req
     await request.get(`/api/v1/editor/draft?lease_id=${editorSession.lease_id}`, { headers }),
   );
 
-  const published = await expectEnvelope<{ published: boolean; layout_version: string }>(
+  const published = await expectEnvelope<{
+    published: boolean;
+    layout_version: string;
+  }>(
     await request.post("/api/v1/editor/publish", {
       headers,
       data: {

@@ -2,15 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchDeviceDetail, fetchDevices, fetchRooms } from "../api/devicesApi";
 import { normalizeApiError } from "../api/httpClient";
+import { fetchSettings, saveSettings } from "../api/settingsApi";
 import {
   DeviceControlSchemaItemDto,
   DeviceDetailDto,
   DeviceEntityLinkDto,
   DeviceListItemDto,
   RoomListItemDto,
+  SettingsDto,
+  SettingsSaveInput,
 } from "../api/types";
+import { appStore } from "../store/useAppStore";
 
 type OfflineFilter = "ALL" | "ONLINE" | "OFFLINE";
+type HomeEntryAction = "add" | "remove";
+type HomeEntryFeedback = { tone: "success" | "error"; text: string } | null;
 
 function getStatusLabel(device: DeviceListItemDto): string {
   if (device.is_offline) {
@@ -64,6 +70,86 @@ function describeControlSchema(schema: DeviceControlSchemaItemDto) {
   return { target: target || "-", value };
 }
 
+function normalizeFavorites(
+  settings: SettingsDto,
+): SettingsSaveInput["favorites"] {
+  return (settings.favorites ?? []).map((favorite, index) => ({
+    device_id: favorite.device_id,
+    selected: favorite.selected ?? true,
+    favorite_order:
+      typeof favorite.favorite_order === "number"
+        ? favorite.favorite_order
+        : index,
+  }));
+}
+
+function getNextFavoriteOrder(favorites: SettingsSaveInput["favorites"]) {
+  const orders = favorites
+    .map((favorite, index) =>
+      typeof favorite.favorite_order === "number"
+        ? favorite.favorite_order
+        : index,
+    )
+    .filter((order) => Number.isFinite(order));
+  return orders.length ? Math.max(...orders) + 1 : 0;
+}
+
+function buildSettingsSaveInput(
+  settings: SettingsDto,
+  favorites: SettingsSaveInput["favorites"],
+): SettingsSaveInput {
+  const pageSettings = settings.page_settings;
+  const functionSettings = settings.function_settings;
+
+  return {
+    settings_version: settings.settings_version ?? null,
+    page_settings: {
+      room_label_mode: pageSettings?.room_label_mode ?? "ROOM_NAME",
+      homepage_display_policy: pageSettings?.homepage_display_policy ?? {},
+      icon_policy: pageSettings?.icon_policy ?? {},
+      layout_preference: pageSettings?.layout_preference ?? {},
+    },
+    function_settings: {
+      low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
+      offline_threshold_seconds:
+        functionSettings?.offline_threshold_seconds ?? 300,
+      quick_entry_policy: functionSettings?.quick_entry_policy ?? {
+        favorites: true,
+      },
+      music_enabled: functionSettings?.music_enabled ?? true,
+      favorite_limit: functionSettings?.favorite_limit ?? 8,
+      auto_home_timeout_seconds:
+        functionSettings?.auto_home_timeout_seconds ?? 30,
+      position_device_thresholds:
+        functionSettings?.position_device_thresholds ?? {},
+    },
+    favorites,
+  };
+}
+
+function buildNextFavorites(
+  settings: SettingsDto,
+  deviceId: string,
+  action: HomeEntryAction,
+) {
+  const favorites = normalizeFavorites(settings).filter(
+    (favorite) => favorite.device_id !== deviceId,
+  );
+
+  if (action === "remove") {
+    return favorites;
+  }
+
+  return [
+    ...favorites,
+    {
+      device_id: deviceId,
+      selected: true,
+      favorite_order: getNextFavoriteOrder(favorites),
+    },
+  ];
+}
+
 export function DevicesCatalogPage() {
   const [rooms, setRooms] = useState<RoomListItemDto[]>([]);
   const [devices, setDevices] = useState<DeviceListItemDto[]>([]);
@@ -80,6 +166,11 @@ export function DevicesCatalogPage() {
   );
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [homeEntryBusyDeviceId, setHomeEntryBusyDeviceId] = useState<
+    string | null
+  >(null);
+  const [homeEntryFeedback, setHomeEntryFeedback] =
+    useState<HomeEntryFeedback>(null);
 
   async function loadCatalog(
     nextKeyword = keyword,
@@ -126,6 +217,72 @@ export function DevicesCatalogPage() {
     }
   }
 
+  async function updateHomeEntry(
+    device: DeviceListItemDto,
+    action: HomeEntryAction,
+  ) {
+    if (action === "add" && !device.is_favorite_candidate) {
+      setHomeEntryFeedback({
+        tone: "error",
+        text: device.favorite_exclude_reason || "当前设备不可加入首页。",
+      });
+      return;
+    }
+
+    setHomeEntryBusyDeviceId(device.device_id);
+    setHomeEntryFeedback(null);
+    try {
+      const settings = await fetchSettings();
+      const favorites = normalizeFavorites(settings);
+      const alreadySelected = favorites.some(
+        (favorite) =>
+          favorite.device_id === device.device_id && favorite.selected,
+      );
+
+      if (action === "add" && alreadySelected) {
+        setHomeEntryFeedback({
+          tone: "success",
+          text: `${device.display_name} 已在首页，可到设置里调整排序。`,
+        });
+        return;
+      }
+
+      if (action === "remove" && !alreadySelected) {
+        setHomeEntryFeedback({
+          tone: "success",
+          text: `${device.display_name} 当前不在首页。`,
+        });
+        return;
+      }
+
+      const nextFavorites = buildNextFavorites(
+        settings,
+        device.device_id,
+        action,
+      );
+      await saveSettings(buildSettingsSaveInput(settings, nextFavorites));
+      const refreshedSettings = await fetchSettings();
+      appStore.setSettingsData(
+        refreshedSettings as unknown as Record<string, unknown>,
+      );
+      await loadCatalog(keyword, roomFilter);
+      setHomeEntryFeedback({
+        tone: "success",
+        text:
+          action === "add"
+            ? `${device.display_name} 已加入首页，可到设置里调整排序。`
+            : `${device.display_name} 已移出首页。`,
+      });
+    } catch (requestError) {
+      setHomeEntryFeedback({
+        tone: "error",
+        text: normalizeApiError(requestError).message,
+      });
+    } finally {
+      setHomeEntryBusyDeviceId(null);
+    }
+  }
+
   const visibleDevices = useMemo(() => {
     if (offlineFilter === "ONLINE") {
       return devices.filter((device) => !device.is_offline);
@@ -154,10 +311,71 @@ export function DevicesCatalogPage() {
       homeEntryCount,
     };
   }, [visibleDevices]);
+  const selectedDeviceCatalog = useMemo(
+    () =>
+      selectedDevice
+        ? (devices.find(
+            (device) => device.device_id === selectedDevice.device_id,
+          ) ?? null)
+        : null,
+    [devices, selectedDevice],
+  );
+
+  function renderHomeEntryAction(device: DeviceListItemDto) {
+    const isBusy = homeEntryBusyDeviceId === device.device_id;
+
+    if (device.is_favorite) {
+      return (
+        <button
+          className="button button--ghost devices-table__action"
+          disabled={isBusy}
+          onClick={() => void updateHomeEntry(device, "remove")}
+          type="button"
+        >
+          {isBusy ? "处理中..." : "移出首页"}
+        </button>
+      );
+    }
+
+    if (device.is_favorite_candidate) {
+      return (
+        <button
+          className="button button--primary devices-table__action"
+          disabled={isBusy}
+          onClick={() => void updateHomeEntry(device, "add")}
+          type="button"
+        >
+          {isBusy ? "处理中..." : "加入首页"}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        className="button button--ghost devices-table__action"
+        disabled
+        title={device.favorite_exclude_reason || "当前设备不可加入首页"}
+        type="button"
+      >
+        不可加入
+      </button>
+    );
+  }
 
   return (
     <section className="page page--devices">
       {error ? <p className="inline-error">{error}</p> : null}
+      {homeEntryFeedback ? (
+        <p
+          className={
+            homeEntryFeedback.tone === "error"
+              ? "inline-error"
+              : "inline-success"
+          }
+        >
+          {homeEntryFeedback.text}
+        </p>
+      ) : null}
 
       <header className="panel devices-header">
         <div className="devices-header__copy">
@@ -305,13 +523,18 @@ export function DevicesCatalogPage() {
                     </td>
                     <td>{getHomeEntryLabel(device)}</td>
                     <td>
-                      <button
-                        className="button button--ghost devices-table__action"
-                        onClick={() => void openDeviceDetail(device.device_id)}
-                        type="button"
-                      >
-                        详情
-                      </button>
+                      <div className="devices-table__action-group">
+                        {renderHomeEntryAction(device)}
+                        <button
+                          className="button button--ghost devices-table__action"
+                          onClick={() =>
+                            void openDeviceDetail(device.device_id)
+                          }
+                          type="button"
+                        >
+                          详情
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -346,6 +569,18 @@ export function DevicesCatalogPage() {
           ) : null}
           {selectedDevice ? (
             <div className="devices-detail-drawer__body">
+              {selectedDeviceCatalog ? (
+                <section className="devices-home-entry-card">
+                  <div>
+                    <span className="card-eyebrow">首页入口</span>
+                    <strong>{getHomeEntryLabel(selectedDeviceCatalog)}</strong>
+                    <p className="muted-copy">
+                      设备页负责加入或移出首页；排序和显示规则仍在设置里调整。
+                    </p>
+                  </div>
+                  {renderHomeEntryAction(selectedDeviceCatalog)}
+                </section>
+              ) : null}
               <dl className="field-grid">
                 <div>
                   <dt>设备 ID</dt>
