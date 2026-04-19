@@ -620,21 +620,94 @@
   gap: 12px;
 }
 
-.home-device-control-panel__switch {
-  display: flex;
+.home-device-control-panel__action-summary,
+.home-device-control-panel__empty {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(88, 224, 170, 0.16);
+  border-radius: 8px;
+  background: rgba(88, 224, 170, 0.07);
+}
+
+.home-device-control-panel__action-summary strong,
+.home-device-control-panel__empty strong {
+  font-size: 15px;
+}
+
+.home-device-control-panel__action-summary p,
+.home-device-control-panel__empty p,
+.home-device-control-panel__result p,
+.home-device-control-panel__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.home-device-control-panel__action-summary span {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  min-height: 24px;
   align-items: center;
-  justify-content: space-between;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #dff7ff;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-device-control-panel__segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  min-height: 46px;
-  padding: 0 12px;
+  padding: 4px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.24);
 }
 
-.home-device-control-panel__switch input {
-  width: 20px;
-  height: 20px;
+.home-device-control-panel__segmented button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.home-device-control-panel__segmented button.is-active {
+  background: rgba(88, 224, 170, 0.16);
+  color: #d8ffe8;
+  box-shadow: inset 0 0 0 1px rgba(88, 224, 170, 0.24);
+}
+
+.home-device-control-panel__range {
+  display: grid;
+  gap: 8px;
+}
+
+.home-device-control-panel__range > input[type="range"] {
+  width: 100%;
+  accent-color: #78dda6;
+}
+
+.home-device-control-panel__range label {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.home-device-control-panel__range label span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .home-device-control-panel__result {
@@ -648,6 +721,10 @@
 
 .home-device-control-panel__result strong {
   font-size: 14px;
+}
+
+.home-device-control-panel__result p {
+  color: #dff7ff;
 }
 
 .home-device-control-panel__result.is-success {

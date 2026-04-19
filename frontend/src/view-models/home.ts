@@ -246,7 +246,11 @@ function isPolicyEnabled(
     return fallback;
   }
 
-  return value[key] !== false;
+  const raw = value[key];
+  if (typeof raw === "string") {
+    return !["false", "0", "off", "disabled"].includes(raw.toLowerCase());
+  }
+  return raw !== false;
 }
 
 function shouldShowFavoriteDevices(value: Record<string, unknown> | null) {

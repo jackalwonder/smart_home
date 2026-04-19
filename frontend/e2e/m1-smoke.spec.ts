@@ -1086,6 +1086,8 @@ test("devices page can add and remove a home entry", async ({
   page,
   request,
 }) => {
+  test.setTimeout(60_000);
+
   const session = await bootstrapSession(request);
   const headers = { authorization: `Bearer ${session.access_token}` };
   seedSmokeDeviceFixture();
@@ -1144,13 +1146,23 @@ test("devices page can add and remove a home entry", async ({
 
   await topNav.getByRole("link", { name: "总览", exact: true }).click();
   const favoriteSection = page.locator("section[aria-label='首页常用设备']");
-  await expect(
-    favoriteSection.getByRole("button", { name: /E2E 客厅主灯/ }),
-  ).toBeVisible();
-  await favoriteSection.getByRole("button", { name: /E2E 客厅主灯/ }).click();
+  const favoriteDeviceRow = favoriteSection.locator(
+    ".home-favorite-device-row",
+    {
+      hasText: "E2E 客厅主灯",
+    },
+  );
+  await expect(favoriteDeviceRow).toBeVisible();
+  await favoriteDeviceRow.click();
   await expect(
     page.getByRole("heading", { name: "E2E 客厅主灯" }),
   ).toBeVisible();
+  await expect(
+    page
+      .locator(".home-device-control-panel__action-summary")
+      .getByText("电源开关"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "发送开关" })).toBeVisible();
   await page.getByRole("button", { name: "关闭控制面板" }).click();
 
   await topNav.getByRole("link", { name: "设备", exact: true }).click();
@@ -1194,7 +1206,8 @@ test("devices page can add and remove a home entry", async ({
     },
   });
   await page.reload();
-  await expect(favoriteSection).toHaveCount(0);
+  await expect(favoriteSection).toBeHidden();
+  await expect(page.getByText("快捷入口已关闭")).toBeVisible();
 });
 
 test("editor UI opens an edit session, saves draft, and publishes", async ({
@@ -1687,6 +1700,39 @@ test("home control UI sends null payload for no-value actions and shows result",
               is_quick_action: true,
               requires_detail_entry: false,
             },
+            {
+              action_type: "TOGGLE_POWER",
+              target_scope: "PRIMARY",
+              target_key: "power",
+              value_type: "BOOLEAN",
+              value_range: null,
+              allowed_values: null,
+              unit: null,
+              is_quick_action: true,
+              requires_detail_entry: false,
+            },
+            {
+              action_type: "SET_BRIGHTNESS",
+              target_scope: "PRIMARY",
+              target_key: "brightness",
+              value_type: "NUMBER",
+              value_range: { min: 0, max: 100, step: 5 },
+              allowed_values: null,
+              unit: "%",
+              is_quick_action: true,
+              requires_detail_entry: false,
+            },
+            {
+              action_type: "SET_MODE",
+              target_scope: "PRIMARY",
+              target_key: "mode",
+              value_type: "STRING",
+              value_range: null,
+              allowed_values: ["cool", "heat", "dry"],
+              unit: null,
+              is_quick_action: false,
+              requires_detail_entry: true,
+            },
           ],
           editor_config: { hotspots: [] },
           source_info: { entity_links: [] },
@@ -1755,11 +1801,25 @@ test("home control UI sends null payload for no-value actions and shows result",
     page.getByRole("heading", { name: "无值测试开关" }),
   ).toBeVisible();
   await expect(
-    page.getByText("这个动作不需要输入取值，发送时会使用空值。"),
+    page.getByText("这个动作不需要额外取值，点击执行即可。"),
   ).toBeVisible();
-  await page.getByRole("button", { name: "发送控制" }).click();
-  await expect(page.getByText("Control request accepted")).toBeVisible();
-  await expect(page.getByText("控制已完成")).toBeVisible();
+  await page.getByLabel("控制项").selectOption({ label: "电源开关" });
+  await expect(page.getByRole("group", { name: "开关状态" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "开启" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "关闭", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("控制项").selectOption({ label: "亮度" });
+  await expect(page.getByLabel("亮度滑杆")).toBeVisible();
+  await expect(page.getByText("单位 %")).toBeVisible();
+  await page.getByLabel("控制项").selectOption({ label: "模式" });
+  await expect(page.getByRole("combobox", { name: "模式" })).toContainText(
+    "制冷",
+  );
+  await page.getByLabel("控制项").selectOption({ label: "执行场景" });
+  await page.getByRole("button", { name: "执行场景" }).click();
+  await expect(page.getByText("请求已发送")).toBeVisible();
+  await expect(page.getByText("设备已完成控制")).toBeVisible();
 
   expect(postedBody).toBeTruthy();
   expect(
