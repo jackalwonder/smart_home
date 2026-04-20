@@ -221,6 +221,7 @@ function renderControlInput(
       <div className="home-device-control-panel__chips">
         {schema.allowed_values.map((option) => (
           <button
+            aria-label={formatOptionLabel(option)}
             key={String(option)}
             className={value === option ? "is-active" : ""}
             onClick={() => onChange(option)}
@@ -237,6 +238,7 @@ function renderControlInput(
     return (
       <div className="home-device-control-panel__segmented" role="group" aria-label={action.valueLabel}>
         <button
+          aria-label="开启"
           className={Boolean(value) ? "is-active" : ""}
           onClick={() => onChange(true)}
           type="button"
@@ -244,6 +246,7 @@ function renderControlInput(
           开启
         </button>
         <button
+          aria-label="关闭"
           className={!Boolean(value) ? "is-active" : ""}
           onClick={() => onChange(false)}
           type="button"
@@ -262,6 +265,7 @@ function renderControlInput(
       <div className="home-device-control-panel__range">
         {min !== undefined && max !== undefined ? (
           <input
+            aria-label={`${action.valueLabel}滑杆`}
             max={max}
             min={min}
             onChange={(event) => onChange(Number(event.target.value))}
@@ -271,6 +275,7 @@ function renderControlInput(
           />
         ) : null}
         <input
+          aria-label={action.valueLabel}
           className="control-input"
           max={max}
           min={min}
@@ -279,6 +284,7 @@ function renderControlInput(
           type="number"
           value={String(value ?? "")}
         />
+        {schema.unit ? <small>{`单位 ${schema.unit}`}</small> : null}
       </div>
     );
   }
@@ -449,6 +455,7 @@ export function HomeDeviceControlPanel({
           <p>这个设备适合直接在热点旁完成开关操作。</p>
           <div className="home-device-control-panel__segmented">
             <button
+              aria-label="开启"
               disabled={submitting || queryingResult || Boolean(device?.is_readonly_device)}
               onClick={() => void submitControl(quickSchema, true, powerSchemaIndex)}
               type="button"
@@ -456,6 +463,7 @@ export function HomeDeviceControlPanel({
               开启
             </button>
             <button
+              aria-label="关闭"
               disabled={submitting || queryingResult || Boolean(device?.is_readonly_device)}
               onClick={() => void submitControl(quickSchema, false, powerSchemaIndex)}
               type="button"
@@ -471,6 +479,7 @@ export function HomeDeviceControlPanel({
           <label className="form-field">
             <span>控制项目</span>
             <select
+              aria-label="控制项"
               className="control-input"
               onChange={(event) => {
                 setSelectedIndex(Number(event.target.value));

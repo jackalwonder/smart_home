@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { DeviceListItemDto } from "../../api/types";
 import { HomeViewModel } from "../../view-models/home";
 
@@ -256,6 +257,64 @@ function NoticeControlsSlide() {
   );
 }
 
+function FavoriteDevicesSlide({
+  viewModel,
+  onOpenFavoriteDevice,
+}: Pick<HomeInsightRailProps, "viewModel" | "onOpenFavoriteDevice">) {
+  return (
+    <section
+      aria-label="首页常用设备"
+      className="home-trends-slide home-favorite-rail-slide"
+    >
+      <header className="home-status-panel__header">
+        <div>
+          <span className="card-eyebrow">首页入口</span>
+          <strong>常用设备</strong>
+        </div>
+        <em>{viewModel.favoriteDevices.length ? "READY" : "EMPTY"}</em>
+      </header>
+
+      {viewModel.favoriteDevices.length ? (
+        <div className="home-favorite-device-list">
+          {viewModel.favoriteDevices.slice(0, 3).map((device) => (
+            <button
+              key={device.deviceId}
+              className={[
+                "home-favorite-device-row",
+                device.tone === "warm"
+                  ? "is-warm"
+                  : device.tone === "neutral"
+                    ? "is-neutral"
+                    : "is-accent",
+                device.isOffline ? "is-offline" : "",
+              ].join(" ")}
+              onClick={() => onOpenFavoriteDevice(device.deviceId)}
+              type="button"
+            >
+              <b>{device.iconGlyph}</b>
+              <span>
+                <strong>{device.label}</strong>
+                <small>
+                  {device.roomName} · {device.deviceTypeLabel}
+                </small>
+              </span>
+              <em>{device.statusSummary ?? device.statusLabel}</em>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="quick-scene-card__empty">
+          <strong>还没有首页常用设备</strong>
+          <p>从设备页加入首页后，这里会变成现场最快入口。</p>
+          <Link className="button button--ghost" to="/devices">
+            去设备页添加
+          </Link>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ToggleRow({
   active,
   detail,
@@ -313,6 +372,7 @@ export function HomeInsightRail({
   viewModel,
   devices,
   onOpenCluster,
+  onOpenFavoriteDevice,
 }: HomeInsightRailProps) {
   const [featureIndex, setFeatureIndex] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
@@ -359,13 +419,27 @@ export function HomeInsightRail({
         label: "气象脉动",
         content: <WeatherTrendsSlide viewModel={viewModel} />,
       },
+      ...(viewModel.showFavoriteDevices
+        ? [
+            {
+              key: "favorites",
+              label: "首页常用设备",
+              content: (
+                <FavoriteDevicesSlide
+                  onOpenFavoriteDevice={onOpenFavoriteDevice}
+                  viewModel={viewModel}
+                />
+              ),
+            },
+          ]
+        : []),
       {
         key: "notice",
         label: "通知功能键",
         content: <NoticeControlsSlide />,
       },
     ],
-    [viewModel],
+    [onOpenFavoriteDevice, viewModel],
   );
 
   const mediaSlides = useMemo<RailSlide[]>(
