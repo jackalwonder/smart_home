@@ -151,6 +151,9 @@ from src.modules.page_assets.services.FloorplanAssetService import FloorplanAsse
 from src.modules.realtime.RealtimeService import RealtimeService
 from src.modules.settings.services.command.SettingsSaveService import SettingsSaveService
 from src.modules.settings.services.query.FavoritesQueryService import FavoritesQueryService
+from src.modules.settings.services.query.SgccLoginQrCodeService import (
+    SgccLoginQrCodeService,
+)
 from src.modules.settings.services.query.SettingsQueryService import SettingsQueryService
 from src.modules.system_connections.services.HaEntitySyncService import HaEntitySyncService
 from src.modules.system_connections.services.HaRealtimeSyncService import HaRealtimeSyncService
@@ -543,6 +546,15 @@ def get_settings_query_service() -> SettingsQueryService:
 @lru_cache(maxsize=1)
 def get_favorites_query_service() -> FavoritesQueryService:
     return FavoritesQueryService(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_sgcc_login_qr_code_service() -> SgccLoginQrCodeService:
+    return SgccLoginQrCodeService(
+        get_settings(),
+        energy_account_repository=get_energy_account_repository(),
+        ha_connection_gateway=get_ha_connection_gateway(),
+    )
 
 
 @lru_cache(maxsize=1)

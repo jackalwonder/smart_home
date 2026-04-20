@@ -17,7 +17,13 @@ import {
   fetchDefaultMedia,
   unbindDefaultMedia,
 } from "../api/mediaApi";
-import { fetchSettings, saveSettings } from "../api/settingsApi";
+import {
+  fetchSettings,
+  fetchSgccLoginQrCodeImage,
+  fetchSgccLoginQrCodeStatus,
+  regenerateSgccLoginQrCode,
+  saveSettings,
+} from "../api/settingsApi";
 import {
   fetchSystemConnections,
   reloadHomeAssistantDevices,
@@ -36,6 +42,7 @@ import {
   DefaultMediaDto,
   DeviceListItemDto,
   EnergyDto,
+  SgccLoginQrCodeStatusDto,
   SystemConnectionsEnvelopeDto,
   TerminalBootstrapTokenAuditItemDto,
   TerminalBootstrapTokenCreateDto,
@@ -63,6 +70,7 @@ import { SettingsHeaderBar } from "../components/settings/SettingsHeaderBar";
 import { SettingsOverviewCard } from "../components/settings/SettingsOverviewCard";
 import { SettingsShowcaseGrid } from "../components/settings/SettingsShowcaseGrid";
 import { SettingsSideNav } from "../components/settings/SettingsSideNav";
+import { SgccLoginQrCodePanel } from "../components/settings/SgccLoginQrCodePanel";
 import {
   PolicyEntryDraft,
   PolicyEntryDraftType,
@@ -599,6 +607,17 @@ export function SettingsWorkspacePage() {
   const [energySaveBusy, setEnergySaveBusy] = useState(false);
   const [energyClearBusy, setEnergyClearBusy] = useState(false);
   const [energyRefreshBusy, setEnergyRefreshBusy] = useState(false);
+  const [sgccLoginQrCode, setSgccLoginQrCode] =
+    useState<SgccLoginQrCodeStatusDto | null>(null);
+  const [sgccLoginQrCodeLoading, setSgccLoginQrCodeLoading] = useState(false);
+  const [sgccLoginQrCodeRegenerateBusy, setSgccLoginQrCodeRegenerateBusy] =
+    useState(false);
+  const [sgccLoginQrCodeMessage, setSgccLoginQrCodeMessage] = useState<
+    string | null
+  >(null);
+  const [sgccLoginQrCodeImageUrl, setSgccLoginQrCodeImageUrl] = useState<
+    string | null
+  >(null);
   const [mediaState, setMediaState] = useState<DefaultMediaDto | null>(null);
   const [mediaMessage, setMediaMessage] = useState<string | null>(null);
   const [mediaBindBusy, setMediaBindBusy] = useState(false);
@@ -630,6 +649,67 @@ export function SettingsWorkspacePage() {
     const response = await fetchEnergy();
     setEnergyState(response);
     setEnergyDraft((current) => createEnergyBindingDraft(response, current));
+  }
+
+  function replaceSgccLoginQrCodeImageUrl(nextUrl: string | null) {
+    setSgccLoginQrCodeImageUrl((current) => {
+      if (current?.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return nextUrl;
+    });
+  }
+
+  async function loadSgccLoginQrCode(options?: { quiet?: boolean }) {
+    if (!options?.quiet) {
+      setSgccLoginQrCodeLoading(true);
+    }
+
+    try {
+      const response = await fetchSgccLoginQrCodeStatus();
+      setSgccLoginQrCode(response);
+      setSgccLoginQrCodeMessage(null);
+
+      if (!response.available || !response.image_url) {
+        replaceSgccLoginQrCodeImageUrl(null);
+        return;
+      }
+
+      const shouldReloadImage =
+        response.updated_at !== sgccLoginQrCode?.updated_at ||
+        !sgccLoginQrCodeImageUrl;
+      if (!shouldReloadImage) {
+        return;
+      }
+
+      const imageBlob = await fetchSgccLoginQrCodeImage(response.image_url);
+      replaceSgccLoginQrCodeImageUrl(URL.createObjectURL(imageBlob));
+    } catch (error) {
+      setSgccLoginQrCodeMessage(normalizeApiError(error).message);
+    } finally {
+      if (!options?.quiet) {
+        setSgccLoginQrCodeLoading(false);
+      }
+    }
+  }
+
+  async function handleRegenerateSgccLoginQrCode() {
+    if (!pin.active) {
+      setSgccLoginQrCodeMessage("重新生成国网二维码前，请先验证管理 PIN。");
+      return;
+    }
+
+    setSgccLoginQrCodeRegenerateBusy(true);
+    setSgccLoginQrCodeMessage(null);
+    replaceSgccLoginQrCodeImageUrl(null);
+    try {
+      const response = await regenerateSgccLoginQrCode();
+      setSgccLoginQrCode(response);
+    } catch (error) {
+      setSgccLoginQrCodeMessage(normalizeApiError(error).message);
+    } finally {
+      setSgccLoginQrCodeRegenerateBusy(false);
+    }
   }
 
   async function loadMediaState() {
@@ -809,6 +889,7 @@ export function SettingsWorkspacePage() {
 
     if (activeSection === "system") {
       void loadMediaCandidates();
+      void loadSgccLoginQrCode();
       return;
     }
 
@@ -823,6 +904,34 @@ export function SettingsWorkspacePage() {
       }
     }
   }, [activeSection, pin.active, session.data?.accessToken, session.status]);
+
+  useEffect(() => {
+    if (session.status !== "success" || activeSection !== "system") {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadSgccLoginQrCode({ quiet: true });
+    }, 10000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    activeSection,
+    session.data?.accessToken,
+    session.status,
+    sgccLoginQrCode?.updated_at,
+    sgccLoginQrCodeImageUrl,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (sgccLoginQrCodeImageUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(sgccLoginQrCodeImageUrl);
+      }
+    };
+  }, [sgccLoginQrCodeImageUrl]);
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -1611,6 +1720,16 @@ export function SettingsWorkspacePage() {
           onSave={() => void handleSaveEnergyBinding()}
           refreshBusy={energyRefreshBusy}
           saveBusy={energySaveBusy}
+        />
+        <SgccLoginQrCodePanel
+          canRegenerate={pin.active}
+          imageUrl={sgccLoginQrCodeImageUrl}
+          loading={sgccLoginQrCodeLoading}
+          message={sgccLoginQrCodeMessage}
+          onRegenerate={() => void handleRegenerateSgccLoginQrCode()}
+          onRefreshStatus={() => void loadSgccLoginQrCode()}
+          regenerateBusy={sgccLoginQrCodeRegenerateBusy}
+          status={sgccLoginQrCode}
         />
         <DefaultMediaPanel
           availableDevices={mediaCandidates}
