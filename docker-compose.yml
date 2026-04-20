@@ -78,7 +78,8 @@ services:
     container_name: ${SGCC_DOCKER_CONTAINER_NAME:-smart-home-sgcc-electricity}
     restart: unless-stopped
     env_file:
-      - ./deploy/sgcc_electricity/.env
+      - path: ./deploy/sgcc_electricity/.env
+        required: false
     environment:
       SET_CONTAINER_TIMEZONE: "true"
       CONTAINER_TIMEZONE: ${TZ:-Asia/Shanghai}
