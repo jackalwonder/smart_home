@@ -1,7 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchDevices } from "../api/devicesApi";
 import { fetchHomeOverview } from "../api/homeApi";
 import { normalizeApiError } from "../api/httpClient";
+import { DeviceListItemDto } from "../api/types";
 import { BottomStatsStrip } from "../components/home/BottomStatsStrip";
+import {
+  HomeClusterControlModal,
+  HomeClusterKey,
+} from "../components/home/HomeClusterControlModal";
 import { HomeCommandStage } from "../components/home/HomeCommandStage";
 import { HomeInsightRail } from "../components/home/HomeInsightRail";
 import { PageFrame } from "../components/layout/PageFrame";
@@ -17,12 +23,10 @@ export function HomeDashboardPage() {
   const home = useAppStore((state) => state.home);
   const realtime = useAppStore((state) => state.realtime);
   const events = useAppStore((state) => state.wsEvents);
-  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(
-    null,
-  );
-  const [selectedFavoriteDeviceId, setSelectedFavoriteDeviceId] = useState<
-    string | null
-  >(null);
+  const [devices, setDevices] = useState<DeviceListItemDto[]>([]);
+  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [selectedFavoriteDeviceId, setSelectedFavoriteDeviceId] = useState<string | null>(null);
+  const [selectedCluster, setSelectedCluster] = useState<HomeClusterKey | null>(null);
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -33,11 +37,15 @@ export function HomeDashboardPage() {
     void (async () => {
       appStore.setHomeLoading();
       try {
-        const data = await fetchHomeOverview();
+        const [overview, deviceDirectory] = await Promise.all([
+          fetchHomeOverview(),
+          fetchDevices({ page: 1, page_size: 200 }),
+        ]);
         if (!active) {
           return;
         }
-        appStore.setHomeData(data as unknown as Record<string, unknown>);
+        appStore.setHomeData(overview as unknown as Record<string, unknown>);
+        setDevices(deviceDirectory.items ?? []);
       } catch (error) {
         if (!active) {
           return;
@@ -63,47 +71,43 @@ export function HomeDashboardPage() {
         )
       : null;
 
+  const formattedEvents = useMemo(
+    () => events.slice(0, 6).map(formatRealtimeEvent),
+    [events],
+  );
+
   return (
     <section className="page page--home">
       {home.error ? <p className="inline-error">{home.error}</p> : null}
       <PageFrame
         aside={
           <HomeInsightRail
-            actions={viewModel.quickActions}
-            date={viewModel.timeline.date}
-            energyFields={viewModel.energyFields}
-            favoriteDevices={viewModel.favoriteDevices}
-            humidity={viewModel.timeline.humidity}
-            mediaFields={viewModel.mediaFields}
-            metrics={viewModel.metrics}
+            devices={devices}
+            onOpenCluster={(clusterKey) => {
+              setSelectedHotspotId(null);
+              setSelectedFavoriteDeviceId(null);
+              setSelectedCluster(clusterKey);
+            }}
             onOpenFavoriteDevice={(deviceId) => {
+              setSelectedCluster(null);
               setSelectedHotspotId(null);
               setSelectedFavoriteDeviceId(deviceId);
             }}
-            showFavoriteDevices={viewModel.showFavoriteDevices}
-            time={viewModel.timeline.time}
-            weatherCondition={viewModel.timeline.weatherCondition}
-            weatherTemperature={viewModel.timeline.weatherTemperature}
-          />
-        }
-        footer={
-          <BottomStatsStrip
-            connectionStatus={realtime.connectionStatus}
-            events={events.slice(0, 4).map(formatRealtimeEvent)}
-            stats={viewModel.bottomStats}
+            viewModel={viewModel}
           />
         }
         className="page-frame--home"
+        footer={<BottomStatsStrip stats={viewModel.bottomStats} />}
       >
         <HomeCommandStage
           backgroundImageUrl={viewModel.stage.backgroundImageUrl}
           cacheMode={viewModel.cacheMode}
           connectionStatus={realtime.connectionStatus}
+          events={formattedEvents}
           hotspots={viewModel.stage.hotspots}
-          onClearSelectedExternalHotspot={() =>
-            setSelectedFavoriteDeviceId(null)
-          }
+          onClearSelectedExternalHotspot={() => setSelectedFavoriteDeviceId(null)}
           onSelectHotspot={(hotspotId) => {
+            setSelectedCluster(null);
             setSelectedFavoriteDeviceId(null);
             setSelectedHotspotId(hotspotId);
           }}
@@ -111,6 +115,13 @@ export function HomeDashboardPage() {
           selectedHotspotId={selectedHotspotId}
         />
       </PageFrame>
+
+      <HomeClusterControlModal
+        cluster={selectedCluster}
+        devices={devices}
+        onClose={() => setSelectedCluster(null)}
+        open={selectedCluster !== null}
+      />
     </section>
   );
 }

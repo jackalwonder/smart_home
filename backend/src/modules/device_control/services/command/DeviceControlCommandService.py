@@ -7,6 +7,7 @@ from typing import Any
 
 from src.infrastructure.ha.HaControlGateway import HaControlCommand, HaControlGateway
 from src.repositories.base.control.DeviceControlRequestRepository import (
+    DeviceControlResultUpdate,
     DeviceControlRequestRepository,
     NewDeviceControlRequestRow,
 )
@@ -354,15 +355,118 @@ class DeviceControlCommandService:
 
         inserted = await self._unit_of_work.run_in_transaction(_transaction)
 
-        await self._ha_control_gateway.submit_control(
-            HaControlCommand(
-                home_id=input.home_id,
-                device_id=input.device_id,
-                request_id=input.request_id,
-                action_type=input.action_type,
-                payload=validated_payload.payload,
+        try:
+            await self._ha_control_gateway.submit_control(
+                HaControlCommand(
+                    home_id=input.home_id,
+                    device_id=input.device_id,
+                    request_id=input.request_id,
+                    action_type=input.action_type,
+                    payload=validated_payload.payload,
+                )
             )
-        )
+        except Exception as exc:
+            completed_at = self._clock.now().isoformat()
+
+            async def _mark_failed(tx: Any):
+                await self._device_control_request_repository.update_execution_result(
+                    DeviceControlResultUpdate(
+                        home_id=input.home_id,
+                        request_id=input.request_id,
+                        execution_status="FAILED",
+                        final_runtime_state_json=None,
+                        error_code=ErrorCode.HA_UNAVAILABLE,
+                        error_message=str(exc),
+                        completed_at=completed_at,
+                    ),
+                    ctx=RepoContext(tx=tx),
+                )
+                await self._device_control_transition_repository.insert(
+                    NewDeviceControlTransitionRow(
+                        control_request_id=inserted.id,
+                        from_status="PENDING",
+                        to_status="FAILED",
+                        reason="HA_SUBMIT_FAILED",
+                        error_code=ErrorCode.HA_UNAVAILABLE,
+                        payload_json={"request_id": input.request_id},
+                    ),
+                    ctx=RepoContext(tx=tx),
+                )
+                await self._ws_event_outbox_repository.insert(
+                    NewWsEventOutboxRow(
+                        home_id=input.home_id,
+                        event_id=self._event_id_generator.next_event_id(),
+                        event_type="device_state_changed",
+                        change_domain="DEVICE_STATE",
+                        snapshot_required=False,
+                        payload_json={
+                            "related_request_id": input.request_id,
+                            "device_id": input.device_id,
+                            "confirmation_type": inserted.confirmation_type,
+                            "execution_status": "FAILED",
+                            "runtime_state": None,
+                            "error_code": ErrorCode.HA_UNAVAILABLE,
+                            "error_message": str(exc),
+                        },
+                        occurred_at=completed_at,
+                    ),
+                    ctx=RepoContext(tx=tx),
+                )
+
+            await self._unit_of_work.run_in_transaction(_mark_failed)
+            raise AppError(
+                ErrorCode.HA_UNAVAILABLE,
+                "failed to submit control to Home Assistant",
+            ) from exc
+
+        completed_at = self._clock.now().isoformat()
+
+        async def _mark_succeeded(tx: Any):
+            await self._device_control_request_repository.update_execution_result(
+                DeviceControlResultUpdate(
+                    home_id=input.home_id,
+                    request_id=input.request_id,
+                    execution_status="SUCCESS",
+                    final_runtime_state_json=None,
+                    error_code=None,
+                    error_message=None,
+                    completed_at=completed_at,
+                ),
+                ctx=RepoContext(tx=tx),
+            )
+            await self._device_control_transition_repository.insert(
+                NewDeviceControlTransitionRow(
+                    control_request_id=inserted.id,
+                    from_status="PENDING",
+                    to_status="SUCCESS",
+                    reason="HA_ACKNOWLEDGED",
+                    error_code=None,
+                    payload_json={"request_id": input.request_id},
+                ),
+                ctx=RepoContext(tx=tx),
+            )
+            await self._ws_event_outbox_repository.insert(
+                NewWsEventOutboxRow(
+                    home_id=input.home_id,
+                    event_id=self._event_id_generator.next_event_id(),
+                    event_type="device_state_changed",
+                    change_domain="DEVICE_STATE",
+                    snapshot_required=False,
+                    payload_json={
+                        "related_request_id": input.request_id,
+                        "device_id": input.device_id,
+                        "confirmation_type": inserted.confirmation_type,
+                        "execution_status": "SUCCESS",
+                        "runtime_state": None,
+                        "error_code": None,
+                        "error_message": None,
+                    },
+                    occurred_at=completed_at,
+                ),
+                ctx=RepoContext(tx=tx),
+            )
+
+        await self._unit_of_work.run_in_transaction(_mark_succeeded)
 
         return DeviceControlAcceptedView(
             request_id=input.request_id,

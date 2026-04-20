@@ -2,68 +2,17 @@ import { HomeMetricViewModel } from "../../view-models/home";
 
 interface BottomStatsStripProps {
   stats: HomeMetricViewModel[];
-  events: Array<{ title: string; subtitle: string }>;
-  connectionStatus: string;
 }
 
-export function BottomStatsStrip({
-  stats,
-  events,
-  connectionStatus,
-}: BottomStatsStripProps) {
-  const normalizedStatus = connectionStatus.toLowerCase();
-  const connectionTone =
-    normalizedStatus === "connected"
-      ? "is-online"
-      : normalizedStatus === "connecting" || normalizedStatus === "reconnecting"
-        ? "is-warming"
-        : "is-offline";
-  const connectionLabel =
-    normalizedStatus === "connected"
-      ? "已连接"
-      : normalizedStatus === "reconnecting"
-        ? "重连中"
-        : normalizedStatus === "connecting"
-          ? "连接中"
-          : "未连接";
-
+export function BottomStatsStrip({ stats }: BottomStatsStripProps) {
   return (
-    <div className="bottom-stats-area">
-      <section className="bottom-event-strip">
-        <div className="bottom-event-strip__header">
-          <div>
-            <span className="card-eyebrow">实时流</span>
-            <h3>最近动态</h3>
-          </div>
-          <div className="bottom-event-strip__chips">
-            <strong className={`bottom-event-strip__status ${connectionTone}`}>
-              {connectionLabel}
-            </strong>
-            {stats.map((stat) => (
-              <span key={stat.label} className="bottom-event-strip__status">
-                {stat.label} {stat.value}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="bottom-event-strip__list">
-          {events.length ? (
-            events.map((event, index) => (
-              <article
-                key={`${event.title}-${index}`}
-                className="bottom-event-strip__item"
-              >
-                <strong>{event.title}</strong>
-                <span>{event.subtitle}</span>
-              </article>
-            ))
-          ) : (
-            <p className="muted-copy">
-              当前还没有收到实时事件，后续到达后会在这里滚动显示。
-            </p>
-          )}
-        </div>
-      </section>
-    </div>
+    <section className="bottom-stats-strip bottom-energy-band">
+      {stats.map((stat) => (
+        <article key={stat.label} className="bottom-energy-band__item">
+          <span>{stat.label}</span>
+          <strong>{stat.value}</strong>
+        </article>
+      ))}
+    </section>
   );
 }

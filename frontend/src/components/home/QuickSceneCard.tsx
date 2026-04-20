@@ -24,7 +24,7 @@ function actionGlyph(title: string) {
   if (title.includes("能耗")) {
     return "能";
   }
-  return "启";
+  return "入";
 }
 
 function favoriteDeviceToneClass(tone: HomeFavoriteDeviceViewModel["tone"]) {
@@ -51,10 +51,10 @@ export function QuickSceneCard({
       <div className="quick-scene-card__header">
         <div>
           <span className="card-eyebrow">快捷入口</span>
-          <h3>首页入口</h3>
+          <h3>常用操作</h3>
         </div>
         <span className="state-chip">
-          {entryCount ? `${entryCount} 个入口` : "待配置"}
+          {entryCount ? `${entryCount} 个入口` : "等待配置"}
         </span>
       </div>
 
@@ -65,14 +65,12 @@ export function QuickSceneCard({
             className="quick-scene-card__section"
           >
             <div className="quick-scene-card__section-header">
-              <span>常用设备</span>
-              <small>
-                {favoriteDevices.length ? "可直接打开控制" : "等待添加"}
-              </small>
+              <span>首页常用设备</span>
+              <small>{favoriteDevices.length ? "点击即控" : "等待添加"}</small>
             </div>
             {favoriteDevices.length ? (
               <div className="home-favorite-device-list">
-                {favoriteDevices.map((device) => (
+                {favoriteDevices.slice(0, 3).map((device) => (
                   <button
                     key={device.deviceId}
                     className={[
@@ -97,7 +95,7 @@ export function QuickSceneCard({
             ) : (
               <div className="quick-scene-card__empty">
                 <strong>还没有首页常用设备</strong>
-                <p>到设备页把高频控制加入首页，这里会自动变成快捷控制入口。</p>
+                <p>把高频控制加入首页后，这里会自动变成最快入口。</p>
                 <Link className="button button--ghost" to="/devices">
                   去设备页添加
                 </Link>
@@ -110,7 +108,7 @@ export function QuickSceneCard({
           <section className="quick-scene-card__section">
             <div className="quick-scene-card__section-header">
               <span>任务入口</span>
-              <small>按设置策略显示</small>
+              <small>设置联动</small>
             </div>
             <div className="quick-scene-grid">
               {actions.map((action) => (
@@ -118,7 +116,7 @@ export function QuickSceneCard({
                   <b>{actionGlyph(action.title)}</b>
                   <span>{action.title}</span>
                   <strong>{action.badgeCount}</strong>
-                  <small>触摸进入</small>
+                  <small>点按进入</small>
                 </article>
               ))}
             </div>
@@ -127,7 +125,7 @@ export function QuickSceneCard({
 
         {!showFavoriteDevices && !actions.length ? (
           <p className="muted-copy">
-            快捷入口已关闭，可在设置中重新开启首页常用、场景、媒体或能耗入口。
+            快捷入口当前已关闭，可以在设置里重新打开首页常用、场景或服务入口。
           </p>
         ) : null}
       </div>
