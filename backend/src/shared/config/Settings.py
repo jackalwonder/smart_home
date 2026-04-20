@@ -7,6 +7,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_ENV_FILE = Path(__file__).resolve().parents[4] / ".env"
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+DEFAULT_SGCC_QR_CODE_FILE = (
+    Path(__file__).resolve().parents[4]
+    / "deploy"
+    / "sgcc_electricity"
+    / "login_qr_code.png"
+)
+DEFAULT_SGCC_CACHE_FILE = (
+    Path(__file__).resolve().parents[4]
+    / "deploy"
+    / "sgcc_electricity"
+    / "sgcc_cache.json"
+)
 
 
 class Settings(BaseSettings):
@@ -40,6 +52,11 @@ class Settings(BaseSettings):
     pairing_code_ttl_seconds: int = 600
     pairing_code_issue_cooldown_seconds: int = 30
     readiness_check_timeout_seconds: float = 3.0
+    sgcc_qr_code_file: str = str(DEFAULT_SGCC_QR_CODE_FILE)
+    sgcc_cache_file: str = str(DEFAULT_SGCC_CACHE_FILE)
+    sgcc_qr_code_ttl_seconds: int = 60
+    sgcc_docker_socket_path: str = "/var/run/docker.sock"
+    sgcc_docker_container_name: str = "smart-home-sgcc-electricity"
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_latitude: float = 31.2304
     weather_longitude: float = 121.4737

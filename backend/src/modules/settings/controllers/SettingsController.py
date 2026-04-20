@@ -4,14 +4,18 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
+from fastapi.responses import FileResponse
 from pydantic import Field
 
 from src.app.container import (
     get_favorites_query_service,
+    get_management_pin_guard,
     get_request_context_service,
+    get_sgcc_login_qr_code_service,
     get_settings_query_service,
     get_settings_save_service,
 )
+from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
 from src.modules.auth.services.query.RequestContextService import RequestContextService
 from src.modules.settings.services.command.SettingsSaveService import (
     SettingsSaveInput,
@@ -20,6 +24,9 @@ from src.modules.settings.services.command.SettingsSaveService import (
 from src.modules.settings.services.query.FavoritesQueryService import (
     FavoritesQueryInput,
     FavoritesQueryService,
+)
+from src.modules.settings.services.query.SgccLoginQrCodeService import (
+    SgccLoginQrCodeService,
 )
 from src.modules.settings.services.query.SettingsQueryService import (
     SettingsQueryInput,
@@ -116,6 +123,18 @@ class FavoritesResponse(ApiSchema):
     settings_version: str | None = None
 
 
+class SgccLoginQrCodeStatusResponse(ApiSchema):
+    available: bool
+    status: str
+    image_url: str | None = None
+    updated_at: str | None = None
+    expires_at: str | None = None
+    age_seconds: int | None = None
+    file_size_bytes: int | None = None
+    mime_type: str | None = None
+    message: str
+
+
 @router.get("/api/v1/settings", response_model=SuccessEnvelope[SettingsSnapshotResponse])
 async def get_settings(
     request: Request,
@@ -158,6 +177,69 @@ async def get_favorites(
     context = await request_context_service.resolve_http_request(request, require_home=True)
     payload = await service.get_favorites(FavoritesQueryInput(home_id=context.home_id))
     return success_response(request, FavoritesResponse.model_validate(payload))
+
+
+@router.get(
+    "/api/v1/settings/sgcc-login-qrcode",
+    response_model=SuccessEnvelope[SgccLoginQrCodeStatusResponse],
+)
+async def get_sgcc_login_qr_code_status(
+    request: Request,
+    service: SgccLoginQrCodeService = Depends(get_sgcc_login_qr_code_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> object:
+    context = await request_context_service.resolve_http_request(request, require_home=True)
+    view = await service.get_status(
+        home_id=context.home_id,
+        terminal_id=context.terminal_id,
+        member_id=context.operator_id,
+    )
+    return success_response(request, SgccLoginQrCodeStatusResponse.model_validate(asdict(view)))
+
+
+@router.post(
+    "/api/v1/settings/sgcc-login-qrcode/regenerate",
+    response_model=SuccessEnvelope[SgccLoginQrCodeStatusResponse],
+)
+async def regenerate_sgcc_login_qr_code(
+    request: Request,
+    service: SgccLoginQrCodeService = Depends(get_sgcc_login_qr_code_service),
+    management_pin_guard: ManagementPinGuard = Depends(get_management_pin_guard),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=True,
+    )
+    await management_pin_guard.require_active_session(context.home_id, context.terminal_id)
+    view = await service.regenerate()
+    return success_response(request, SgccLoginQrCodeStatusResponse.model_validate(asdict(view)))
+
+
+@router.get(
+    "/api/v1/settings/sgcc-login-qrcode/file",
+    response_class=FileResponse,
+    response_model=str,
+    responses={
+        200: {
+            "description": "sgcc login QR code image file",
+            "content": {
+                "image/png": {},
+            },
+        }
+    },
+)
+async def get_sgcc_login_qr_code_file(
+    request: Request,
+    v: str | None = Query(default=None, description="Cache-busting token."),
+    service: SgccLoginQrCodeService = Depends(get_sgcc_login_qr_code_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> FileResponse:
+    del v
+    await request_context_service.resolve_http_request(request, require_home=True)
+    view = await service.get_file()
+    return FileResponse(view.path, media_type=view.mime_type)
 
 
 @router.put("/api/v1/settings", response_model=SuccessEnvelope[SettingsSaveResponse])
