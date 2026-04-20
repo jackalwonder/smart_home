@@ -55,6 +55,13 @@ class HomeAssistantConnectionGateway:
         auth_payload_raw = self._connection_secret_cipher.decrypt(row.auth_payload_encrypted)
         return base_url.rstrip("/"), self._to_headers(auth_payload_raw)
 
+    def _bootstrap_connection(self) -> tuple[str, dict[str, str], str | None] | None:
+        bootstrap = self._home_assistant_bootstrap_provider.get_config()
+        if bootstrap is None:
+            return None
+        auth_payload_raw = json.dumps(bootstrap.auth_payload, ensure_ascii=True)
+        return bootstrap.base_url.rstrip("/"), self._to_headers(auth_payload_raw), auth_payload_raw
+
     async def _load_connection(
         self,
         home_id: str,
@@ -69,11 +76,36 @@ class HomeAssistantConnectionGateway:
                 return None
             auth_payload_raw = self._connection_secret_cipher.decrypt(row.auth_payload_encrypted)
             return decoded[0], decoded[1], auth_payload_raw
-        bootstrap = self._home_assistant_bootstrap_provider.get_config()
-        if bootstrap is None:
+        return self._bootstrap_connection()
+
+    async def _get_with_fallback(
+        self,
+        *,
+        home_id: str,
+        path: str,
+        timeout: float,
+    ) -> httpx.Response | None:
+        config = await self._load_connection(home_id)
+        if config is None:
             return None
-        auth_payload_raw = json.dumps(bootstrap.auth_payload, ensure_ascii=True)
-        return bootstrap.base_url.rstrip("/"), self._to_headers(auth_payload_raw), auth_payload_raw
+        base_url, headers, auth_payload_raw = config
+        request_url = f"{base_url}{path}"
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(request_url, headers=headers)
+            if response.status_code != 401:
+                return response
+
+            bootstrap = self._bootstrap_connection()
+            if bootstrap is None:
+                return response
+            bootstrap_base_url, bootstrap_headers, bootstrap_auth_payload_raw = bootstrap
+            if (
+                bootstrap_base_url == base_url
+                and bootstrap_headers == headers
+                and bootstrap_auth_payload_raw == auth_payload_raw
+            ):
+                return response
+            return await client.get(f"{bootstrap_base_url}{path}", headers=bootstrap_headers)
 
     def _ws_url(self, base_url: str) -> str:
         if base_url.startswith("https://"):
@@ -116,24 +148,37 @@ class HomeAssistantConnectionGateway:
             return HaConnectionTestResult(success=False, status="DISCONNECTED", message=str(exc))
 
     async def trigger_full_reload(self, home_id: str) -> None:
-        config = await self._load_connection(home_id)
-        if config is None:
+        response = await self._get_with_fallback(
+            home_id=home_id,
+            path="/api/states",
+            timeout=8.0,
+        )
+        if response is None:
             return
-        base_url, headers, _ = config
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.get(f"{base_url}/api/states", headers=headers)
-            response.raise_for_status()
+        response.raise_for_status()
+
+    async def fetch_states(self, home_id: str) -> list[HaStateEntry] | None:
+        states_response = await self._get_with_fallback(
+            home_id=home_id,
+            path="/api/states",
+            timeout=20.0,
+        )
+        if states_response is None:
+            return None
+        states_response.raise_for_status()
+        states_payload = states_response.json()
+        return [
+            HaStateEntry(payload=state)
+            for state in states_payload
+            if isinstance(state, dict)
+        ]
 
     async def fetch_sync_snapshot(self, home_id: str) -> HaSyncSnapshot:
+        states = await self.fetch_states(home_id)
         config = await self._load_connection(home_id)
-        if config is None:
+        if config is None or states is None:
             return HaSyncSnapshot(states=[], entity_registry=[], device_registry=[], area_registry=[])
         base_url, headers, auth_payload_raw = config
-
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            states_response = await client.get(f"{base_url}/api/states", headers=headers)
-            states_response.raise_for_status()
-            states_payload = states_response.json()
 
         entity_registry = await self._call_ws_api(
             base_url,
@@ -155,11 +200,7 @@ class HomeAssistantConnectionGateway:
         )
 
         return HaSyncSnapshot(
-            states=[
-                HaStateEntry(payload=state)
-                for state in states_payload
-                if isinstance(state, dict)
-            ],
+            states=states,
             entity_registry=[
                 HaRegistryEntry(payload=entry)
                 for entry in entity_registry

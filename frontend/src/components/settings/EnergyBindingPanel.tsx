@@ -1,19 +1,58 @@
 import { EnergyDto } from "../../api/types";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
+export type EnergyEntityMapKey =
+  | "yesterday_usage"
+  | "monthly_usage"
+  | "balance"
+  | "yearly_usage";
+
+export interface EnergyBindingDraft {
+  accountId: string;
+  entityMap: Record<EnergyEntityMapKey, string>;
+}
+
 interface EnergyBindingPanelProps {
   canEdit: boolean;
   clearBusy: boolean;
-  draftPayloadText: string;
+  draft: EnergyBindingDraft;
   energy: EnergyDto | null;
   message: string | null;
   refreshBusy: boolean;
   saveBusy: boolean;
-  onChangePayload: (value: string) => void;
+  onChangeAccountId: (value: string) => void;
+  onChangeEntity: (key: EnergyEntityMapKey, value: string) => void;
   onClear: () => void;
   onRefresh: () => void;
   onSave: () => void;
 }
+
+const ENTITY_FIELDS: Array<{
+  key: EnergyEntityMapKey;
+  label: string;
+  placeholder: string;
+}> = [
+  {
+    key: "yesterday_usage",
+    label: "昨日用电实体",
+    placeholder: "sensor.last_electricity_usage_xxxx",
+  },
+  {
+    key: "monthly_usage",
+    label: "本月累计实体",
+    placeholder: "sensor.month_electricity_usage_xxxx",
+  },
+  {
+    key: "balance",
+    label: "账户余额实体",
+    placeholder: "sensor.electricity_charge_balance_xxxx",
+  },
+  {
+    key: "yearly_usage",
+    label: "年度累计实体",
+    placeholder: "sensor.yearly_electricity_usage_xxxx",
+  },
+];
 
 function formatValue(value: string | number | boolean | null | undefined) {
   if (value === null || value === undefined || value === "") {
@@ -22,41 +61,142 @@ function formatValue(value: string | number | boolean | null | undefined) {
   return String(value);
 }
 
+function formatEnergyValue(value: number | null | undefined, unit: string) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+  return `${value} ${unit}`;
+}
+
+function formatStatus(energy: EnergyDto | null) {
+  if (!energy?.last_error_code) {
+    return formatValue(energy?.refresh_status);
+  }
+  return `${formatValue(energy.refresh_status)} / ${energy.last_error_code}`;
+}
+
+function extractEntitySuffix(entityId: string | null | undefined) {
+  if (!entityId) {
+    return null;
+  }
+  const match = entityId.match(/_([A-Za-z0-9]+)$/);
+  return match?.[1] ?? null;
+}
+
+function resolveEntitySuffix(
+  energy: EnergyDto | null,
+  draft: EnergyBindingDraft,
+) {
+  const source =
+    energy?.entity_map?.balance ??
+    energy?.entity_map?.monthly_usage ??
+    draft.entityMap.balance ??
+    draft.entityMap.monthly_usage;
+  const suffix = extractEntitySuffix(source);
+  return suffix ? `_${suffix}` : "-";
+}
+
+function formatSgccRuntimeStatus(energy: EnergyDto | null) {
+  if (energy?.binding_status !== "BOUND") {
+    return "待绑定";
+  }
+  if (energy?.refresh_status === "SUCCESS") {
+    return energy.cache_mode
+      ? "sgcc_electricity_new 已同步（缓存中）"
+      : "sgcc_electricity_new 运行中";
+  }
+  if (energy?.refresh_status === "FAILED") {
+    return "sgcc_electricity_new 同步失败";
+  }
+  return "已绑定，等待首次同步";
+}
+
 export function EnergyBindingPanel({
   canEdit,
   clearBusy,
-  draftPayloadText,
+  draft,
   energy,
   message,
   refreshBusy,
   saveBusy,
-  onChangePayload,
+  onChangeAccountId,
+  onChangeEntity,
   onClear,
   onRefresh,
   onSave,
 }: EnergyBindingPanelProps) {
   return (
     <SettingsModuleCard
-      description="保存能耗账户绑定信息，并在需要时触发一次刷新。"
+      description="从 Home Assistant 的国家电网传感器同步电量与余额。"
       eyebrow="能耗"
       rows={[
         { label: "绑定状态", value: formatValue(energy?.binding_status) },
-        { label: "刷新状态", value: formatValue(energy?.refresh_status) },
-        { label: "余额", value: formatValue(energy?.balance) },
+        { label: "刷新状态", value: formatStatus(energy) },
+        { label: "数据源状态", value: formatSgccRuntimeStatus(energy) },
+        { label: "绑定后缀", value: resolveEntitySuffix(energy, draft) },
+        { label: "国网用户", value: formatValue(energy?.account_id_masked) },
+        {
+          label: "昨日用电",
+          value: formatEnergyValue(energy?.yesterday_usage, "kWh"),
+        },
+        {
+          label: "本月累计",
+          value: formatEnergyValue(energy?.monthly_usage, "kWh"),
+        },
+        { label: "账户余额", value: formatEnergyValue(energy?.balance, "元") },
+        {
+          label: "年度累计",
+          value: formatEnergyValue(energy?.yearly_usage, "kWh"),
+        },
         { label: "最近更新时间", value: formatValue(energy?.updated_at) },
       ]}
-      title="能耗管理"
+      title="国家电网能耗"
     >
-      <label className="form-field">
-        <span>绑定负载 JSON</span>
-        <textarea
-          className="control-input settings-textarea"
-          onChange={(event) => onChangePayload(event.target.value)}
-          placeholder='{"account_id":"demo","provider":"utility"}'
-          rows={5}
-          value={draftPayloadText}
-        />
-      </label>
+      <div className="settings-form-grid settings-form-grid--two">
+        <label className="form-field">
+          <span>国网用户 ID / HA 实体后缀</span>
+          <input
+            className="control-input"
+            disabled={!canEdit || saveBusy || clearBusy}
+            onChange={(event) => onChangeAccountId(event.target.value)}
+            placeholder="例如 sgcc_electricity_new 日志里的 xxxxxxx"
+            value={draft.accountId}
+          />
+        </label>
+        <label className="form-field">
+          <span>数据源</span>
+          <input
+            className="control-input"
+            disabled
+            value={energy?.provider ?? "HOME_ASSISTANT_SGCC"}
+          />
+        </label>
+      </div>
+      <p className="settings-module-card__note">
+        ARC-MX 的 sgcc_electricity_new 默认会上报
+        sensor.last_electricity_usage_xxxx、sensor.month_electricity_usage_xxxx、
+        sensor.electricity_charge_balance_xxxx、sensor.yearly_electricity_usage_xxxx。
+        当前默认已经预填 _8170 这一组实体。
+      </p>
+
+      <details className="settings-advanced-fields">
+        <summary>高级实体映射</summary>
+        <div className="settings-form-grid settings-form-grid--two">
+          {ENTITY_FIELDS.map((field) => (
+            <label className="form-field" key={field.key}>
+              <span>{field.label}</span>
+              <input
+                className="control-input"
+                disabled={!canEdit || saveBusy || clearBusy}
+                onChange={(event) => onChangeEntity(field.key, event.target.value)}
+                placeholder={field.placeholder}
+                value={draft.entityMap[field.key]}
+              />
+            </label>
+          ))}
+        </div>
+      </details>
+
       <div className="settings-module-card__actions">
         <button
           className="button button--ghost"

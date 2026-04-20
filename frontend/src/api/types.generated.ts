@@ -1725,16 +1725,24 @@ export interface components {
         };
         /** EnergyResponse */
         EnergyResponse: {
+            /** Account Id Masked */
+            account_id_masked?: string | null;
             /** Balance */
             balance?: number | null;
             /** Binding Status */
             binding_status: string;
             /** Cache Mode */
             cache_mode: boolean;
+            /** Entity Map */
+            entity_map?: {
+                [key: string]: string;
+            };
             /** Last Error Code */
             last_error_code?: string | null;
             /** Monthly Usage */
             monthly_usage?: number | null;
+            /** Provider */
+            provider?: string | null;
             /** Refresh Status */
             refresh_status?: string | null;
             /** Updated At */
@@ -1865,6 +1873,8 @@ export interface components {
             monthly_usage?: number | null;
             /** Refresh Status */
             refresh_status: string;
+            /** Updated At */
+            updated_at?: string | null;
             /** Yearly Usage */
             yearly_usage?: number | null;
             /** Yesterday Usage */

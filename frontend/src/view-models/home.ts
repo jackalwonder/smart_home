@@ -456,6 +456,7 @@ function makeWeatherTrend(
     { key: "d3", label: "后天", icon: "☂", high: `${Math.round(baseline - 2)}°`, low: `${Math.round(baseline - 6)}°` },
     { key: "d4", label: "周四", icon: "☀", high: `${Math.round(baseline + 1)}°`, low: `${Math.round(baseline - 3)}°` },
     { key: "d5", label: "周五", icon: "☁", high: `${Math.round(baseline)}°`, low: `${Math.round(baseline - 4)}°` },
+    { key: "d6", label: "周六", icon: "☀", high: `${Math.round(baseline + 2)}°`, low: `${Math.round(baseline - 2)}°` },
   ];
 }
 
@@ -612,7 +613,9 @@ export function mapHomeOverviewViewModel(
     monthlyUsage: formatMetricValue(energyRecord?.monthly_usage, "kWh"),
     balance: formatMetricValue(energyRecord?.balance, "元"),
     yearlyUsage: formatMetricValue(energyRecord?.yearly_usage, "kWh"),
-    updateLabel: formattedTime.date,
+    updateLabel: asOptionalString(energyRecord?.updated_at)
+      ? formatDateTime(asOptionalString(energyRecord?.updated_at) ?? null).date
+      : "--",
     bindingStatus: translateServiceStatus(asOptionalString(energyRecord?.binding_status)),
     refreshStatus: translateServiceStatus(asOptionalString(energyRecord?.refresh_status)),
   };

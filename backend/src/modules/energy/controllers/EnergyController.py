@@ -40,6 +40,9 @@ class EnergyResponse(ApiSchema):
     updated_at: str | None = None
     cache_mode: bool
     last_error_code: str | None = None
+    provider: str | None = None
+    account_id_masked: str | None = None
+    entity_map: dict[str, str] = Field(default_factory=dict)
 
 
 class EnergyBindingResponse(ApiSchema):

@@ -64,6 +64,22 @@ services:
       retries: 20
       start_period: 60s
 
+  sgcc_electricity:
+    image: arcw/sgcc_electricity:latest
+    restart: unless-stopped
+    env_file:
+      - ./deploy/sgcc_electricity/.env
+    environment:
+      SET_CONTAINER_TIMEZONE: "true"
+      CONTAINER_TIMEZONE: ${TZ:-Asia/Shanghai}
+    command: python3 main.py
+    init: true
+    volumes:
+      - ./deploy/sgcc_electricity:/data
+    depends_on:
+      homeassistant:
+        condition: service_started
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped

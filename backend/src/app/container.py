@@ -666,6 +666,7 @@ def get_energy_service() -> EnergyService:
         energy_snapshot_repository=get_energy_snapshot_repository(),
         ws_event_outbox_repository=get_ws_event_outbox_repository(),
         management_pin_guard=get_management_pin_guard(),
+        ha_connection_gateway=get_ha_connection_gateway(),
         event_id_generator=get_event_id_generator(),
         clock=get_clock(),
     )

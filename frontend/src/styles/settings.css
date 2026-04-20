@@ -431,6 +431,27 @@
   gap: 14px;
 }
 
+.settings-form-grid--two {
+  align-items: end;
+}
+
+.settings-advanced-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-advanced-fields summary {
+  width: max-content;
+  cursor: pointer;
+  color: rgba(104, 219, 255, 0.92);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.settings-advanced-fields[open] summary {
+  margin-bottom: 12px;
+}
+
 .settings-textarea {
   min-height: 120px;
   resize: vertical;
@@ -453,6 +474,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.settings-module-card__note {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .settings-module-card {

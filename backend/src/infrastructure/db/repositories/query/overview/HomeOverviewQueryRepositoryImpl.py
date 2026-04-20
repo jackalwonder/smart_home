@@ -299,7 +299,8 @@ class HomeOverviewQueryRepositoryImpl:
                             yesterday_usage,
                             monthly_usage,
                             yearly_usage,
-                            balance
+                            balance,
+                            COALESCE(source_updated_at, created_at)::text AS updated_at
                         FROM energy_snapshots
                         WHERE home_id = :home_id
                         ORDER BY created_at DESC
@@ -495,6 +496,7 @@ class HomeOverviewQueryRepositoryImpl:
                 monthly_usage=_to_float(energy_row["monthly_usage"]),
                 yearly_usage=_to_float(energy_row["yearly_usage"]),
                 balance=_to_float(energy_row["balance"]),
+                updated_at=energy_row["updated_at"],
             )
             if energy_row is not None
             else None,

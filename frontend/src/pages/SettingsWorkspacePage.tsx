@@ -50,7 +50,11 @@ import { PinAccessCard } from "../components/auth/PinAccessCard";
 import { PageFrame } from "../components/layout/PageFrame";
 import { BackupManagementPanel } from "../components/settings/BackupManagementPanel";
 import { DefaultMediaPanel } from "../components/settings/DefaultMediaPanel";
-import { EnergyBindingPanel } from "../components/settings/EnergyBindingPanel";
+import {
+  EnergyBindingDraft,
+  EnergyBindingPanel,
+  EnergyEntityMapKey,
+} from "../components/settings/EnergyBindingPanel";
 import { FavoritesDevicePanel } from "../components/settings/FavoritesDevicePanel";
 import { FunctionSettingsPanel } from "../components/settings/FunctionSettingsPanel";
 import { PageSettingsPanel } from "../components/settings/PageSettingsPanel";
@@ -121,6 +125,15 @@ interface FeedbackState {
   tone: "success" | "error";
   text: string;
 }
+
+const DEFAULT_SGCC_SUFFIX = "8170";
+const DEFAULT_ENERGY_ACCOUNT_ID = DEFAULT_SGCC_SUFFIX;
+const EMPTY_ENERGY_ENTITY_MAP: Record<EnergyEntityMapKey, string> = {
+  yesterday_usage: `sensor.last_electricity_usage_${DEFAULT_SGCC_SUFFIX}`,
+  monthly_usage: `sensor.month_electricity_usage_${DEFAULT_SGCC_SUFFIX}`,
+  balance: `sensor.electricity_charge_balance_${DEFAULT_SGCC_SUFFIX}`,
+  yearly_usage: `sensor.yearly_electricity_usage_${DEFAULT_SGCC_SUFFIX}`,
+};
 
 type SettingsTaskFlowKey =
   | "new-terminal"
@@ -254,6 +267,48 @@ function getSettingsTaskFlow(flowKey: SettingsTaskFlowKey) {
     SETTINGS_TASK_FLOWS.find((flow) => flow.key === flowKey) ??
     SETTINGS_TASK_FLOWS[0]
   );
+}
+
+function createEnergyBindingDraft(
+  energy: EnergyDto | null = null,
+  current?: EnergyBindingDraft,
+): EnergyBindingDraft {
+  const responseEntityMap = energy?.entity_map ?? {};
+  const currentEntityMap = current?.entityMap ?? EMPTY_ENERGY_ENTITY_MAP;
+  return {
+    accountId: current?.accountId ?? DEFAULT_ENERGY_ACCOUNT_ID,
+    entityMap: {
+      yesterday_usage:
+        responseEntityMap.yesterday_usage ??
+        currentEntityMap.yesterday_usage ??
+        EMPTY_ENERGY_ENTITY_MAP.yesterday_usage,
+      monthly_usage:
+        responseEntityMap.monthly_usage ??
+        currentEntityMap.monthly_usage ??
+        EMPTY_ENERGY_ENTITY_MAP.monthly_usage,
+      balance:
+        responseEntityMap.balance ??
+        currentEntityMap.balance ??
+        EMPTY_ENERGY_ENTITY_MAP.balance,
+      yearly_usage:
+        responseEntityMap.yearly_usage ??
+        currentEntityMap.yearly_usage ??
+        EMPTY_ENERGY_ENTITY_MAP.yearly_usage,
+    },
+  };
+}
+
+function buildEnergyBindingPayload(draft: EnergyBindingDraft) {
+  const entityMap = Object.fromEntries(
+    Object.entries(draft.entityMap)
+      .map(([key, value]) => [key, value.trim()])
+      .filter(([, value]) => value),
+  );
+  return {
+    provider: "HOME_ASSISTANT_SGCC",
+    ...(draft.accountId.trim() ? { account_id: draft.accountId.trim() } : {}),
+    ...(Object.keys(entityMap).length ? { entity_map: entityMap } : {}),
+  };
 }
 
 function SettingsOperationsWorkflow({
@@ -537,8 +592,8 @@ export function SettingsWorkspacePage() {
   const [pairingClaimFeedback, setPairingClaimFeedback] =
     useState<FeedbackState | null>(null);
   const [energyState, setEnergyState] = useState<EnergyDto | null>(null);
-  const [energyPayloadText, setEnergyPayloadText] = useState(
-    '{\n  "account_id": "demo",\n  "provider": "utility"\n}',
+  const [energyDraft, setEnergyDraft] = useState<EnergyBindingDraft>(() =>
+    createEnergyBindingDraft(),
   );
   const [energyMessage, setEnergyMessage] = useState<string | null>(null);
   const [energySaveBusy, setEnergySaveBusy] = useState(false);
@@ -574,6 +629,7 @@ export function SettingsWorkspacePage() {
   async function loadEnergyState() {
     const response = await fetchEnergy();
     setEnergyState(response);
+    setEnergyDraft((current) => createEnergyBindingDraft(response, current));
   }
 
   async function loadMediaState() {
@@ -1366,14 +1422,9 @@ export function SettingsWorkspacePage() {
       return;
     }
 
-    let payload: Record<string, unknown> = {};
-    try {
-      payload = JSON.parse(energyPayloadText || "{}") as Record<
-        string,
-        unknown
-      >;
-    } catch {
-      setEnergyMessage("绑定负载必须是有效 JSON。");
+    const payload = buildEnergyBindingPayload(energyDraft);
+    if (!("account_id" in payload) && !("entity_map" in payload)) {
+      setEnergyMessage("请填写国家电网户号，或至少填写一个 Home Assistant 实体映射。");
       return;
     }
 
@@ -1402,6 +1453,7 @@ export function SettingsWorkspacePage() {
       const response = await clearEnergyBinding();
       setEnergyMessage(response.message);
       await Promise.all([loadEnergyState(), loadSettings()]);
+      setEnergyDraft(createEnergyBindingDraft());
     } catch (error) {
       setEnergyMessage(normalizeApiError(error).message);
     } finally {
@@ -1542,10 +1594,18 @@ export function SettingsWorkspacePage() {
         <EnergyBindingPanel
           canEdit={pin.active}
           clearBusy={energyClearBusy}
-          draftPayloadText={energyPayloadText}
+          draft={energyDraft}
           energy={energyState}
           message={energyMessage}
-          onChangePayload={setEnergyPayloadText}
+          onChangeAccountId={(value) =>
+            setEnergyDraft((current) => ({ ...current, accountId: value }))
+          }
+          onChangeEntity={(key, value) =>
+            setEnergyDraft((current) => ({
+              ...current,
+              entityMap: { ...current.entityMap, [key]: value },
+            }))
+          }
           onClear={() => void handleClearEnergyBinding()}
           onRefresh={() => void handleRefreshEnergy()}
           onSave={() => void handleSaveEnergyBinding()}

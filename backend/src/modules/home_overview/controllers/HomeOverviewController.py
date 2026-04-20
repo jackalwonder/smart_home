@@ -148,6 +148,7 @@ class HomeOverviewEnergyBarResponse(ApiSchema):
     monthly_usage: float | int | None = None
     yearly_usage: float | int | None = None
     balance: float | int | None = None
+    updated_at: str | None = None
 
 
 class HomeOverviewSystemConnectionResponse(ApiSchema):

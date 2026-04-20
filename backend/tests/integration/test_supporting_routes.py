@@ -139,6 +139,9 @@ class FakeEnergyService:
             updated_at="2026-04-14T09:00:00Z",
             cache_mode=False,
             last_error_code=None,
+            provider="HOME_ASSISTANT_SGCC",
+            account_id_masked="12******90",
+            entity_map={},
         )
 
     async def update_binding(self, *_args, **_kwargs):
