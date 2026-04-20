@@ -62,6 +62,7 @@ class _SchemaRepository:
 class _RequestRepository:
     def __init__(self, existing=None):
         self._existing = existing
+        self.updated_result = None
 
     async def find_by_request_id(self, _home_id, _request_id):
         return self._existing
@@ -84,6 +85,10 @@ class _RequestRepository:
             accepted_at="2026-04-14T10:00:00+00:00",
             completed_at=None,
         )
+
+    async def update_execution_result(self, input, ctx=None):
+        self.updated_result = input
+        return None
 
 
 class _TransitionRepository:

@@ -16,6 +16,7 @@ function shouldFetchWithAccessToken(url: string) {
 
 export function useResolvedAssetImageUrl(value: string | null | undefined) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const accessToken = getAccessToken();
 
   useEffect(() => {
     const resolved = resolveAssetImageUrl(value);
@@ -29,7 +30,6 @@ export function useResolvedAssetImageUrl(value: string | null | undefined) {
       return undefined;
     }
 
-    const accessToken = getAccessToken();
     if (!accessToken) {
       setImageUrl(null);
       return undefined;
@@ -71,7 +71,7 @@ export function useResolvedAssetImageUrl(value: string | null | undefined) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [value]);
+  }, [accessToken, value]);
 
   return imageUrl;
 }

@@ -14,27 +14,31 @@ export function HomeHotspotOverlay({
   return (
     <div className="home-hotspot-overlay">
       {hotspots.map((hotspot) => {
-        const showLabel = hotspot.labelMode !== "HIDDEN";
+        const selected = hotspot.id === selectedHotspotId;
         return (
           <button
             key={hotspot.id}
             aria-label={hotspot.label}
-            className={
-              hotspot.id === selectedHotspotId
-                ? `home-hotspot-overlay__item is-selected is-${hotspot.tone}`
-                : hotspot.isOffline
-                  ? `home-hotspot-overlay__item is-offline is-${hotspot.tone}`
-                  : `home-hotspot-overlay__item is-${hotspot.tone}`
-            }
-            onClick={() => onSelectHotspot(hotspot.id)}
+            className={[
+              "home-hotspot-overlay__item",
+              `is-${hotspot.tone}`,
+              hotspot.isOffline ? "is-offline" : "",
+              selected ? "is-selected" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => onSelectHotspot(selected ? null : hotspot.id)}
             style={{ left: `${hotspot.x * 100}%`, top: `${hotspot.y * 100}%` }}
             type="button"
           >
             <i className="home-hotspot-overlay__pulse" />
-            <b>{hotspot.iconGlyph}</b>
-            {showLabel ? <span>{hotspot.label}</span> : null}
-            {showLabel ? <small>{hotspot.statusSummary ?? hotspot.statusLabel}</small> : null}
-            {showLabel ? <em>{hotspot.entryBehaviorLabel}</em> : null}
+            <span className="home-hotspot-overlay__dot">
+              <b>{hotspot.iconGlyph}</b>
+            </span>
+            <span className="home-hotspot-overlay__label-card">
+              <strong>{hotspot.label}</strong>
+              <small>{hotspot.statusSummary ?? hotspot.statusLabel}</small>
+            </span>
           </button>
         );
       })}
