@@ -205,6 +205,17 @@ function describeResult(result: DeviceControlResultDto) {
   }
 }
 
+function toneLabel(tone: HomeHotspotViewModel["tone"]) {
+  switch (tone) {
+    case "warm":
+      return "is-warm";
+    case "neutral":
+      return "is-neutral";
+    default:
+      return "is-accent";
+  }
+}
+
 function renderControlInput(
   schema: DeviceControlSchemaItemDto,
   value: unknown,
@@ -362,7 +373,7 @@ export function HomeDeviceControlPanel({
       [
         "home-device-control-panel",
         hotspot.x > 0.62 ? "is-left" : "is-right",
-        hotspot.y > 0.58 ? "is-top" : "is-bottom",
+        hotspot.y > 0.42 ? "is-top" : "is-bottom",
       ].join(" "),
     [hotspot.x, hotspot.y],
   );
@@ -426,9 +437,20 @@ export function HomeDeviceControlPanel({
       style={{ left: `${hotspot.x * 100}%`, top: `${hotspot.y * 100}%` }}
     >
       <div className="home-device-control-panel__header">
-        <div>
-          <span>{device?.room_name ?? hotspot.deviceTypeLabel}</span>
-          <h3>{device?.display_name ?? hotspot.label}</h3>
+        <div className="home-device-control-panel__title-group">
+          <span
+            className={[
+              "home-device-control-panel__glyph",
+              toneLabel(hotspot.tone),
+            ].join(" ")}
+            aria-hidden="true"
+          >
+            {hotspot.iconGlyph}
+          </span>
+          <div>
+            <span>{device?.room_name ?? hotspot.deviceTypeLabel}</span>
+            <h3>{device?.display_name ?? hotspot.label}</h3>
+          </div>
         </div>
         <button
           aria-label="关闭控制面板"

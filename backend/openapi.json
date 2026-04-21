@@ -4341,6 +4341,14 @@
             "title": "Fetched At",
             "type": "string"
           },
+          "forecast": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Forecast",
+            "type": "array"
+          },
           "humidity": {
             "anyOf": [
               {
@@ -4357,6 +4365,34 @@
               }
             ],
             "title": "Humidity"
+          },
+          "location_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Label"
+          },
+          "precipitation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precipitation"
           },
           "temperature": {
             "anyOf": [

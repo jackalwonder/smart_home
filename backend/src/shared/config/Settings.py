@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_latitude: float = 31.2304
     weather_longitude: float = 121.4737
+    weather_location_label: str = "上海"
 
 
 @lru_cache(maxsize=1)

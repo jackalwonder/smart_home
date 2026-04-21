@@ -35,10 +35,12 @@ export function HomeHotspotOverlay({
             <span className="home-hotspot-overlay__dot">
               <b>{hotspot.iconGlyph}</b>
             </span>
-            <span className="home-hotspot-overlay__label-card">
-              <strong>{hotspot.label}</strong>
-              <small>{hotspot.statusSummary ?? hotspot.statusLabel}</small>
-            </span>
+            {!selected ? (
+              <span className="home-hotspot-overlay__label-card">
+                <strong>{hotspot.label}</strong>
+                <small>{hotspot.statusSummary ?? hotspot.statusLabel}</small>
+              </span>
+            ) : null}
           </button>
         );
       })}

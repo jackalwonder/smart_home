@@ -19,6 +19,15 @@ interface RailSlide {
   content: ReactNode;
 }
 
+interface HomeMediaSource {
+  key: string;
+  source: string;
+  title: string;
+  subtitle: string;
+  state: string;
+  glyph: string;
+}
+
 function normalizeKeyword(value: string | null | undefined) {
   return (value ?? "").toLowerCase();
 }
@@ -33,12 +42,22 @@ function isClimateDevice(device: DeviceListItemDto) {
   return source.includes("climate") || source.includes("air") || source.includes("fridge");
 }
 
+function isMediaDevice(device: DeviceListItemDto) {
+  const source = normalizeKeyword(device.device_type);
+  return source.includes("media") || source.includes("speaker") || source.includes("tv");
+}
+
 function parsePercent(value: string) {
   const parsed = Number.parseFloat(value.replace("%", ""));
   if (!Number.isFinite(parsed)) {
     return 0;
   }
   return Math.max(0, Math.min(100, parsed));
+}
+
+function parseNumber(value: string, fallback = 0) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function weatherGlyph(condition: string) {
@@ -52,6 +71,12 @@ function weatherGlyph(condition: string) {
   if (normalized.includes("雪") || normalized.includes("snow")) {
     return "❄";
   }
+  if (normalized.includes("雷")) {
+    return "⚡";
+  }
+  if (normalized.includes("雾")) {
+    return "〰";
+  }
   return "☀";
 }
 
@@ -62,6 +87,14 @@ function shortDateLabel(dateLabel: string) {
   }
   const weekday = dateLabel.match(/星期[一二三四五六日天]/)?.[0];
   return `${weekday ? `${weekday} ` : ""}${match[1]}月${match[2]}日`;
+}
+
+function compactDateLabel(dateLabel: string) {
+  const match = dateLabel.match(/(\d+)月(\d+)日/);
+  if (!match) {
+    return dateLabel;
+  }
+  return `${match[1]}月${match[2]}日`;
 }
 
 function nextIndex(current: number, length: number, direction: -1 | 1) {
@@ -144,29 +177,44 @@ function HomeRailClock({ date, time }: { date: string; time: string }) {
 
 function HomeRailWeatherBrief({ viewModel }: { viewModel: HomeViewModel }) {
   const humidityValue = parsePercent(viewModel.timeline.humidity);
-  const weatherDate = shortDateLabel(viewModel.timeline.date);
+  const precipitationValue = parseNumber(viewModel.timeline.precipitation);
+  const weatherDate = compactDateLabel(viewModel.timeline.date);
   const condition = viewModel.timeline.weatherCondition;
+  const weatherLocation = viewModel.timeline.weatherLocation || "本地天气";
+  const weatherDataStatus = viewModel.timeline.weatherDataStatus || "实时";
 
   return (
     <section className="home-weather-brief" aria-label="天气简略情况">
       <div className="home-weather-brief__summary">
-        <span className="home-weather-brief__icon" aria-hidden="true">
-          {weatherGlyph(condition)}
-        </span>
-        <div>
-          <strong>{viewModel.timeline.weatherTemperature.replace(" °C", "°")}</strong>
-          <small>{condition}</small>
+        <div className="home-weather-brief__reading">
+          <span className="home-weather-brief__icon" aria-hidden="true">
+            {weatherGlyph(condition)}
+          </span>
+          <div>
+            <strong>{viewModel.timeline.weatherTemperature.replace(" °C", "°")}</strong>
+            <small>{condition}</small>
+          </div>
         </div>
         <div className="home-weather-brief__place">
-          <span>CHENGDU</span>
+          <span>{weatherLocation}</span>
           <b>{weatherDate}</b>
         </div>
       </div>
 
       <div className="home-weather-brief__meters">
         <Meter label="空气湿度" tone="blue" value={`${humidityValue}%`} width={humidityValue} />
-        <Meter label="降雨量" tone="cyan" value="0 mm" width={0} />
-        <Meter label="空气质量 (AQI)" tone="green" value="38 优" width={38} />
+        <Meter
+          label="降雨量"
+          tone="cyan"
+          value={viewModel.timeline.precipitation}
+          width={Math.min(100, precipitationValue * 12)}
+        />
+        <Meter
+          label="天气数据"
+          tone="green"
+          value={weatherDataStatus}
+          width={weatherDataStatus === "实时" ? 100 : 42}
+        />
       </div>
     </section>
   );
@@ -204,7 +252,7 @@ function WeatherTrendsSlide({ viewModel }: { viewModel: HomeViewModel }) {
           <span className="card-eyebrow">气象站 / TRENDS</span>
           <strong>6-Day Forecast</strong>
         </div>
-        <em>LOCAL</em>
+        <em>{viewModel.timeline.weatherLocation || "LOCAL"}</em>
       </header>
       <div className="home-trends-slide__list">
         {viewModel.weatherTrend.map((point) => (
@@ -249,7 +297,7 @@ function NoticeControlsSlide() {
         <ToggleRow
           active={noticeOn}
           detail="PUSH_AUDIO_CHILDREN_SWITCH"
-          label="接通知"
+          label="推送通知"
           onToggle={() => setNoticeOn((current) => !current)}
         />
       </div>
@@ -341,12 +389,12 @@ function ToggleRow({
 function HomeMediaPlayerSlide({
   source,
 }: {
-  source: { key: string; source: string; title: string; subtitle: string; state: string };
+  source: HomeMediaSource;
 }) {
   return (
     <article className="home-media-player">
       <div className="home-media-player__cover">
-        <span>{source.key === "default" ? "♪" : source.key === "video" ? "▶" : "H"}</span>
+        <span>{source.glyph}</span>
       </div>
       <div className="home-media-player__copy">
         <span>{source.source}</span>
@@ -354,13 +402,17 @@ function HomeMediaPlayerSlide({
         <small>{source.subtitle}</small>
       </div>
       <div className="home-media-player__controls">
-        <button aria-label="上一首" type="button">
+        <button aria-label="上一源" type="button">
           ‹
         </button>
-        <button aria-label={source.state === "播放中" ? "暂停" : "播放"} className="is-primary" type="button">
+        <button
+          aria-label={source.state === "播放中" ? "暂停" : "播放"}
+          className="is-primary"
+          type="button"
+        >
           {source.state === "播放中" ? "Ⅱ" : "▶"}
         </button>
-        <button aria-label="下一首" type="button">
+        <button aria-label="下一源" type="button">
           ›
         </button>
       </div>
@@ -385,32 +437,48 @@ export function HomeInsightRail({
   const offlineCount =
     devices.filter((device) => device.is_offline).length || viewModel.summary.offlineCount;
 
-  const mediaSources = useMemo(
-    () => [
-      {
-        key: "default",
-        source: "节奏 HomePod",
+  const mediaSources = useMemo(() => {
+    const sources: HomeMediaSource[] = [];
+
+    if (viewModel.media.deviceId || viewModel.media.bindingStatus !== "未配置") {
+      sources.push({
+        key: viewModel.media.deviceId ?? "default-media",
+        source: viewModel.media.displayName,
         title: viewModel.media.trackTitle,
         subtitle: viewModel.media.artist,
         state: viewModel.media.playState,
-      },
-      {
-        key: "video",
-        source: "影视播放源",
-        title: viewModel.media.displayName,
-        subtitle: `连接 ${viewModel.media.bindingStatus}`,
-        state: viewModel.media.availabilityStatus,
-      },
-      {
-        key: "home",
-        source: "家庭媒体",
-        title: "背景音乐",
-        subtitle: "更多播放源预留",
+        glyph: "♪",
+      });
+    }
+
+    devices.filter(isMediaDevice).forEach((device, index) => {
+      if (device.device_id === viewModel.media.deviceId) {
+        return;
+      }
+
+      sources.push({
+        key: device.device_id,
+        source: device.display_name,
+        title: device.room_name ? `${device.room_name} 播放设备` : "媒体播放设备",
+        subtitle: device.is_offline ? "离线" : "可用",
+        state: device.status,
+        glyph: index % 2 === 0 ? "▶" : "H",
+      });
+    });
+
+    if (!sources.length) {
+      sources.push({
+        key: "empty-media",
+        source: "媒体源待配置",
+        title: "暂无播放内容",
+        subtitle: "连接默认媒体后，这里会展示真实播放源",
         state: "待机",
-      },
-    ],
-    [viewModel.media],
-  );
+        glyph: "♪",
+      });
+    }
+
+    return sources;
+  }, [devices, viewModel.media]);
 
   const featureSlides = useMemo<RailSlide[]>(
     () => [

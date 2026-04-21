@@ -2155,8 +2155,16 @@ export interface components {
             condition?: string | null;
             /** Fetched At */
             fetched_at: string;
+            /** Forecast */
+            forecast?: {
+                [key: string]: unknown;
+            }[];
             /** Humidity */
             humidity?: number | string | null;
+            /** Location Label */
+            location_label?: string | null;
+            /** Precipitation */
+            precipitation?: number | string | null;
             /** Temperature */
             temperature?: number | string | null;
         };

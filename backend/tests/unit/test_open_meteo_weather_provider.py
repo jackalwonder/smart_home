@@ -46,6 +46,21 @@ class _SuccessAsyncClient:
                     "temperature_2m": 23.6,
                     "relative_humidity_2m": 58,
                     "weather_code": 3,
+                    "precipitation": 0,
+                },
+                "daily": {
+                    "time": [
+                        "2026-04-16",
+                        "2026-04-17",
+                        "2026-04-18",
+                        "2026-04-19",
+                        "2026-04-20",
+                        "2026-04-21",
+                    ],
+                    "weather_code": [3, 61, 0, 1, 2, 80],
+                    "temperature_2m_max": [24.2, 21.7, 23.0, 25.0, 26.4, 22.1],
+                    "temperature_2m_min": [18.4, 17.2, 16.8, 18.0, 19.1, 17.0],
+                    "precipitation_sum": [0, 4.2, 0, 0, 0, 7.8],
                 }
             },
             request=httpx.Request("GET", "https://example.test/weather"),
@@ -63,9 +78,12 @@ async def test_open_meteo_provider_degrades_when_weather_source_times_out(monkey
     assert snapshot is not None
     assert snapshot.cache_mode is True
     assert snapshot.fetched_at == "2026-04-16T08:00:00+00:00"
+    assert snapshot.location_label == "上海"
     assert snapshot.temperature is None
     assert snapshot.condition is None
     assert snapshot.humidity is None
+    assert snapshot.precipitation is None
+    assert snapshot.forecast == []
 
 
 @pytest.mark.asyncio
@@ -78,6 +96,13 @@ async def test_open_meteo_provider_maps_successful_weather_response(monkeypatch)
 
     assert snapshot is not None
     assert snapshot.cache_mode is False
+    assert snapshot.location_label == "上海"
     assert snapshot.temperature == 23
     assert snapshot.condition == "3"
     assert snapshot.humidity == 58
+    assert snapshot.precipitation == 0
+    assert len(snapshot.forecast) == 6
+    assert snapshot.forecast[0].date == "2026-04-16"
+    assert snapshot.forecast[0].temperature_max == 24
+    assert snapshot.forecast[1].condition == "61"
+    assert snapshot.forecast[1].precipitation == 4.2

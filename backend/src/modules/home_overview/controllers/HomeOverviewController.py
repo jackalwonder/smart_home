@@ -103,9 +103,12 @@ class HomeOverviewDateTimeResponse(ApiSchema):
 class HomeOverviewWeatherResponse(ApiSchema):
     fetched_at: str
     cache_mode: bool
+    location_label: str | None = None
     temperature: float | int | str | None = None
     condition: str | None = None
     humidity: float | int | str | None = None
+    precipitation: float | int | str | None = None
+    forecast: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class HomeOverviewMusicCardResponse(ApiSchema):

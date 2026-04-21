@@ -20,6 +20,8 @@ interface HomeClusterControlModalProps {
   onClose: () => void;
 }
 
+type FeedbackTone = "info" | "success" | "warning" | "error";
+
 function normalizeKeyword(value: string | null | undefined) {
   return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
 }
@@ -111,6 +113,53 @@ function formatRuntimeState(detail: DeviceDetailDto | DeviceListItemDto) {
   return typeof value === "string" && value.trim() ? value : "状态待更新";
 }
 
+function formatOptionLabel(value: unknown) {
+  const normalized = normalizeKeyword(String(value));
+  const map: Record<string, string> = {
+    auto: "自动",
+    cool: "制冷",
+    heat: "制热",
+    dry: "除湿",
+    fan: "送风",
+    eco: "节能",
+    sleep: "睡眠",
+    high: "高",
+    medium: "中",
+    low: "低",
+  };
+  return map[normalized] ?? String(value);
+}
+
+function clusterEyebrow(cluster: HomeClusterKey | null) {
+  switch (cluster) {
+    case "lights":
+      return "常用灯光";
+    case "climate":
+      return "常用温控";
+    case "battery":
+      return "低电量";
+    case "offline":
+      return "离线设备";
+    default:
+      return "全屋控制";
+  }
+}
+
+function clusterIcon(cluster: HomeClusterKey | null) {
+  switch (cluster) {
+    case "lights":
+      return "灯";
+    case "climate":
+      return "温";
+    case "battery":
+      return "电";
+    case "offline":
+      return "离";
+    default:
+      return "控";
+  }
+}
+
 function formatControlError(error: unknown) {
   const apiError = normalizeApiError(error);
   switch (apiError.code) {
@@ -153,6 +202,37 @@ function modalSubtitle(cluster: HomeClusterKey | null) {
     default:
       return "";
   }
+}
+
+function feedbackTone(message: string | undefined): FeedbackTone {
+  if (!message) {
+    return "info";
+  }
+  const normalized = normalizeKeyword(message);
+  if (
+    normalized.includes("完成") ||
+    normalized.includes("success") ||
+    normalized.includes("已完成")
+  ) {
+    return "success";
+  }
+  if (
+    normalized.includes("超时") ||
+    normalized.includes("待确认") ||
+    normalized.includes("尚未")
+  ) {
+    return "warning";
+  }
+  if (
+    normalized.includes("失败") ||
+    normalized.includes("错误") ||
+    normalized.includes("invalid") ||
+    normalized.includes("unsupported") ||
+    normalized.includes("unauthorized")
+  ) {
+    return "error";
+  }
+  return "info";
 }
 
 export function HomeClusterControlModal({
@@ -246,6 +326,15 @@ export function HomeClusterControlModal({
     return null;
   }
 
+  const onlineCount = filteredDevices.filter((device) => !device.is_offline).length;
+  const controllableCount = details.filter(
+    (detail) =>
+      detail.control_schema.some(isPowerSchema) ||
+      detail.control_schema.some(isTemperatureSchema) ||
+      detail.control_schema.some(isBrightnessSchema),
+  ).length;
+  const compactPanel = filteredDevices.length <= 2;
+
   async function submitControl(
     detail: DeviceDetailDto,
     schema: DeviceControlSchemaItemDto,
@@ -292,12 +381,26 @@ export function HomeClusterControlModal({
   return (
     <div className="home-cluster-modal" role="dialog" aria-modal="true">
       <div className="home-cluster-modal__backdrop" onClick={onClose} aria-hidden="true" />
-      <section className="home-cluster-modal__panel">
+      <section
+        className={`home-cluster-modal__panel is-${cluster}${compactPanel ? " is-compact" : ""}`}
+      >
         <header className="home-cluster-modal__header">
-          <div>
-            <span className="card-eyebrow">{modalTitle(cluster)}</span>
-            <h3>{modalTitle(cluster)}</h3>
-            <p>{modalSubtitle(cluster)}</p>
+          <div className="home-cluster-modal__title-row">
+            <span className="home-cluster-modal__glyph" aria-hidden="true">
+              {clusterIcon(cluster)}
+            </span>
+            <div>
+              <span className="card-eyebrow">{clusterEyebrow(cluster)}</span>
+              <h3>{modalTitle(cluster)}</h3>
+              <p>{modalSubtitle(cluster)}</p>
+            </div>
+          </div>
+          <div className="home-cluster-modal__header-meta">
+            <span>{filteredDevices.length} 个设备</span>
+            <span>{onlineCount} 个在线</span>
+            {cluster === "lights" || cluster === "climate" ? (
+              <span>{loading ? "读取中" : `${controllableCount} 个可控`}</span>
+            ) : null}
           </div>
           <button
             aria-label="关闭弹层"
@@ -322,6 +425,7 @@ export function HomeClusterControlModal({
           {(details.length ? details : filteredDevices).map((item) => {
             const detail = "control_schema" in item ? item : null;
             const deviceId = detail?.device_id ?? item.device_id;
+            const stateLabel = formatRuntimeState(detail ?? item);
             const powerSchema = detail?.control_schema.find(isPowerSchema);
             const powerIndex = detail?.control_schema.findIndex(isPowerSchema) ?? -1;
             const rangeSchema =
@@ -348,12 +452,26 @@ export function HomeClusterControlModal({
                 : "";
 
             return (
-              <article key={deviceId} className="home-cluster-modal__device-card">
+              <article
+                key={deviceId}
+                className={[
+                  "home-cluster-modal__device-card",
+                  item.is_offline || detail?.is_offline ? "is-offline" : "",
+                  stateLabel === "已开启" || stateLabel === "运行中" ? "is-active" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
                 <div className="home-cluster-modal__device-topline">
-                  <span>{detail?.room_name ?? item.room_name ?? "未分配房间"}</span>
-                  <em>{formatRuntimeState(detail ?? item)}</em>
+                  <span className="home-cluster-modal__device-icon" aria-hidden="true">
+                    {clusterIcon(cluster)}
+                  </span>
+                  <div>
+                    <strong>{detail?.display_name ?? item.display_name}</strong>
+                    <small>{detail?.room_name ?? item.room_name ?? "未分配房间"}</small>
+                  </div>
+                  <em>{stateLabel}</em>
                 </div>
-                <strong>{detail?.display_name ?? item.display_name}</strong>
 
                 {(cluster === "offline" || cluster === "battery") && !detail ? (
                   <p className="home-cluster-modal__device-note">
@@ -457,7 +575,7 @@ export function HomeClusterControlModal({
                         }}
                         type="button"
                       >
-                        {String(option)}
+                        {formatOptionLabel(option)}
                       </button>
                     ))}
                   </div>
@@ -470,7 +588,11 @@ export function HomeClusterControlModal({
                 ) : null}
 
                 {messages[deviceId] ? (
-                  <p className="home-cluster-modal__feedback">{messages[deviceId]}</p>
+                  <p
+                    className={`home-cluster-modal__feedback is-${feedbackTone(messages[deviceId])}`}
+                  >
+                    {messages[deviceId]}
+                  </p>
                 ) : null}
               </article>
             );

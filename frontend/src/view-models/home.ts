@@ -73,6 +73,7 @@ export interface HomeTrendPointViewModel {
   icon: string;
   high: string;
   low: string;
+  precipitation: string;
   emphasis?: boolean;
 }
 
@@ -95,6 +96,7 @@ export interface HomeSummaryViewModel {
 export interface HomeMediaViewModel {
   bindingStatus: string;
   availabilityStatus: string;
+  deviceId: string | null;
   displayName: string;
   playState: string;
   trackTitle: string;
@@ -122,9 +124,12 @@ export interface HomeViewModel {
   timeline: {
     time: string;
     date: string;
+    weatherLocation: string;
+    weatherDataStatus: string;
     weatherCondition: string;
     weatherTemperature: string;
     humidity: string;
+    precipitation: string;
   };
   summary: HomeSummaryViewModel;
   metrics: HomeMetricViewModel[];
@@ -171,31 +176,76 @@ function extractStatusSummary(value: unknown) {
 
 function translateWeatherCondition(value: string | null | undefined) {
   const normalized = normalizeKeyword(value);
+  const code = Number(value);
+
+  if (Number.isFinite(code)) {
+    if (code === 0) {
+      return "晴";
+    }
+    if ([1, 2].includes(code)) {
+      return "晴间多云";
+    }
+    if (code === 3) {
+      return "多云";
+    }
+    if ([45, 48].includes(code)) {
+      return "雾";
+    }
+    if ([51, 53, 55, 56, 57].includes(code)) {
+      return "毛毛雨";
+    }
+    if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) {
+      return "降雨";
+    }
+    if ([71, 73, 75, 77, 85, 86].includes(code)) {
+      return "降雪";
+    }
+    if ([95, 96, 99].includes(code)) {
+      return "雷雨";
+    }
+  }
+
   const map: Record<string, string> = {
     sunny: "晴",
     clear: "晴",
     cloudy: "多云",
     partly_cloudy: "多云",
-    rainy: "小雨",
-    rain: "小雨",
+    rainy: "降雨",
+    rain: "降雨",
     thunderstorm: "雷雨",
     windy: "有风",
     fog: "雾",
     haze: "轻雾",
-    snowy: "雪",
+    snowy: "降雪",
   };
+
   return map[normalized] ?? (value?.trim() || "天气待更新");
 }
 
 function weatherIcon(condition: string) {
   const normalized = normalizeKeyword(condition);
-  if (normalized.includes("cloud")) {
+  const code = Number(condition);
+
+  if (Number.isFinite(code)) {
+    if ([1, 2, 3, 45, 48].includes(code)) {
+      return "☁";
+    }
+    if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code)) {
+      return "☔";
+    }
+    if ([71, 73, 75, 77, 85, 86].includes(code)) {
+      return "❄";
+    }
+    return "☀";
+  }
+
+  if (normalized.includes("cloud") || normalized.includes("云")) {
     return "☁";
   }
-  if (normalized.includes("rain")) {
-    return "☂";
+  if (normalized.includes("rain") || normalized.includes("雨")) {
+    return "☔";
   }
-  if (normalized.includes("snow")) {
+  if (normalized.includes("snow") || normalized.includes("雪")) {
     return "❄";
   }
   if (normalized.includes("wind")) {
@@ -263,22 +313,15 @@ function statusToLabel(status: string, isOffline: boolean) {
   if (isOffline) {
     return "离线";
   }
+
   const normalized = normalizeKeyword(status);
-  if (
-    normalized.includes("on") ||
-    normalized.includes("open") ||
-    normalized.includes("active")
-  ) {
+  if (normalized.includes("on") || normalized.includes("open") || normalized.includes("active")) {
     return "已开启";
   }
   if (normalized.includes("running")) {
     return "运行中";
   }
-  if (
-    normalized.includes("off") ||
-    normalized.includes("closed") ||
-    normalized.includes("inactive")
-  ) {
+  if (normalized.includes("off") || normalized.includes("closed") || normalized.includes("inactive")) {
     return "已关闭";
   }
   if (normalized.includes("idle")) {
@@ -295,7 +338,13 @@ function entryBehaviorToLabel(value: string) {
   if (normalized.includes("toggle")) {
     return "快速切换";
   }
-  if (normalized.includes("open_panel") || normalized.includes("panel")) {
+  if (
+    normalized.includes("open_control_card") ||
+    normalized.includes("control_card") ||
+    normalized.includes("open_panel") ||
+    normalized.includes("panel") ||
+    normalized.includes("card")
+  ) {
     return "打开面板";
   }
   if (normalized.includes("view")) {
@@ -429,9 +478,7 @@ function normalizeFavoriteDevices(value: unknown): HomeFavoriteDeviceViewModel[]
         isComplex: asBoolean(device.is_complex_device),
         isReadonly: asBoolean(device.is_readonly_device),
         entryBehavior: asString(device.entry_behavior ?? "VIEW"),
-        entryBehaviorLabel: entryBehaviorToLabel(
-          asString(device.entry_behavior ?? "VIEW"),
-        ),
+        entryBehaviorLabel: entryBehaviorToLabel(asString(device.entry_behavior ?? "VIEW")),
         iconGlyph: deriveHotspotGlyph(deviceType, "device"),
         tone: deriveHotspotTone(deviceType, status, isOffline),
         favoriteOrder:
@@ -446,17 +493,103 @@ function normalizeFavoriteDevices(value: unknown): HomeFavoriteDeviceViewModel[]
 function makeWeatherTrend(
   temperature: string,
   condition: string,
+  forecastValue?: unknown,
 ): HomeTrendPointViewModel[] {
+  const forecast = asArray<Record<string, unknown>>(forecastValue)
+    .slice(0, 6)
+    .map((point, index) => {
+      const date = asString(point.date ?? point.time ?? "");
+      const label =
+        index === 0
+          ? "今天"
+          : index === 1
+            ? "明天"
+            : date
+              ? date.replace(/^\d{4}-/, "").replace("-", "/")
+              : `第 ${index + 1} 天`;
+      const rawCondition = asString(point.condition ?? point.weather_code ?? condition);
+      return {
+        key: date || `forecast-${index}`,
+        label,
+        icon: weatherIcon(rawCondition),
+        high: formatMetricValue(
+          point.temperature_max ?? point.high ?? point.max,
+          "°",
+          "--",
+        ).replace(" °", "°"),
+        low: formatMetricValue(
+          point.temperature_min ?? point.low ?? point.min,
+          "°",
+          "--",
+        ).replace(" °", "°"),
+        precipitation: formatMetricValue(
+          point.precipitation ?? point.precipitation_sum,
+          "mm",
+          "0 mm",
+        ),
+        emphasis: index === 0,
+      };
+    })
+    .filter((point) => point.high !== "--" || point.low !== "--");
+
+  if (forecast.length) {
+    return forecast;
+  }
+
   const numericTemperature = Number.parseFloat(temperature);
   const baseline = Number.isFinite(numericTemperature) ? numericTemperature : 24;
   const icon = weatherIcon(condition);
+
   return [
-    { key: "today", label: "今天", icon, high: `${Math.round(baseline)}°`, low: `${Math.round(baseline - 4)}°`, emphasis: true },
-    { key: "tomorrow", label: "明天", icon: "☁", high: `${Math.round(baseline - 1)}°`, low: `${Math.round(baseline - 5)}°` },
-    { key: "d3", label: "后天", icon: "☂", high: `${Math.round(baseline - 2)}°`, low: `${Math.round(baseline - 6)}°` },
-    { key: "d4", label: "周四", icon: "☀", high: `${Math.round(baseline + 1)}°`, low: `${Math.round(baseline - 3)}°` },
-    { key: "d5", label: "周五", icon: "☁", high: `${Math.round(baseline)}°`, low: `${Math.round(baseline - 4)}°` },
-    { key: "d6", label: "周六", icon: "☀", high: `${Math.round(baseline + 2)}°`, low: `${Math.round(baseline - 2)}°` },
+    {
+      key: "today",
+      label: "今天",
+      icon,
+      high: `${Math.round(baseline)}°`,
+      low: `${Math.round(baseline - 4)}°`,
+      precipitation: "0 mm",
+      emphasis: true,
+    },
+    {
+      key: "tomorrow",
+      label: "明天",
+      icon: "☁",
+      high: `${Math.round(baseline - 1)}°`,
+      low: `${Math.round(baseline - 5)}°`,
+      precipitation: "0 mm",
+    },
+    {
+      key: "d3",
+      label: "后天",
+      icon: "☔",
+      high: `${Math.round(baseline - 2)}°`,
+      low: `${Math.round(baseline - 6)}°`,
+      precipitation: "0 mm",
+    },
+    {
+      key: "d4",
+      label: "周四",
+      icon: "☀",
+      high: `${Math.round(baseline + 1)}°`,
+      low: `${Math.round(baseline - 3)}°`,
+      precipitation: "0 mm",
+    },
+    {
+      key: "d5",
+      label: "周五",
+      icon: "☁",
+      high: `${Math.round(baseline)}°`,
+      low: `${Math.round(baseline - 4)}°`,
+      precipitation: "0 mm",
+    },
+    {
+      key: "d6",
+      label: "周六",
+      icon: "☀",
+      high: `${Math.round(baseline + 2)}°`,
+      low: `${Math.round(baseline - 2)}°`,
+      precipitation: "0 mm",
+    },
   ];
 }
 
@@ -547,39 +680,32 @@ export function mapHomeOverviewViewModel(
     asOptionalString(timelineRecord?.current_time ?? sidebar?.datetime) ?? null,
   );
 
-  const hotspots = asArray<Record<string, unknown>>(stage?.hotspots).map(
-    (hotspot, index) => {
-      const deviceType = asString(hotspot.device_type ?? "device");
-      const status = asString(hotspot.status ?? "unknown");
-      const isOffline = asBoolean(hotspot.is_offline);
-      return {
-        id: asString(hotspot.hotspot_id ?? `hotspot-${index}`),
-        deviceId: asString(hotspot.device_id ?? ""),
-        label: asString(hotspot.display_name ?? hotspot.device_id ?? `设备 ${index + 1}`),
-        deviceType,
-        deviceTypeLabel: deviceTypeToLabel(deviceType),
-        x: asNumber(hotspot.x),
-        y: asNumber(hotspot.y),
-        iconGlyph: deriveHotspotGlyph(
-          deviceType,
-          asString(hotspot.icon_type ?? "device"),
-        ),
-        tone: deriveHotspotTone(deviceType, status, isOffline),
-        iconType: asString(hotspot.icon_type ?? "device"),
-        labelMode: asString(hotspot.label_mode ?? "AUTO"),
-        status,
-        statusLabel: statusToLabel(status, isOffline),
-        statusSummary: extractStatusSummary(hotspot.status_summary),
-        isOffline,
-        isComplex: asBoolean(hotspot.is_complex_device),
-        isReadonly: asBoolean(hotspot.is_readonly_device),
-        entryBehavior: asString(hotspot.entry_behavior ?? "VIEW"),
-        entryBehaviorLabel: entryBehaviorToLabel(
-          asString(hotspot.entry_behavior ?? "VIEW"),
-        ),
-      };
-    },
-  );
+  const hotspots = asArray<Record<string, unknown>>(stage?.hotspots).map((hotspot, index) => {
+    const deviceType = asString(hotspot.device_type ?? "device");
+    const status = asString(hotspot.status ?? "unknown");
+    const isOffline = asBoolean(hotspot.is_offline);
+    return {
+      id: asString(hotspot.hotspot_id ?? `hotspot-${index}`),
+      deviceId: asString(hotspot.device_id ?? ""),
+      label: asString(hotspot.display_name ?? hotspot.device_id ?? `设备 ${index + 1}`),
+      deviceType,
+      deviceTypeLabel: deviceTypeToLabel(deviceType),
+      x: asNumber(hotspot.x),
+      y: asNumber(hotspot.y),
+      iconGlyph: deriveHotspotGlyph(deviceType, asString(hotspot.icon_type ?? "device")),
+      tone: deriveHotspotTone(deviceType, status, isOffline),
+      iconType: asString(hotspot.icon_type ?? "device"),
+      labelMode: asString(hotspot.label_mode ?? "AUTO"),
+      status,
+      statusLabel: statusToLabel(status, isOffline),
+      statusSummary: extractStatusSummary(hotspot.status_summary),
+      isOffline,
+      isComplex: asBoolean(hotspot.is_complex_device),
+      isReadonly: asBoolean(hotspot.is_readonly_device),
+      entryBehavior: asString(hotspot.entry_behavior ?? "VIEW"),
+      entryBehaviorLabel: entryBehaviorToLabel(asString(hotspot.entry_behavior ?? "VIEW")),
+    };
+  });
 
   const favoriteDevices = normalizeFavoriteDevices(value?.favorite_devices);
   const showFavoriteDevices = shouldShowFavoriteDevices(value);
@@ -596,12 +722,14 @@ export function mapHomeOverviewViewModel(
   );
   const weatherTemperature = formatMetricValue(weather?.temperature, "°C");
   const humidity = formatMetricValue(weather?.humidity, "%");
+  const precipitation = formatMetricValue(weather?.precipitation, "mm", "0 mm");
+  const weatherLocation = asString(weather?.location_label ?? "本地天气");
+  const weatherDataStatus = asBoolean(weather?.cache_mode) ? "缓存" : "实时";
 
   const media: HomeMediaViewModel = {
     bindingStatus: translateServiceStatus(asOptionalString(musicCard?.binding_status)),
-    availabilityStatus: translateServiceStatus(
-      asOptionalString(musicCard?.availability_status),
-    ),
+    availabilityStatus: translateServiceStatus(asOptionalString(musicCard?.availability_status)),
+    deviceId: asOptionalString(musicCard?.device_id),
     displayName: asString(musicCard?.display_name ?? "家庭媒体"),
     playState: translateServiceStatus(asOptionalString(musicCard?.play_state)),
     trackTitle: asString(musicCard?.track_title ?? "暂无播放内容"),
@@ -631,9 +759,12 @@ export function mapHomeOverviewViewModel(
     timeline: {
       time: formattedTime.time,
       date: formattedTime.date,
+      weatherLocation,
+      weatherDataStatus,
       weatherCondition,
       weatherTemperature,
       humidity,
+      precipitation,
     },
     summary,
     metrics: [
@@ -665,7 +796,7 @@ export function mapHomeOverviewViewModel(
       { label: "年度累计", value: energy.yearlyUsage },
       { label: "更新信息", value: energy.updateLabel },
     ],
-    weatherTrend: makeWeatherTrend(weatherTemperature, weatherCondition),
+    weatherTrend: makeWeatherTrend(weatherTemperature, weatherCondition, weather?.forecast),
     railCards: makeRailCards(summary, favoriteDevices, energy),
     media,
     energy,
