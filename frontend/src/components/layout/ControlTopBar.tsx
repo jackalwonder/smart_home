@@ -14,10 +14,34 @@ function formatNow(date: Date) {
   };
 }
 
+function resolveWeatherDataStatus(homeData: Record<string, unknown> | null) {
+  if (!homeData) {
+    return null;
+  }
+
+  const sidebar = homeData.sidebar;
+  const weather =
+    sidebar && typeof sidebar === "object"
+      ? (sidebar as { weather?: unknown }).weather
+      : null;
+  const weatherCacheMode =
+    weather && typeof weather === "object"
+      ? (weather as { cache_mode?: unknown }).cache_mode
+      : undefined;
+  const cacheMode = weatherCacheMode ?? homeData.cache_mode;
+
+  if (typeof cacheMode !== "boolean") {
+    return null;
+  }
+
+  return cacheMode ? "过时" : "实时";
+}
+
 export function ControlTopBar() {
   const session = useAppStore((state) => state.session);
   const pin = useAppStore((state) => state.pin);
   const realtime = useAppStore((state) => state.realtime);
+  const home = useAppStore((state) => state.home);
   const [now, setNow] = useState(() => formatNow(new Date()));
 
   useEffect(() => {
@@ -43,6 +67,7 @@ export function ControlTopBar() {
         : normalizedRealtimeStatus === "connecting"
           ? "HA Connecting"
           : "HA Waiting";
+  const weatherDataStatus = resolveWeatherDataStatus(home.data);
 
   return (
     <header className="control-top-bar">
@@ -81,7 +106,18 @@ export function ControlTopBar() {
           ]}
           pinVerified={pin.active}
         />
-        <div className="control-top-bar__quick-status" aria-hidden="true">
+        <div className="control-top-bar__quick-status" aria-label="系统快速状态">
+          {weatherDataStatus ? (
+            <span
+              className={
+                weatherDataStatus === "实时"
+                  ? "control-top-bar__weather-pill is-live"
+                  : "control-top-bar__weather-pill is-stale"
+              }
+            >
+              天气 {weatherDataStatus}
+            </span>
+          ) : null}
           <span>Wi-Fi</span>
           <span>98%</span>
         </div>

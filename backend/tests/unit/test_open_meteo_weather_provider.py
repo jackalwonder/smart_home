@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from src.infrastructure.weather.impl.OpenMeteoWeatherProvider import OpenMeteoWeatherProvider
+from src.infrastructure.ha.HaConnectionGateway import HaStateEntry
 from src.shared.config.Settings import Settings
 
 
@@ -67,18 +68,66 @@ class _SuccessAsyncClient:
         )
 
 
+class _HaWeatherGateway:
+    async def fetch_states(self, _home_id: str):
+        return [
+            HaStateEntry(
+                payload={
+                    "entity_id": "weather.forecast_home",
+                    "state": "sunny",
+                    "attributes": {
+                        "friendly_name": "Forecast 我的家",
+                        "temperature": 24.7,
+                        "humidity": 8,
+                    },
+                }
+            )
+        ]
+
+    async def call_service_response(
+        self,
+        _home_id: str,
+        _domain: str,
+        _service: str,
+        _payload: dict,
+    ):
+        return {
+            "service_response": {
+                "weather.forecast_home": {
+                    "forecast": [
+                        {
+                            "condition": "sunny",
+                            "datetime": "2026-04-16T04:00:00+00:00",
+                            "temperature": 25,
+                            "templow": 11,
+                            "precipitation": 0,
+                        },
+                        {
+                            "condition": "rainy",
+                            "datetime": "2026-04-17T04:00:00+00:00",
+                            "temperature": 20,
+                            "templow": 9,
+                            "precipitation": 1.7,
+                        },
+                    ]
+                }
+            }
+        }
+
+
 @pytest.mark.asyncio
 async def test_open_meteo_provider_degrades_when_weather_source_times_out(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", _TimeoutAsyncClient)
 
-    provider = OpenMeteoWeatherProvider(Settings(), _Clock())
+    settings = Settings()
+    provider = OpenMeteoWeatherProvider(settings, _Clock())
 
     snapshot = await provider.get_sidebar_weather("home-1")
 
     assert snapshot is not None
     assert snapshot.cache_mode is True
     assert snapshot.fetched_at == "2026-04-16T08:00:00+00:00"
-    assert snapshot.location_label == "上海"
+    assert snapshot.location_label == settings.weather_location_label
     assert snapshot.temperature is None
     assert snapshot.condition is None
     assert snapshot.humidity is None
@@ -90,13 +139,14 @@ async def test_open_meteo_provider_degrades_when_weather_source_times_out(monkey
 async def test_open_meteo_provider_maps_successful_weather_response(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", _SuccessAsyncClient)
 
-    provider = OpenMeteoWeatherProvider(Settings(), _Clock())
+    settings = Settings()
+    provider = OpenMeteoWeatherProvider(settings, _Clock())
 
     snapshot = await provider.get_sidebar_weather("home-1")
 
     assert snapshot is not None
     assert snapshot.cache_mode is False
-    assert snapshot.location_label == "上海"
+    assert snapshot.location_label == settings.weather_location_label
     assert snapshot.temperature == 23
     assert snapshot.condition == "3"
     assert snapshot.humidity == 58
@@ -106,3 +156,30 @@ async def test_open_meteo_provider_maps_successful_weather_response(monkeypatch)
     assert snapshot.forecast[0].temperature_max == 24
     assert snapshot.forecast[1].condition == "61"
     assert snapshot.forecast[1].precipitation == 4.2
+
+
+@pytest.mark.asyncio
+async def test_provider_prefers_home_assistant_weather_entity(monkeypatch):
+    monkeypatch.setattr(httpx, "AsyncClient", _TimeoutAsyncClient)
+
+    provider = OpenMeteoWeatherProvider(
+        Settings(
+            weather_location_label="赤峰红山区",
+            weather_home_assistant_entity_id="weather.forecast_home",
+        ),
+        _Clock(),
+        _HaWeatherGateway(),
+    )
+
+    snapshot = await provider.get_sidebar_weather("home-1")
+
+    assert snapshot is not None
+    assert snapshot.cache_mode is False
+    assert snapshot.location_label == "赤峰红山区"
+    assert snapshot.temperature == 24
+    assert snapshot.condition == "sunny"
+    assert snapshot.humidity == 8
+    assert len(snapshot.forecast) == 2
+    assert snapshot.forecast[0].date == "2026-04-16T04:00:00+00:00"
+    assert snapshot.forecast[1].condition == "rainy"
+    assert snapshot.forecast[1].precipitation == 1.7

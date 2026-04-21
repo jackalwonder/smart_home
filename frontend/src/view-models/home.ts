@@ -164,6 +164,21 @@ function formatMetricValue(value: unknown, unit: string, fallback = "--") {
   return normalized === fallback ? fallback : `${normalized} ${unit}`.trim();
 }
 
+function formatEnergyUpdateLabel(value: string | null) {
+  if (!value) {
+    return "--";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  const hour = String(parsed.getHours()).padStart(2, "0");
+  const minute = String(parsed.getMinutes()).padStart(2, "0");
+  return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${hour}.${minute}`;
+}
+
 function extractStatusSummary(value: unknown) {
   const record = asRecord(value);
   return (
@@ -208,6 +223,7 @@ function translateWeatherCondition(value: string | null | undefined) {
   const map: Record<string, string> = {
     sunny: "晴",
     clear: "晴",
+    partlycloudy: "晴间多云",
     cloudy: "多云",
     partly_cloudy: "多云",
     rainy: "降雨",
@@ -499,13 +515,14 @@ function makeWeatherTrend(
     .slice(0, 6)
     .map((point, index) => {
       const date = asString(point.date ?? point.time ?? "");
+      const datePart = date.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? date;
       const label =
         index === 0
           ? "今天"
           : index === 1
             ? "明天"
-            : date
-              ? date.replace(/^\d{4}-/, "").replace("-", "/")
+            : datePart
+              ? datePart.replace(/^\d{4}-/, "").replace("-", "/")
               : `第 ${index + 1} 天`;
       const rawCondition = asString(point.condition ?? point.weather_code ?? condition);
       return {
@@ -724,7 +741,7 @@ export function mapHomeOverviewViewModel(
   const humidity = formatMetricValue(weather?.humidity, "%");
   const precipitation = formatMetricValue(weather?.precipitation, "mm", "0 mm");
   const weatherLocation = asString(weather?.location_label ?? "本地天气");
-  const weatherDataStatus = asBoolean(weather?.cache_mode) ? "缓存" : "实时";
+  const weatherDataStatus = asBoolean(weather?.cache_mode) ? "过时" : "实时";
 
   const media: HomeMediaViewModel = {
     bindingStatus: translateServiceStatus(asOptionalString(musicCard?.binding_status)),
@@ -741,9 +758,7 @@ export function mapHomeOverviewViewModel(
     monthlyUsage: formatMetricValue(energyRecord?.monthly_usage, "kWh"),
     balance: formatMetricValue(energyRecord?.balance, "元"),
     yearlyUsage: formatMetricValue(energyRecord?.yearly_usage, "kWh"),
-    updateLabel: asOptionalString(energyRecord?.updated_at)
-      ? formatDateTime(asOptionalString(energyRecord?.updated_at) ?? null).date
-      : "--",
+    updateLabel: formatEnergyUpdateLabel(asOptionalString(energyRecord?.updated_at)),
     bindingStatus: translateServiceStatus(asOptionalString(energyRecord?.binding_status)),
     refreshStatus: translateServiceStatus(asOptionalString(energyRecord?.refresh_status)),
   };

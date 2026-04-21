@@ -60,7 +60,12 @@ class Settings(BaseSettings):
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_latitude: float = 31.2304
     weather_longitude: float = 121.4737
-    weather_location_label: str = "上海"
+    weather_location_label: str | None = None
+    weather_home_assistant_entity_id: str | None = None
+    energy_auto_refresh_enabled: bool = True
+    energy_auto_refresh_hour: int = 7
+    energy_auto_refresh_minute: int = 30
+    energy_auto_refresh_timezone: str = "Asia/Shanghai"
 
 
 @lru_cache(maxsize=1)

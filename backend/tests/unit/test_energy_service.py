@@ -39,6 +39,9 @@ class _EnergyAccountRepository:
     async def find_by_home_id(self, *_args, **_kwargs):
         return self.row
 
+    async def list_bound(self, *_args, **_kwargs):
+        return [self.row] if self.row and self.row.binding_status == "BOUND" else []
+
     async def upsert(self, input, *_args, **_kwargs):
         self.upserts.append(input)
         self.row = EnergyAccountRow(
@@ -244,3 +247,24 @@ async def test_energy_refresh_failure_keeps_previous_values_as_cache():
     assert snapshots.inserts[-1].last_error_code == "HA_NOT_CONFIGURED"
     assert snapshots.inserts[-1].balance == 66.0
     assert outbox.events[-1].event_type == "energy_refresh_failed"
+
+
+@pytest.mark.asyncio
+async def test_energy_auto_refresh_all_bound_accounts_uses_internal_refresh_path():
+    states = [
+        _state("sensor.last_electricity_usage_1234567890", "1.23"),
+        _state("sensor.month_electricity_usage_1234567890", "45.6"),
+        _state("sensor.electricity_charge_balance_1234567890", "78.9"),
+        _state("sensor.yearly_electricity_usage_1234567890", "345.67"),
+    ]
+    service, accounts, snapshots, outbox = _service(gateway=_HaGateway(states))
+    await service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"})
+
+    result = await service.refresh_all_bound_accounts()
+
+    assert result.refreshed_count == 1
+    assert result.success_count == 1
+    assert result.failed_count == 0
+    assert snapshots.inserts[-1].refresh_status == "SUCCESS"
+    assert snapshots.inserts[-1].monthly_usage == 45.6
+    assert outbox.events[-1].event_type == "energy_refresh_completed"

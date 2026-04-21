@@ -29,6 +29,24 @@ class EnergyAccountRepositoryImpl:
             row = (await session.execute(stmt, {"home_id": home_id})).mappings().one_or_none()
         return EnergyAccountRow(**row) if row is not None else None
 
+    async def list_bound(self, ctx: RepoContext | None = None) -> list[EnergyAccountRow]:
+        stmt = text(
+            """
+            SELECT
+                id::text AS id,
+                home_id::text AS home_id,
+                binding_status::text AS binding_status,
+                account_payload_encrypted,
+                updated_at::text AS updated_at
+            FROM energy_accounts
+            WHERE binding_status = 'BOUND'
+            ORDER BY updated_at ASC
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            rows = (await session.execute(stmt)).mappings().all()
+        return [EnergyAccountRow(**row) for row in rows]
+
     async def upsert(self, input: EnergyAccountUpsertRow, ctx: RepoContext | None = None) -> EnergyAccountRow:
         stmt = text(
             """

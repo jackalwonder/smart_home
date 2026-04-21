@@ -142,6 +142,7 @@ from src.modules.editor.services.EditorDraftService import EditorDraftService
 from src.modules.editor.services.EditorPublishService import EditorPublishService
 from src.modules.editor.services.EditorSessionService import EditorSessionService
 from src.modules.energy.services.EnergyService import EnergyService
+from src.modules.energy.services.EnergyAutoRefreshService import EnergyAutoRefreshService
 from src.modules.home_overview.services.query.HomeOverviewQueryService import (
     HomeOverviewQueryService,
 )
@@ -227,7 +228,11 @@ def get_capability_provider() -> DbCapabilityProvider:
 
 @lru_cache(maxsize=1)
 def get_weather_provider() -> OpenMeteoWeatherProvider:
-    return OpenMeteoWeatherProvider(get_settings(), get_clock())
+    return OpenMeteoWeatherProvider(
+        get_settings(),
+        get_clock(),
+        get_ha_connection_gateway(),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -681,6 +686,18 @@ def get_energy_service() -> EnergyService:
         ha_connection_gateway=get_ha_connection_gateway(),
         event_id_generator=get_event_id_generator(),
         clock=get_clock(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_energy_auto_refresh_service() -> EnergyAutoRefreshService:
+    settings = get_settings()
+    return EnergyAutoRefreshService(
+        get_energy_service(),
+        enabled=settings.energy_auto_refresh_enabled,
+        hour=settings.energy_auto_refresh_hour,
+        minute=settings.energy_auto_refresh_minute,
+        timezone_name=settings.energy_auto_refresh_timezone,
     )
 
 

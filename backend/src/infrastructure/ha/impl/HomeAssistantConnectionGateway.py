@@ -107,6 +107,40 @@ class HomeAssistantConnectionGateway:
                 return response
             return await client.get(f"{bootstrap_base_url}{path}", headers=bootstrap_headers)
 
+    async def _post_with_fallback(
+        self,
+        *,
+        home_id: str,
+        path: str,
+        payload: dict[str, object],
+        timeout: float,
+    ) -> httpx.Response | None:
+        config = await self._load_connection(home_id)
+        if config is None:
+            return None
+        base_url, headers, auth_payload_raw = config
+        request_url = f"{base_url}{path}"
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(request_url, headers=headers, json=payload)
+            if response.status_code != 401:
+                return response
+
+            bootstrap = self._bootstrap_connection()
+            if bootstrap is None:
+                return response
+            bootstrap_base_url, bootstrap_headers, bootstrap_auth_payload_raw = bootstrap
+            if (
+                bootstrap_base_url == base_url
+                and bootstrap_headers == headers
+                and bootstrap_auth_payload_raw == auth_payload_raw
+            ):
+                return response
+            return await client.post(
+                f"{bootstrap_base_url}{path}",
+                headers=bootstrap_headers,
+                json=payload,
+            )
+
     def _ws_url(self, base_url: str) -> str:
         if base_url.startswith("https://"):
             return f"wss://{base_url.removeprefix('https://')}/api/websocket"
@@ -172,6 +206,25 @@ class HomeAssistantConnectionGateway:
             for state in states_payload
             if isinstance(state, dict)
         ]
+
+    async def call_service_response(
+        self,
+        home_id: str,
+        domain: str,
+        service: str,
+        payload: dict[str, object],
+    ) -> dict[str, object] | None:
+        response = await self._post_with_fallback(
+            home_id=home_id,
+            path=f"/api/services/{domain}/{service}?return_response",
+            payload=payload,
+            timeout=12.0,
+        )
+        if response is None:
+            return None
+        response.raise_for_status()
+        service_payload = response.json()
+        return service_payload if isinstance(service_payload, dict) else None
 
     async def fetch_sync_snapshot(self, home_id: str) -> HaSyncSnapshot:
         states = await self.fetch_states(home_id)

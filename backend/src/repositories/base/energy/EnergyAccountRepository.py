@@ -31,6 +31,11 @@ class EnergyAccountRepository(Protocol):
         ctx: RepoContext | None = None,
     ) -> EnergyAccountRow | None: ...
 
+    async def list_bound(
+        self,
+        ctx: RepoContext | None = None,
+    ) -> list[EnergyAccountRow]: ...
+
     async def upsert(
         self,
         input: EnergyAccountUpsertRow,

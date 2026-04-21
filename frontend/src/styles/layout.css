@@ -582,6 +582,8 @@
 
 .control-top-bar__quick-status {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -597,6 +599,25 @@
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.control-top-bar__quick-status span.control-top-bar__weather-pill {
+  border-color: rgba(65, 127, 255, 0.36);
+  background: rgba(65, 127, 255, 0.14);
+  color: #dce8ff;
+}
+
+.control-top-bar__quick-status span.control-top-bar__weather-pill.is-live {
+  border-color: rgba(88, 224, 170, 0.3);
+  background: rgba(88, 224, 170, 0.11);
+  color: #c8f8df;
+}
+
+.control-top-bar__quick-status span.control-top-bar__weather-pill.is-stale {
+  border-color: rgba(255, 198, 106, 0.36);
+  background: rgba(255, 198, 106, 0.13);
+  color: #ffe0a8;
 }
 
 .top-nav-tabs {

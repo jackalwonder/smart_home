@@ -66,6 +66,13 @@ class EnergyRefreshView:
     timeout_seconds: int
 
 
+@dataclass(frozen=True)
+class EnergyAutoRefreshView:
+    refreshed_count: int
+    success_count: int
+    failed_count: int
+
+
 class EnergyService:
     def __init__(
         self,
@@ -96,7 +103,7 @@ class EnergyService:
             monthly_usage=snapshot.monthly_usage if snapshot else None,
             balance=snapshot.balance if snapshot else None,
             yearly_usage=snapshot.yearly_usage if snapshot else None,
-            updated_at=(snapshot.source_updated_at or snapshot.created_at) if snapshot else None,
+            updated_at=snapshot.created_at if snapshot else None,
             cache_mode=snapshot.cache_mode if snapshot else False,
             last_error_code=snapshot.last_error_code if snapshot else None,
             provider=binding_payload.provider,
@@ -154,6 +161,28 @@ class EnergyService:
 
     async def refresh(self, home_id: str, terminal_id: str) -> EnergyRefreshView:
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
+        return await self._refresh_home(home_id)
+
+    async def refresh_system(self, home_id: str) -> EnergyRefreshView:
+        return await self._refresh_home(home_id)
+
+    async def refresh_all_bound_accounts(self) -> EnergyAutoRefreshView:
+        accounts = await self._energy_account_repository.list_bound()
+        success_count = 0
+        failed_count = 0
+        for account in accounts:
+            result = await self._refresh_home(account.home_id)
+            if result.refresh_status == "SUCCESS":
+                success_count += 1
+            else:
+                failed_count += 1
+        return EnergyAutoRefreshView(
+            refreshed_count=len(accounts),
+            success_count=success_count,
+            failed_count=failed_count,
+        )
+
+    async def _refresh_home(self, home_id: str) -> EnergyRefreshView:
         started_at = self._clock.now().isoformat()
         account = await self._energy_account_repository.find_by_home_id(home_id)
         binding_status = account.binding_status if account else "UNBOUND"

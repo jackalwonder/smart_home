@@ -14,7 +14,11 @@ from fastapi.routing import APIRoute
 from redis.asyncio import Redis
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from src.app.container import get_database, get_ha_realtime_sync_service
+from src.app.container import (
+    get_database,
+    get_energy_auto_refresh_service,
+    get_ha_realtime_sync_service,
+)
 from src.modules.auth.controllers.AuthController import router as auth_router
 from src.modules.auth.controllers.PinAuthController import router as pin_auth_router
 from src.modules.auth.controllers.TerminalBootstrapController import (
@@ -243,7 +247,9 @@ async def _check_redis(redis_url: str, timeout_seconds: float) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await get_ha_realtime_sync_service().start()
+    await get_energy_auto_refresh_service().start()
     yield
+    await get_energy_auto_refresh_service().stop()
     await get_ha_realtime_sync_service().stop()
     await get_database().dispose()
 

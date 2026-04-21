@@ -181,7 +181,6 @@ function HomeRailWeatherBrief({ viewModel }: { viewModel: HomeViewModel }) {
   const weatherDate = compactDateLabel(viewModel.timeline.date);
   const condition = viewModel.timeline.weatherCondition;
   const weatherLocation = viewModel.timeline.weatherLocation || "本地天气";
-  const weatherDataStatus = viewModel.timeline.weatherDataStatus || "实时";
 
   return (
     <section className="home-weather-brief" aria-label="天气简略情况">
@@ -209,12 +208,6 @@ function HomeRailWeatherBrief({ viewModel }: { viewModel: HomeViewModel }) {
           value={viewModel.timeline.precipitation}
           width={Math.min(100, precipitationValue * 12)}
         />
-        <Meter
-          label="天气数据"
-          tone="green"
-          value={weatherDataStatus}
-          width={weatherDataStatus === "实时" ? 100 : 42}
-        />
       </div>
     </section>
   );
@@ -227,7 +220,7 @@ function Meter({
   width,
 }: {
   label: string;
-  tone: "blue" | "cyan" | "green";
+  tone: "blue" | "cyan";
   value: string;
   width: number;
 }) {
@@ -469,9 +462,9 @@ export function HomeInsightRail({
     if (!sources.length) {
       sources.push({
         key: "empty-media",
-        source: "媒体源待配置",
-        title: "暂无播放内容",
-        subtitle: "连接默认媒体后，这里会展示真实播放源",
+        source: "HA 未发现媒体源",
+        title: "暂无播放设备",
+        subtitle: "接入 media_player 后会展示真实播放状态",
         state: "待机",
         glyph: "♪",
       });

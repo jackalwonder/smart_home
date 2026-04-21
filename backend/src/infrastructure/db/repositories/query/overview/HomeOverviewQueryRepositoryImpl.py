@@ -300,7 +300,7 @@ class HomeOverviewQueryRepositoryImpl:
                             monthly_usage,
                             yearly_usage,
                             balance,
-                            COALESCE(source_updated_at, created_at)::text AS updated_at
+                            created_at::text AS updated_at
                         FROM energy_snapshots
                         WHERE home_id = :home_id
                         ORDER BY created_at DESC
