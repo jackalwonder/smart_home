@@ -79,6 +79,7 @@ class HomeOverviewQueryRepositoryImpl:
                             layout_hotspots.x::float8 AS x,
                             layout_hotspots.y::float8 AS y,
                             layout_hotspots.icon_type,
+                            layout_hotspots.icon_asset_id::text AS icon_asset_id,
                             layout_hotspots.label_mode,
                             COALESCE(drs.status, 'UNKNOWN') AS status,
                             COALESCE(drs.is_offline, true) AS is_offline,
@@ -375,6 +376,12 @@ class HomeOverviewQueryRepositoryImpl:
                     "x": row["x"],
                     "y": row["y"],
                     "icon_type": row["icon_type"],
+                    "icon_asset_id": row["icon_asset_id"],
+                    "icon_asset_url": (
+                        f"/api/v1/page-assets/hotspot-icons/{row['icon_asset_id']}/file"
+                        if row["icon_asset_id"] is not None
+                        else None
+                    ),
                     "label_mode": row["label_mode"],
                     "status": row["status"],
                     "is_offline": row["is_offline"],

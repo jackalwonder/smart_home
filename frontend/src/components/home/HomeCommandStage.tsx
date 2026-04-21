@@ -6,7 +6,10 @@ import { HomeHotspotOverlay } from "./HomeHotspotOverlay";
 interface HomeCommandStageProps {
   backgroundImageUrl: string | null;
   hotspots: HomeHotspotViewModel[];
+  pendingHotspotIds?: string[];
   selectedHotspotId: string | null;
+  onActivateHotspot: (hotspot: HomeHotspotViewModel) => void;
+  onLongPressHotspot: (hotspot: HomeHotspotViewModel) => void;
   onSelectHotspot: (hotspotId: string | null) => void;
   selectedExternalHotspot?: HomeHotspotViewModel | null;
   onClearSelectedExternalHotspot?: () => void;
@@ -42,7 +45,10 @@ function connectionCopy(status: string) {
 export function HomeCommandStage({
   backgroundImageUrl,
   hotspots,
+  pendingHotspotIds = [],
   selectedHotspotId,
+  onActivateHotspot,
+  onLongPressHotspot,
   onSelectHotspot,
   selectedExternalHotspot = null,
   onClearSelectedExternalHotspot,
@@ -120,7 +126,9 @@ export function HomeCommandStage({
 
           <HomeHotspotOverlay
             hotspots={hotspots}
-            onSelectHotspot={onSelectHotspot}
+            onActivateHotspot={onActivateHotspot}
+            onLongPressHotspot={onLongPressHotspot}
+            pendingHotspotIds={pendingHotspotIds}
             selectedHotspotId={selectedHotspotId}
           />
 
@@ -144,14 +152,10 @@ export function HomeCommandStage({
             </section>
           ) : null}
 
-          {selectedHotspot ? (
+          {selectedExternalHotspot ? (
             <HomeDeviceControlPanel
-              hotspot={selectedHotspot}
+              hotspot={selectedExternalHotspot}
               onClose={() => {
-                if (selectedStageHotspot) {
-                  onSelectHotspot(null);
-                  return;
-                }
                 onClearSelectedExternalHotspot?.();
               }}
             />

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { EditorHotspotViewModel } from "../../view-models/editor";
 import { DeviceListItemDto } from "../../api/types";
+import { HotspotIcon } from "../home/HotspotIcon";
+import { HOTSPOT_ICON_OPTIONS } from "../../utils/hotspotIcons";
 
 type EditorHotspotField =
   | "label"
@@ -34,11 +36,14 @@ interface EditorInspectorProps {
   layoutMetaText: string;
   rows: Array<{ label: string; value: string }>;
   isUploadingBackground: boolean;
+  isUploadingHotspotIcon: boolean;
   onChangeHotspot: (field: EditorHotspotField, value: string) => void;
   onClearBackground: () => void;
   onDuplicateHotspot: () => void;
   onNudgeHotspot: (direction: "left" | "right" | "up" | "down") => void;
   onUploadBackground: (file: File) => void;
+  onUploadHotspotIcon: (file: File) => void;
+  onClearHotspotIcon: () => void;
   onToggleVisibility: (visible: boolean) => void;
   onChangeLayoutMeta: (value: string) => void;
   onDeleteHotspot: () => void;
@@ -65,11 +70,14 @@ export function EditorInspector({
   layoutMetaText,
   rows,
   isUploadingBackground,
+  isUploadingHotspotIcon,
   onChangeHotspot,
   onClearBackground,
   onDuplicateHotspot,
   onNudgeHotspot,
   onUploadBackground,
+  onUploadHotspotIcon,
+  onClearHotspotIcon,
   onToggleVisibility,
   onChangeLayoutMeta,
   onDeleteHotspot,
@@ -299,7 +307,7 @@ export function EditorInspector({
                 value=""
               >
                 <option value="">选择图标类型</option>
-                {ICON_TYPE_OPTIONS.map((option) => (
+                {HOTSPOT_ICON_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -397,12 +405,12 @@ export function EditorInspector({
               onChange={(event) => onChangeHotspot("iconType", event.target.value)}
               value={hotspot.iconType}
             >
-              {ICON_TYPE_OPTIONS.map((option) => (
+              {HOTSPOT_ICON_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-              {hotspot.iconType && !ICON_TYPE_OPTIONS.some((option) => option.value === hotspot.iconType) ? (
+              {hotspot.iconType && !HOTSPOT_ICON_OPTIONS.some((option) => option.value === hotspot.iconType) ? (
                 <option value={hotspot.iconType}>{hotspot.iconType}</option>
               ) : null}
             </select>
@@ -420,6 +428,60 @@ export function EditorInspector({
               <option value="HIDDEN">隐藏</option>
             </select>
           </label>
+          <div className="form-field form-field--full editor-hotspot-icon-picker">
+            <span>Hotspot icon</span>
+            <div className="editor-hotspot-icon-picker__preview">
+              <span className="editor-hotspot-icon-picker__sample">
+                <HotspotIcon
+                  deviceType={hotspot.iconType}
+                  iconAssetUrl={hotspot.iconAssetUrl}
+                  iconType={hotspot.iconType}
+                />
+              </span>
+              <div>
+                <strong>{hotspot.iconAssetId ? "Custom icon" : "Built-in icon"}</strong>
+                <small>{hotspot.iconAssetId ?? hotspot.iconType}</small>
+              </div>
+            </div>
+            <div className="editor-hotspot-icon-picker__grid">
+              {HOTSPOT_ICON_OPTIONS.map((option) => (
+                <button
+                  aria-label={`Use ${option.label} icon`}
+                  className={hotspot.iconType === option.value && !hotspot.iconAssetId ? "is-selected" : ""}
+                  disabled={!canEdit}
+                  key={option.value}
+                  onClick={() => onChangeHotspot("iconType", option.value)}
+                  type="button"
+                >
+                  <HotspotIcon iconType={option.value} />
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <input
+              accept="image/svg+xml,image/png,image/webp,image/jpeg"
+              className="control-input"
+              disabled={!canEdit || isUploadingHotspotIcon}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  onUploadHotspotIcon(file);
+                }
+                event.currentTarget.value = "";
+              }}
+              type="file"
+            />
+            <div className="settings-module-card__actions">
+              <button
+                className="button button--ghost"
+                disabled={!canEdit || !hotspot.iconAssetId}
+                onClick={onClearHotspotIcon}
+                type="button"
+              >
+                Use built-in icon
+              </button>
+            </div>
+          </div>
           <label className="form-field">
             <span>X (%)</span>
             <input

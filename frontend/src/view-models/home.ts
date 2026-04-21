@@ -8,6 +8,7 @@ import {
   formatDateTime,
   labelize,
 } from "./utils";
+import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
 
 export interface HomeHotspotViewModel {
   id: string;
@@ -20,6 +21,8 @@ export interface HomeHotspotViewModel {
   iconGlyph: string;
   tone: "accent" | "warm" | "neutral";
   iconType: string;
+  iconAssetId: string | null;
+  iconAssetUrl: string | null;
   labelMode: string;
   status: string;
   statusLabel: string;
@@ -671,6 +674,8 @@ export function homeFavoriteDeviceToHotspot(
     iconGlyph: device.iconGlyph,
     tone: device.tone,
     iconType: "device",
+    iconAssetId: null,
+    iconAssetUrl: null,
     labelMode: "ALWAYS",
     status: device.status,
     statusLabel: device.statusLabel,
@@ -712,6 +717,10 @@ export function mapHomeOverviewViewModel(
       iconGlyph: deriveHotspotGlyph(deviceType, asString(hotspot.icon_type ?? "device")),
       tone: deriveHotspotTone(deviceType, status, isOffline),
       iconType: asString(hotspot.icon_type ?? "device"),
+      iconAssetId: asOptionalString(hotspot.icon_asset_id),
+      iconAssetUrl: resolveHotspotIconUrl(
+        asOptionalString(hotspot.icon_asset_url) ?? asOptionalString(hotspot.icon_asset_id),
+      ),
       labelMode: asString(hotspot.label_mode ?? "AUTO"),
       status,
       statusLabel: statusToLabel(status, isOffline),

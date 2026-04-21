@@ -53,6 +53,7 @@ class EditorDraftQueryRepositoryImpl:
                             dh.x::float8 AS x,
                             dh.y::float8 AS y,
                             dh.icon_type,
+                            dh.icon_asset_id::text AS icon_asset_id,
                             dh.label_mode,
                             dh.is_visible,
                             dh.structure_order
@@ -109,6 +110,12 @@ class EditorDraftQueryRepositoryImpl:
                     "x": row["x"],
                     "y": row["y"],
                     "icon_type": row["icon_type"],
+                    "icon_asset_id": row["icon_asset_id"],
+                    "icon_asset_url": (
+                        f"/api/v1/page-assets/hotspot-icons/{row['icon_asset_id']}/file"
+                        if row["icon_asset_id"] is not None
+                        else None
+                    ),
                     "label_mode": row["label_mode"],
                     "is_visible": row["is_visible"],
                     "structure_order": row["structure_order"],

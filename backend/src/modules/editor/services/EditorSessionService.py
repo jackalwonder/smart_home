@@ -261,6 +261,7 @@ class EditorSessionService:
                                 x=hotspot.x,
                                 y=hotspot.y,
                                 icon_type=hotspot.icon_type,
+                                icon_asset_id=hotspot.icon_asset_id,
                                 label_mode=hotspot.label_mode,
                                 is_visible=hotspot.is_visible,
                                 structure_order=hotspot.structure_order,

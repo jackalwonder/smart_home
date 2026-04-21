@@ -60,6 +60,8 @@ class FakeEditorDraftService:
                         "is_visible": True,
                         "structure_order": 0,
                         "icon_type": None,
+                        "icon_asset_id": "icon-asset-1",
+                        "icon_asset_url": "/api/v1/page-assets/hotspot-icons/icon-asset-1/file",
                         "label_mode": None,
                     }
                 ],
@@ -95,6 +97,7 @@ class FakeEditorDraftService:
     async def save_draft(self, input):
         assert isinstance(input.hotspots[0], dict)
         assert input.hotspots[0]["hotspot_id"] == "hs-1"
+        assert input.hotspots[0]["icon_asset_id"] == "icon-asset-1"
         return EditorDraftSaveView(
             saved_to_draft=True,
             draft_version="dv_2",
@@ -141,6 +144,7 @@ def test_open_and_get_editor_draft(app, client):
     assert draft_response.json()["data"]["draft_version"] == "dv_1"
     assert draft_response.json()["data"]["draft_exists"] is True
     assert draft_response.json()["data"]["layout"]["hotspots"][0]["hotspot_id"] == "hs-1"
+    assert draft_response.json()["data"]["layout"]["hotspots"][0]["icon_asset_id"] == "icon-asset-1"
 
     diff_response = client.post(
         "/api/v1/editor/draft/diff",
@@ -155,6 +159,7 @@ def test_open_and_get_editor_draft(app, client):
                     "x": 0.5,
                     "y": 0.5,
                     "icon_type": None,
+                    "icon_asset_id": "icon-asset-1",
                     "label_mode": None,
                     "is_visible": True,
                     "structure_order": 0,
@@ -188,6 +193,7 @@ def test_save_and_publish_editor_draft(app, client):
                     "x": 0.5,
                     "y": 0.5,
                     "icon_type": None,
+                    "icon_asset_id": "icon-asset-1",
                     "label_mode": None,
                     "is_visible": True,
                     "structure_order": 0,

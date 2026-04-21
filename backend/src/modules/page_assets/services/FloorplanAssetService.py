@@ -55,6 +55,22 @@ class FloorplanAssetFileView:
     mime_type: str
 
 
+@dataclass(frozen=True)
+class HotspotIconAssetView:
+    asset_id: str
+    icon_asset_url: str
+    mime_type: str
+    width: int | None
+    height: int | None
+    updated_at: str
+
+
+@dataclass(frozen=True)
+class HotspotIconAssetFileView:
+    path: str
+    mime_type: str
+
+
 class FloorplanAssetService:
     def __init__(
         self,
@@ -69,6 +85,32 @@ class FloorplanAssetService:
             Path(__file__).resolve().parents[4] / "storage" / "page-assets"
         )
 
+    def _validate_image_upload(
+        self,
+        *,
+        content_type: str | None,
+        data: bytes,
+        max_bytes: int,
+    ) -> None:
+        if not data:
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "file is required",
+                details={"fields": [{"field": "file", "reason": "required"}]},
+            )
+        if len(data) > max_bytes:
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "file is too large",
+                details={"fields": [{"field": "file", "reason": "too_large"}]},
+            )
+        if content_type is not None and not content_type.startswith("image/"):
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "file must be an image",
+                details={"fields": [{"field": "file", "reason": "invalid_type"}]},
+            )
+
     async def upload_floorplan(
         self,
         *,
@@ -81,18 +123,11 @@ class FloorplanAssetService:
         replace_current: bool,
     ) -> FloorplanAssetView:
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
-        if not data:
-            raise AppError(
-                ErrorCode.INVALID_PARAMS,
-                "file is required",
-                details={"fields": [{"field": "file", "reason": "required"}]},
-            )
-        if content_type is not None and not content_type.startswith("image/"):
-            raise AppError(
-                ErrorCode.INVALID_PARAMS,
-                "file must be an image",
-                details={"fields": [{"field": "file", "reason": "invalid_type"}]},
-            )
+        self._validate_image_upload(
+            content_type=content_type,
+            data=data,
+            max_bytes=8 * 1024 * 1024,
+        )
 
         suffix = Path(filename or "floorplan.bin").suffix or ".bin"
         timestamp = self._clock.now().strftime("%Y%m%d%H%M%S%f")
@@ -256,6 +291,125 @@ class FloorplanAssetService:
             )
 
         return FloorplanAssetFileView(
+            path=str(path),
+            mime_type=row["mime_type"] or "application/octet-stream",
+        )
+
+    async def upload_hotspot_icon(
+        self,
+        *,
+        home_id: str,
+        terminal_id: str,
+        operator_id: str | None,
+        filename: str,
+        content_type: str | None,
+        data: bytes,
+    ) -> HotspotIconAssetView:
+        await self._management_pin_guard.require_active_session(home_id, terminal_id)
+        self._validate_image_upload(
+            content_type=content_type,
+            data=data,
+            max_bytes=512 * 1024,
+        )
+
+        suffix = Path(filename or "hotspot-icon.bin").suffix or ".bin"
+        timestamp = self._clock.now().strftime("%Y%m%d%H%M%S%f")
+        storage_dir = self._storage_root / home_id / "hotspot-icons"
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        stored_path = storage_dir / f"hotspot_icon_{timestamp}{suffix}"
+        stored_path.write_bytes(data)
+
+        width, height = _image_size(data)
+        file_hash = hashlib.sha256(data).hexdigest()
+        now_iso = self._clock.now().isoformat()
+
+        async with session_scope(self._database) as (session, owned):
+            row = (
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO page_assets (
+                            home_id,
+                            asset_type,
+                            file_url,
+                            file_hash,
+                            width,
+                            height,
+                            mime_type,
+                            uploaded_by_member_id,
+                            uploaded_by_terminal_id
+                        ) VALUES (
+                            :home_id,
+                            'HOTSPOT_ICON',
+                            :file_url,
+                            :file_hash,
+                            :width,
+                            :height,
+                            :mime_type,
+                            :uploaded_by_member_id,
+                            :uploaded_by_terminal_id
+                        )
+                        RETURNING id::text AS asset_id, created_at::text AS updated_at
+                        """
+                    ),
+                    {
+                        "home_id": home_id,
+                        "file_url": str(stored_path),
+                        "file_hash": file_hash,
+                        "width": width,
+                        "height": height,
+                        "mime_type": content_type or "application/octet-stream",
+                        "uploaded_by_member_id": operator_id,
+                        "uploaded_by_terminal_id": terminal_id,
+                    },
+                )
+            ).mappings().one()
+            if owned:
+                await session.commit()
+
+        return HotspotIconAssetView(
+            asset_id=row["asset_id"],
+            icon_asset_url=f"/api/v1/page-assets/hotspot-icons/{row['asset_id']}/file",
+            mime_type=content_type or "application/octet-stream",
+            width=width,
+            height=height,
+            updated_at=row["updated_at"] or now_iso,
+        )
+
+    async def get_hotspot_icon_file(
+        self,
+        *,
+        home_id: str,
+        asset_id: str,
+    ) -> HotspotIconAssetFileView:
+        async with session_scope(self._database) as (session, _):
+            row = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT file_url, mime_type
+                        FROM page_assets
+                        WHERE home_id = :home_id
+                          AND id::text = :asset_id
+                          AND asset_type = 'HOTSPOT_ICON'
+                        """
+                    ),
+                    {"home_id": home_id, "asset_id": asset_id},
+                )
+            ).mappings().one_or_none()
+
+        if row is None:
+            raise AppError(ErrorCode.NOT_FOUND, "hotspot icon asset not found")
+
+        path = Path(row["file_url"])
+        if not path.exists() or not path.is_file():
+            raise AppError(
+                ErrorCode.NOT_FOUND,
+                "hotspot icon asset file not found",
+                details={"asset_id": asset_id},
+            )
+
+        return HotspotIconAssetFileView(
             path=str(path),
             mime_type=row["mime_type"] or "application/octet-stream",
         )

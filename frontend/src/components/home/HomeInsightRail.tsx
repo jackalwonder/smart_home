@@ -166,15 +166,6 @@ function RailCarousel({
   );
 }
 
-function HomeRailClock({ date, time }: { date: string; time: string }) {
-  return (
-    <section className="home-status-clock">
-      <strong>{time}</strong>
-      <span>{date}</span>
-    </section>
-  );
-}
-
 function HomeRailWeatherBrief({ viewModel }: { viewModel: HomeViewModel }) {
   const humidityValue = parsePercent(viewModel.timeline.humidity);
   const precipitationValue = parseNumber(viewModel.timeline.precipitation);
@@ -515,7 +506,6 @@ export function HomeInsightRail({
 
   return (
     <aside className="home-insight-rail home-status-rail">
-      <HomeRailClock date={viewModel.timeline.date} time={viewModel.timeline.time} />
       <HomeRailWeatherBrief viewModel={viewModel} />
       <RailCarousel
         activeIndex={featureIndex}

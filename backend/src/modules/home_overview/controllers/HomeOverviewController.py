@@ -77,6 +77,8 @@ class HomeOverviewHotspotResponse(ApiSchema):
     x: float
     y: float
     icon_type: str | None = None
+    icon_asset_id: str | None = None
+    icon_asset_url: str | None = None
     label_mode: str | None = None
     status: str
     is_offline: bool

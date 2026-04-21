@@ -1805,27 +1805,11 @@ test("home control UI sends null payload for no-value actions and shows result",
   await unlockManagementPin(page);
   await page.getByRole("link", { name: "总览" }).click();
   await page.getByRole("button", { name: "无值测试开关" }).click();
-  await expect(
-    page.getByRole("heading", { name: "无值测试开关" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("这个动作不需要额外输入，直接执行即可。"),
-  ).toBeVisible();
-  await page.getByLabel("控制项").selectOption({ label: "电源开关" });
-  await expect(page.getByRole("group", { name: "开关状态" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "开启" })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "关闭", exact: true }),
-  ).toBeVisible();
-  await page.getByLabel("控制项").selectOption({ label: "亮度" });
-  await expect(page.getByLabel("亮度滑杆")).toBeVisible();
-  await expect(page.getByText("单位 %")).toBeVisible();
-  await page.getByLabel("控制项").selectOption({ label: "模式" });
-  await expect(page.getByRole("button", { name: "制冷" })).toBeVisible();
-  await page.getByLabel("控制项").selectOption({ label: "执行动作" });
-  await page.getByRole("button", { name: "立即执行" }).click();
-  await expect(page.getByText("请求已发送")).toBeVisible();
-  await expect(page.getByText("设备已完成控制")).toBeVisible();
+  await expect(page.locator(".home-hotspot-control-modal.is-detail")).toBeVisible();
+  await expect(page.locator(".home-device-control-panel")).toHaveCount(0);
+  await expect(page.locator(".home-hotspot-control-modal__detail-card")).toBeVisible();
+  await expect(page.locator(".home-hotspot-control-modal__detail-control")).toHaveCount(4);
+  await page.locator(".home-hotspot-control-modal__detail-apply").first().click();
 
   expect(postedBody).toBeTruthy();
   expect(

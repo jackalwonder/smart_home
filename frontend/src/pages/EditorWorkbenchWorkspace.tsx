@@ -17,11 +17,12 @@ import {
 } from "../api/editorApi";
 import { fetchDevices } from "../api/devicesApi";
 import { normalizeApiError } from "../api/httpClient";
-import { uploadFloorplanAsset } from "../api/pageAssetsApi";
+import { uploadFloorplanAsset, uploadHotspotIconAsset } from "../api/pageAssetsApi";
 import { DeviceListItemDto, EditorDraftDiffDto } from "../api/types";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { mapEditorViewModel } from "../view-models/editor";
 import { EditorHotspotViewModel } from "../view-models/editor";
+import { deriveHotspotIconKey } from "../utils/hotspotIcons";
 import { WsEvent } from "../ws/types";
 
 interface EditorDraftState {
@@ -421,6 +422,8 @@ function areEditorDraftStatesEqual(left: EditorDraftState, right: EditorDraftSta
       leftHotspot.x === rightHotspot.x &&
       leftHotspot.y === rightHotspot.y &&
       leftHotspot.iconType === rightHotspot.iconType &&
+      leftHotspot.iconAssetId === rightHotspot.iconAssetId &&
+      leftHotspot.iconAssetUrl === rightHotspot.iconAssetUrl &&
       leftHotspot.labelMode === rightHotspot.labelMode &&
       leftHotspot.isVisible === rightHotspot.isVisible &&
       leftHotspot.structureOrder === rightHotspot.structureOrder
@@ -442,6 +445,7 @@ function buildDraftHotspotInputs(hotspots: EditorHotspotViewModel[]) {
     x: hotspot.x,
     y: hotspot.y,
     icon_type: hotspot.iconType,
+    icon_asset_id: hotspot.iconAssetId,
     label_mode: hotspot.labelMode,
     is_visible: hotspot.isVisible,
     structure_order: hotspot.structureOrder ?? index,
@@ -537,6 +541,7 @@ function buildLocalPublishSummary(
     }
     if (
       hotspot.iconType !== previous.iconType ||
+      hotspot.iconAssetId !== previous.iconAssetId ||
       hotspot.labelMode !== previous.labelMode ||
       hotspot.isVisible !== previous.isVisible
     ) {
@@ -644,6 +649,7 @@ export function EditorWorkbenchWorkspace() {
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
   const [isUploadingBackground, setIsUploadingBackground] = useState(false);
+  const [isUploadingHotspotIcon, setIsUploadingHotspotIcon] = useState(false);
 
   function setLockConflictNotice(conflictTerminalId?: string | null) {
     appStore.clearEditorError();
@@ -1265,6 +1271,10 @@ export function EditorWorkbenchWorkspace() {
           return { ...hotspot, deviceId: value, label: device?.display_name ?? hotspot.label };
         }
 
+        if (field === "iconType") {
+          return { ...hotspot, iconType: value, iconAssetId: null, iconAssetUrl: null };
+        }
+
         return { ...hotspot, [field]: value };
       });
 
@@ -1300,6 +1310,53 @@ export function EditorWorkbenchWorkspace() {
     } finally {
       setIsUploadingBackground(false);
     }
+  }
+
+  async function handleUploadHotspotIcon(file: File) {
+    if (!canEdit || !selectedHotspotId) {
+      return;
+    }
+
+    clearEditorFeedback();
+    setIsUploadingHotspotIcon(true);
+    try {
+      const uploaded = await uploadHotspotIconAsset({ file });
+      updateDraftStateWithHistory((current) => ({
+        ...current,
+        hotspots: current.hotspots.map((hotspot) =>
+          hotspot.id === selectedHotspotId
+            ? {
+                ...hotspot,
+                iconAssetId: uploaded.asset_id,
+                iconAssetUrl: uploaded.icon_asset_url,
+              }
+            : hotspot,
+        ),
+      }), "Upload hotspot icon");
+      showEditorNotice({
+        tone: "success",
+        title: "Hotspot icon uploaded",
+        detail: "The custom icon is attached to the selected hotspot. Save and publish to use it on the home page.",
+      });
+    } catch (error) {
+      await handleEditorActionError(error, "upload");
+    } finally {
+      setIsUploadingHotspotIcon(false);
+    }
+  }
+
+  function clearSelectedHotspotIconAsset() {
+    if (!canEdit || !selectedHotspotId) {
+      return;
+    }
+    updateDraftStateWithHistory((current) => ({
+      ...current,
+      hotspots: current.hotspots.map((hotspot) =>
+        hotspot.id === selectedHotspotId
+          ? { ...hotspot, iconAssetId: null, iconAssetUrl: null }
+          : hotspot,
+      ),
+    }), "Clear hotspot icon");
   }
 
   function handleClearBackground() {
@@ -1568,6 +1625,8 @@ export function EditorWorkbenchWorkspace() {
       x: 0.5,
       y: 0.5,
       iconType: "device",
+      iconAssetId: null,
+      iconAssetUrl: null,
       labelMode: "AUTO",
       isVisible: true,
       structureOrder: draftState.hotspots.length,
@@ -1601,7 +1660,9 @@ export function EditorWorkbenchWorkspace() {
       deviceId: device.device_id,
       x: position.x,
       y: position.y,
-      iconType: "device",
+      iconType: deriveHotspotIconKey(device.device_type, device.device_type),
+      iconAssetId: null,
+      iconAssetUrl: null,
       labelMode: "AUTO",
       isVisible: true,
       structureOrder: draftState.hotspots.length,
@@ -2275,6 +2336,7 @@ export function EditorWorkbenchWorkspace() {
           canMoveDown={selectedHotspotIndex > -1 && selectedHotspotIndex < orderedHotspots.length - 1}
           canMoveUp={selectedHotspotIndex > 0}
           isUploadingBackground={isUploadingBackground}
+          isUploadingHotspotIcon={isUploadingHotspotIcon}
           onBulkAlign={alignBatchHotspots}
           onBulkDistribute={distributeBatchHotspots}
           onBulkDistributeByStep={distributeBatchHotspotsByStep}
@@ -2297,6 +2359,8 @@ export function EditorWorkbenchWorkspace() {
           onMoveHotspot={moveSelectedHotspot}
           onNudgeHotspot={nudgeSelectedHotspot}
           onUploadBackground={(file) => void handleUploadBackground(file)}
+          onUploadHotspotIcon={(file) => void handleUploadHotspotIcon(file)}
+          onClearHotspotIcon={clearSelectedHotspotIconAsset}
           onToggleVisibility={updateHotspotVisibility}
           rows={viewModel.commandRows}
         />

@@ -214,6 +214,29 @@ class _FloorplanSession:
         self.committed = True
 
 
+class _HotspotIconSession:
+    def __init__(self):
+        self.executed_sql = []
+        self.params = []
+        self.committed = False
+
+    async def execute(self, stmt, params=None):
+        sql = str(stmt)
+        self.executed_sql.append(sql)
+        self.params.append(params or {})
+        if "INSERT INTO page_assets" in sql and "HOTSPOT_ICON" in sql:
+            return _MappingsResult(
+                {
+                    "asset_id": "icon-asset-1",
+                    "updated_at": "2026-04-14T10:00:00+00:00",
+                }
+            )
+        raise AssertionError(f"Unexpected SQL: {sql}")
+
+    async def commit(self):
+        self.committed = True
+
+
 class _SessionScope:
     def __init__(self, session):
         self._session = session
@@ -264,3 +287,55 @@ async def test_floorplan_replace_current_updates_existing_asset(monkeypatch, tmp
     assert any("UPDATE page_assets" in sql for sql in session.executed_sql)
     assert all("INSERT INTO page_assets" not in sql for sql in session.executed_sql)
     assert session.committed is True
+
+
+@pytest.mark.asyncio
+async def test_hotspot_icon_upload_creates_hotspot_icon_asset(monkeypatch, tmp_path):
+    session = _HotspotIconSession()
+    monkeypatch.setattr(
+        floorplan_service_module,
+        "session_scope",
+        lambda _database: _SessionScope(session),
+    )
+
+    service = FloorplanAssetService(
+        database=SimpleNamespace(),
+        management_pin_guard=_NoopPinGuard(),
+        clock=_Clock(),
+    )
+    service._storage_root = Path(tmp_path)
+
+    view = await service.upload_hotspot_icon(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        operator_id="member-1",
+        filename="fan.svg",
+        content_type="image/svg+xml",
+        data=b"<svg />",
+    )
+
+    assert view.asset_id == "icon-asset-1"
+    assert view.icon_asset_url == "/api/v1/page-assets/hotspot-icons/icon-asset-1/file"
+    assert any("HOTSPOT_ICON" in sql for sql in session.executed_sql)
+    assert session.params[0]["mime_type"] == "image/svg+xml"
+    assert session.committed is True
+
+
+@pytest.mark.asyncio
+async def test_hotspot_icon_upload_rejects_non_image(tmp_path):
+    service = FloorplanAssetService(
+        database=SimpleNamespace(),
+        management_pin_guard=_NoopPinGuard(),
+        clock=_Clock(),
+    )
+    service._storage_root = Path(tmp_path)
+
+    with pytest.raises(Exception):
+        await service.upload_hotspot_icon(
+            home_id="home-1",
+            terminal_id="terminal-1",
+            operator_id="member-1",
+            filename="icon.txt",
+            content_type="text/plain",
+            data=b"not an image",
+        )

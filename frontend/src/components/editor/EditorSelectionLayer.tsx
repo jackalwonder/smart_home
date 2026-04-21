@@ -1,5 +1,6 @@
 import type { PointerEvent } from "react";
 import { useMemo, useState } from "react";
+import { HotspotIcon } from "../home/HotspotIcon";
 import { EditorHotspotViewModel } from "../../view-models/editor";
 
 interface EditorSelectionLayerProps {
@@ -262,8 +263,14 @@ export function EditorSelectionLayer({
           >
             {mode === "preview" ? (
               <>
-                <i className="editor-selection-layer__pulse" />
-                <b>{deriveEditorPreviewGlyph(hotspot)}</b>
+                <span className="editor-selection-layer__badge">
+                  <HotspotIcon
+                    deviceType={hotspot.iconType}
+                    iconAssetUrl={hotspot.iconAssetUrl}
+                    iconType={hotspot.iconType}
+                    variant="editor-preview"
+                  />
+                </span>
                 {showPreviewLabel ? <span>{hotspot.label}</span> : null}
                 {showPreviewLabel ? <small>发布后首页展示</small> : null}
               </>

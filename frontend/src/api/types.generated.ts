@@ -467,6 +467,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/page-assets/hotspot-icons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Hotspot Icon */
+        post: operations["post_api_v1_page_assets_hotspot_icons"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/page-assets/hotspot-icons/{asset_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Hotspot Icon File */
+        get: operations["get_api_v1_page_assets_hotspot_icons_asset_id_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/page-settings": {
         parameters: {
             query?: never;
@@ -1033,6 +1067,23 @@ export interface components {
              */
             terminal_id?: string | null;
         };
+        /** Body_upload_hotspot_icon_api_v1_page_assets_hotspot_icons_post */
+        Body_upload_hotspot_icon_api_v1_page_assets_hotspot_icons_post: {
+            /** File */
+            file: string;
+            /**
+             * Home Id
+             * @description Legacy compatibility context field.
+             */
+            home_id?: string | null;
+            /** Operator Id */
+            operator_id?: string | null;
+            /**
+             * Terminal Id
+             * @description Legacy compatibility context field.
+             */
+            terminal_id?: string | null;
+        };
         /** DefaultMediaResponse */
         DefaultMediaResponse: {
             /** Artist */
@@ -1242,6 +1293,10 @@ export interface components {
         DeviceEditorHotspotResponse: {
             /** Hotspot Id */
             hotspot_id: string;
+            /** Icon Asset Id */
+            icon_asset_id?: string | null;
+            /** Icon Asset Url */
+            icon_asset_url?: string | null;
             /** Icon Type */
             icon_type?: string | null;
             /** Is Visible */
@@ -1496,6 +1551,10 @@ export interface components {
             display_name?: string | null;
             /** Hotspot Id */
             hotspot_id: string;
+            /** Icon Asset Id */
+            icon_asset_id?: string | null;
+            /** Icon Asset Url */
+            icon_asset_url?: string | null;
             /** Icon Type */
             icon_type?: string | null;
             /** Is Visible */
@@ -1550,6 +1609,8 @@ export interface components {
             device_id: string;
             /** Hotspot Id */
             hotspot_id: string;
+            /** Icon Asset Id */
+            icon_asset_id?: string | null;
             /** Icon Type */
             icon_type?: string | null;
             /**
@@ -1989,6 +2050,10 @@ export interface components {
             entry_behavior: string;
             /** Hotspot Id */
             hotspot_id: string;
+            /** Icon Asset Id */
+            icon_asset_id?: string | null;
+            /** Icon Asset Url */
+            icon_asset_url?: string | null;
             /** Icon Type */
             icon_type?: string | null;
             /** Is Complex Device */
@@ -2226,6 +2291,21 @@ export interface components {
         HomePanelSummaryResponse: {
             /** Count */
             count: number;
+        };
+        /** HotspotIconAssetResponse */
+        HotspotIconAssetResponse: {
+            /** Asset Id */
+            asset_id: string;
+            /** Height */
+            height?: number | null;
+            /** Icon Asset Url */
+            icon_asset_url: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Updated At */
+            updated_at: string;
+            /** Width */
+            width?: number | null;
         };
         /** MediaBindingResponse */
         MediaBindingResponse: {
@@ -2780,6 +2860,18 @@ export interface components {
         /** SuccessEnvelope[HomePanelResponse] */
         SuccessEnvelope_HomePanelResponse_: {
             data: components["schemas"]["HomePanelResponse"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        };
+        /** SuccessEnvelope[HotspotIconAssetResponse] */
+        SuccessEnvelope_HotspotIconAssetResponse_: {
+            data: components["schemas"]["HotspotIconAssetResponse"];
             /** Error */
             error?: null;
             meta: components["schemas"]["ResponseMeta"];
@@ -9070,6 +9162,406 @@ export interface operations {
                     "image/gif": unknown;
                     "image/jpeg": unknown;
                     "image/png": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    post_api_v1_page_assets_hotspot_icons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_hotspot_icon_api_v1_page_assets_hotspot_icons_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_HotspotIconAssetResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    get_api_v1_page_assets_hotspot_icons_asset_id_file: {
+        parameters: {
+            query?: {
+                /**
+                 * @deprecated
+                 * @description Legacy compatibility field. Bearer access token claim is authoritative.
+                 */
+                home_id?: string | null;
+                /**
+                 * @deprecated
+                 * @description Legacy compatibility field. Bearer access token claim is authoritative.
+                 */
+                terminal_id?: string | null;
+            };
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hotspot icon image file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/svg+xml": unknown;
                     "image/webp": unknown;
                 };
             };

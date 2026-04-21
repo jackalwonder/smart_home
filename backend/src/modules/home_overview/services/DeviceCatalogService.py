@@ -524,6 +524,7 @@ class DeviceCatalogService:
                                 lh.x::float8 AS x,
                                 lh.y::float8 AS y,
                                 lh.icon_type,
+                                lh.icon_asset_id::text AS icon_asset_id,
                                 lh.label_mode,
                                 lh.is_visible,
                                 lh.structure_order
@@ -545,6 +546,12 @@ class DeviceCatalogService:
                             "x": hotspot["x"],
                             "y": hotspot["y"],
                             "icon_type": hotspot["icon_type"],
+                            "icon_asset_id": hotspot["icon_asset_id"],
+                            "icon_asset_url": (
+                                f"/api/v1/page-assets/hotspot-icons/{hotspot['icon_asset_id']}/file"
+                                if hotspot["icon_asset_id"] is not None
+                                else None
+                            ),
                             "label_mode": hotspot["label_mode"],
                             "is_visible": hotspot["is_visible"],
                             "structure_order": hotspot["structure_order"],

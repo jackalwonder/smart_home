@@ -65,7 +65,7 @@ CREATE TYPE change_domain_enum AS ENUM (
     'MEDIA',
     'BACKUP'
 );
-CREATE TYPE asset_type_enum AS ENUM ('FLOORPLAN');
+CREATE TYPE asset_type_enum AS ENUM ('FLOORPLAN', 'HOTSPOT_ICON');
 CREATE TYPE system_type_enum AS ENUM ('HOME_ASSISTANT');
 CREATE TYPE display_policy_enum AS ENUM ('ICON_ONLY', 'LIGHT_SUMMARY', 'ALERT_PRIORITY');
 CREATE TYPE ha_sync_mode_enum AS ENUM ('EVENT_STREAM', 'POLLING');
@@ -334,6 +334,7 @@ CREATE TABLE layout_hotspots (
     x numeric(8,6) NOT NULL CHECK (x >= 0 AND x <= 1),
     y numeric(8,6) NOT NULL CHECK (y >= 0 AND y <= 1),
     icon_type text,
+    icon_asset_id uuid REFERENCES page_assets(id) ON DELETE SET NULL,
     label_mode text,
     is_visible boolean NOT NULL DEFAULT true,
     structure_order integer NOT NULL DEFAULT 0,
@@ -345,6 +346,7 @@ CREATE TABLE layout_hotspots (
 
 CREATE INDEX idx_layout_hotspots_layout_structure_order ON layout_hotspots (layout_version_id, structure_order);
 CREATE INDEX idx_layout_hotspots_device_id ON layout_hotspots (device_id);
+CREATE INDEX idx_layout_hotspots_icon_asset_id ON layout_hotspots (icon_asset_id);
 
 CREATE TABLE settings_versions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -495,6 +497,7 @@ CREATE TABLE draft_hotspots (
     x numeric(8,6) NOT NULL CHECK (x >= 0 AND x <= 1),
     y numeric(8,6) NOT NULL CHECK (y >= 0 AND y <= 1),
     icon_type text,
+    icon_asset_id uuid REFERENCES page_assets(id) ON DELETE SET NULL,
     label_mode text,
     is_visible boolean NOT NULL DEFAULT true,
     structure_order integer NOT NULL DEFAULT 0,
@@ -503,6 +506,7 @@ CREATE TABLE draft_hotspots (
 );
 
 CREATE INDEX idx_draft_hotspots_layout_structure_order ON draft_hotspots (draft_layout_id, structure_order);
+CREATE INDEX idx_draft_hotspots_icon_asset_id ON draft_hotspots (icon_asset_id);
 
 CREATE TABLE draft_leases (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

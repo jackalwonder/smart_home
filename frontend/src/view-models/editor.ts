@@ -1,5 +1,6 @@
 import { formatRealtimeEvent } from "../ws/eventPresentation";
 import { WsEvent } from "../ws/types";
+import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
 import { asArray, asNumber, asOptionalString, asRecord, asString } from "./utils";
 
 export interface EditorHotspotViewModel {
@@ -9,6 +10,8 @@ export interface EditorHotspotViewModel {
   x: number;
   y: number;
   iconType: string;
+  iconAssetId: string | null;
+  iconAssetUrl: string | null;
   labelMode: string;
   isVisible: boolean;
   structureOrder: number;
@@ -86,6 +89,10 @@ export function mapEditorViewModel(input: {
       x: asNumber(hotspot.x),
       y: asNumber(hotspot.y),
       iconType: asString(hotspot.icon_type ?? "device"),
+      iconAssetId: asOptionalString(hotspot.icon_asset_id),
+      iconAssetUrl: resolveHotspotIconUrl(
+        asOptionalString(hotspot.icon_asset_url) ?? asOptionalString(hotspot.icon_asset_id),
+      ),
       labelMode: asString(hotspot.label_mode ?? "AUTO"),
       isVisible: hotspot.is_visible !== false,
       structureOrder: asNumber(hotspot.structure_order, index),

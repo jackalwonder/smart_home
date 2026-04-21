@@ -14,6 +14,7 @@ class LayoutHotspotSnapshotRow:
     x: float
     y: float
     icon_type: str | None
+    icon_asset_id: str | None
     label_mode: str | None
     is_visible: bool
     structure_order: int

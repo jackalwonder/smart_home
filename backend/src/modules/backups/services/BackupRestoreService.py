@@ -521,6 +521,7 @@ class BackupRestoreService:
                         x=float(hotspot["x"]),
                         y=float(hotspot["y"]),
                         icon_type=hotspot.get("icon_type"),
+                        icon_asset_id=hotspot.get("icon_asset_id"),
                         label_mode=hotspot.get("label_mode"),
                         is_visible=bool(hotspot.get("is_visible", True)),
                         structure_order=int(hotspot.get("structure_order", 0)),

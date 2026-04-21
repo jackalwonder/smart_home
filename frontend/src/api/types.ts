@@ -179,6 +179,15 @@ export type BackupRestoreDto = Schema<"BackupRestoreResponse">;
 
 export type FloorplanAssetDto = Schema<"FloorplanAssetResponse">;
 
+export interface HotspotIconAssetDto {
+  asset_id: string;
+  icon_asset_url: string;
+  mime_type: string;
+  width?: number | null;
+  height?: number | null;
+  updated_at: string;
+}
+
 export type EditorSessionDto = RequireFields<
   Schema<"EditorSessionResponse">,
   "lease_id" | "lease_expires_at" | "heartbeat_interval_seconds" | "draft_version" | "current_layout_version"

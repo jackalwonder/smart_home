@@ -133,6 +133,7 @@ class EditorDraftSaveHotspotRequestBody(ApiSchema):
     x: float
     y: float
     icon_type: str | None = None
+    icon_asset_id: str | None = None
     label_mode: str | None = None
     is_visible: bool = True
     structure_order: int = 0
@@ -167,6 +168,8 @@ class EditorDraftHotspotResponse(ApiSchema):
     x: float
     y: float
     icon_type: str | None = None
+    icon_asset_id: str | None = None
+    icon_asset_url: str | None = None
     label_mode: str | None = None
     is_visible: bool
     structure_order: int

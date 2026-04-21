@@ -157,6 +157,7 @@ class EditorDraftService:
             "x": float(hotspot.get("x") or 0),
             "y": float(hotspot.get("y") or 0),
             "icon_type": hotspot.get("icon_type"),
+            "icon_asset_id": hotspot.get("icon_asset_id"),
             "label_mode": hotspot.get("label_mode"),
             "is_visible": bool(hotspot.get("is_visible", True)),
             "structure_order": int(hotspot.get("structure_order", fallback_index) or 0),
@@ -205,6 +206,7 @@ class EditorDraftService:
                     "x": hotspot.x,
                     "y": hotspot.y,
                     "icon_type": hotspot.icon_type,
+                    "icon_asset_id": getattr(hotspot, "icon_asset_id", None),
                     "label_mode": hotspot.label_mode,
                     "is_visible": hotspot.is_visible,
                     "structure_order": hotspot.structure_order,
@@ -245,6 +247,7 @@ class EditorDraftService:
                 rebound.append(hotspot)
             if (
                 hotspot["icon_type"] != previous["icon_type"]
+                or hotspot["icon_asset_id"] != previous.get("icon_asset_id")
                 or hotspot["label_mode"] != previous["label_mode"]
                 or hotspot["is_visible"] != previous["is_visible"]
             ):
@@ -449,6 +452,7 @@ class EditorDraftService:
                         x=float(hotspot["x"]),
                         y=float(hotspot["y"]),
                         icon_type=hotspot.get("icon_type"),
+                        icon_asset_id=hotspot.get("icon_asset_id"),
                         label_mode=hotspot.get("label_mode"),
                         is_visible=bool(hotspot.get("is_visible", True)),
                         structure_order=int(hotspot.get("structure_order", 0)),

@@ -12,7 +12,10 @@ from src.modules.backups.services.BackupRestoreService import (
     BackupRestoreView,
 )
 from src.modules.backups.services.BackupService import BackupCreateView
-from src.modules.page_assets.services.FloorplanAssetService import FloorplanAssetView
+from src.modules.page_assets.services.FloorplanAssetService import (
+    FloorplanAssetView,
+    HotspotIconAssetView,
+)
 
 
 class FakeFloorplanAssetService:
@@ -22,6 +25,16 @@ class FakeFloorplanAssetService:
             asset_id="asset-1",
             background_image_url="/tmp/floorplan.png",
             background_image_size={"width": 1920, "height": 1080},
+            updated_at="2026-04-14T10:00:00Z",
+        )
+
+    async def upload_hotspot_icon(self, **_kwargs):
+        return HotspotIconAssetView(
+            asset_id="icon-asset-1",
+            icon_asset_url="/api/v1/page-assets/hotspot-icons/icon-asset-1/file",
+            mime_type="image/svg+xml",
+            width=None,
+            height=None,
             updated_at="2026-04-14T10:00:00Z",
         )
 
@@ -115,6 +128,11 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
         },
         files={"file": ("floorplan.png", b"png-bytes", "image/png")},
     )
+    icon_response = client.post(
+        "/api/v1/page-assets/hotspot-icons",
+        data={"operator_id": "member-1"},
+        files={"file": ("fan.svg", b"<svg />", "image/svg+xml")},
+    )
     create_response = client.post(
         "/api/v1/system/backups",
         json={"operator_id": "member-1"},
@@ -129,6 +147,10 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
     assert asset_response.status_code == 200
     assert asset_response.json()["success"] is True
     assert asset_response.json()["data"]["asset_id"] == "asset-1"
+    assert icon_response.status_code == 200
+    assert icon_response.json()["success"] is True
+    assert icon_response.json()["data"]["asset_id"] == "icon-asset-1"
+    assert icon_response.json()["data"]["icon_asset_url"].endswith("/icon-asset-1/file")
 
     assert create_response.status_code == 200
     assert create_response.json()["data"]["backup_id"] == "bk_1"
