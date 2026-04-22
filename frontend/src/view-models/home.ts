@@ -9,6 +9,7 @@ import {
   labelize,
 } from "./utils";
 import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
+import { type ImageSize } from "../types/image";
 
 export interface HomeHotspotViewModel {
   id: string;
@@ -111,7 +112,8 @@ export interface HomeEnergyViewModel {
   monthlyUsage: string;
   balance: string;
   yearlyUsage: string;
-  updateLabel: string;
+  systemUpdateLabel: string;
+  sourceUpdateLabel: string;
   bindingStatus: string;
   refreshStatus: string;
 }
@@ -122,6 +124,7 @@ export interface HomeViewModel {
   cacheMode: boolean;
   stage: {
     backgroundImageUrl: string | null;
+    backgroundImageSize: ImageSize | null;
     hotspots: HomeHotspotViewModel[];
   };
   timeline: {
@@ -165,6 +168,21 @@ function formatNumber(value: unknown, fallback = "--") {
 function formatMetricValue(value: unknown, unit: string, fallback = "--") {
   const normalized = formatNumber(value, fallback);
   return normalized === fallback ? fallback : `${normalized} ${unit}`.trim();
+}
+
+function parseImageSize(value: unknown): ImageSize | null {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const width = asNumber(record.width, 0);
+  const height = asNumber(record.height, 0);
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { width, height };
 }
 
 function formatEnergyUpdateLabel(value: string | null) {
@@ -767,7 +785,10 @@ export function mapHomeOverviewViewModel(
     monthlyUsage: formatMetricValue(energyRecord?.monthly_usage, "kWh"),
     balance: formatMetricValue(energyRecord?.balance, "元"),
     yearlyUsage: formatMetricValue(energyRecord?.yearly_usage, "kWh"),
-    updateLabel: formatEnergyUpdateLabel(asOptionalString(energyRecord?.updated_at)),
+    systemUpdateLabel: formatEnergyUpdateLabel(asOptionalString(energyRecord?.updated_at)),
+    sourceUpdateLabel: formatEnergyUpdateLabel(
+      asOptionalString(energyRecord?.source_updated_at),
+    ),
     bindingStatus: translateServiceStatus(asOptionalString(energyRecord?.binding_status)),
     refreshStatus: translateServiceStatus(asOptionalString(energyRecord?.refresh_status)),
   };
@@ -778,6 +799,7 @@ export function mapHomeOverviewViewModel(
     cacheMode: asBoolean(value?.cache_mode),
     stage: {
       backgroundImageUrl: asOptionalString(stage?.background_image_url),
+      backgroundImageSize: parseImageSize(stage?.background_image_size),
       hotspots,
     },
     timeline: {
@@ -818,7 +840,8 @@ export function mapHomeOverviewViewModel(
       { label: "本月累计", value: energy.monthlyUsage },
       { label: "账户余额", value: energy.balance },
       { label: "年度累计", value: energy.yearlyUsage },
-      { label: "更新信息", value: energy.updateLabel },
+      { label: "系统刷新", value: energy.systemUpdateLabel },
+      { label: "HA 源更新", value: energy.sourceUpdateLabel },
     ],
     weatherTrend: makeWeatherTrend(weatherTemperature, weatherCondition, weather?.forecast),
     railCards: makeRailCards(summary, favoriteDevices, energy),

@@ -68,7 +68,33 @@ function formatEnergyValue(value: number | null | undefined, unit: string) {
   return `${value} ${unit}`;
 }
 
+function formatTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  const hour = String(parsed.getHours()).padStart(2, "0");
+  const minute = String(parsed.getMinutes()).padStart(2, "0");
+  return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${hour}:${minute}`;
+}
+
 function formatStatus(energy: EnergyDto | null) {
+  const detail = energy?.refresh_status_detail;
+  if (detail === "SUCCESS_UPDATED") {
+    return "已刷新，HA 源已更新";
+  }
+  if (detail === "SUCCESS_STALE_SOURCE") {
+    return "已刷新，HA 源未更新";
+  }
+  if (detail === "FAILED_UPSTREAM_TRIGGER") {
+    return "触发上游同步失败";
+  }
+  if (detail === "FAILED_SOURCE_TIMEOUT") {
+    return "等待 HA 源更新超时";
+  }
   if (!energy?.last_error_code) {
     return formatValue(energy?.refresh_status);
   }
@@ -99,6 +125,9 @@ function resolveEntitySuffix(
 function formatSgccRuntimeStatus(energy: EnergyDto | null) {
   if (energy?.binding_status !== "BOUND") {
     return "待绑定";
+  }
+  if (energy?.refresh_status_detail === "SUCCESS_STALE_SOURCE") {
+    return "sgcc_electricity_new 已触发，但 HA 源尚未更新";
   }
   if (energy?.refresh_status === "SUCCESS") {
     return energy.cache_mode
@@ -148,7 +177,14 @@ export function EnergyBindingPanel({
           label: "年度累计",
           value: formatEnergyValue(energy?.yearly_usage, "kWh"),
         },
-        { label: "最近更新时间", value: formatValue(energy?.updated_at) },
+        {
+          label: "系统刷新时间",
+          value: formatTimestamp(energy?.system_updated_at ?? energy?.updated_at),
+        },
+        {
+          label: "HA 源更新时间",
+          value: formatTimestamp(energy?.source_updated_at),
+        },
       ]}
       title="国家电网能耗"
     >

@@ -1,10 +1,14 @@
+import { useEffect, useRef, useState } from "react";
+import { useContainedImageFrame, useViewportSize, readImageSize } from "../../hooks/useContainedImageFrame";
 import { useResolvedAssetImageUrl } from "../../hooks/useResolvedAssetImageUrl";
+import { hasImageSize, type ImageSize } from "../../types/image";
 import { HomeHotspotViewModel } from "../../view-models/home";
 import { HomeDeviceControlPanel } from "./HomeDeviceControlPanel";
 import { HomeHotspotOverlay } from "./HomeHotspotOverlay";
 
 interface HomeCommandStageProps {
   backgroundImageUrl: string | null;
+  backgroundImageSize: ImageSize | null;
   hotspots: HomeHotspotViewModel[];
   pendingHotspotIds?: string[];
   selectedHotspotId: string | null;
@@ -44,6 +48,7 @@ function connectionCopy(status: string) {
 
 export function HomeCommandStage({
   backgroundImageUrl,
+  backgroundImageSize,
   hotspots,
   pendingHotspotIds = [],
   selectedHotspotId,
@@ -56,16 +61,35 @@ export function HomeCommandStage({
   connectionStatus,
   events,
 }: HomeCommandStageProps) {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [measuredBackgroundImageSize, setMeasuredBackgroundImageSize] = useState<ImageSize | null>(
+    backgroundImageSize,
+  );
   const selectedStageHotspot =
     hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? null;
   const selectedHotspot = selectedStageHotspot ?? selectedExternalHotspot;
   const resolvedBackgroundImageUrl = useResolvedAssetImageUrl(backgroundImageUrl);
+  const viewportSize = useViewportSize(viewportRef);
+  const effectiveBackgroundImageSize = hasImageSize(backgroundImageSize)
+    ? backgroundImageSize
+    : measuredBackgroundImageSize;
+  const imageFrame = useContainedImageFrame({
+    hasBackgroundImage: Boolean(resolvedBackgroundImageUrl),
+    imageSize: effectiveBackgroundImageSize,
+    viewportSize,
+  });
   const onlineHotspots = hotspots.filter((hotspot) => !hotspot.isOffline).length;
   const runningHotspots = countRunningHotspots(hotspots);
   const { label: connectionLabel, tone: connectionTone } = connectionCopy(
     connectionStatus,
   );
   const feedItems = events.slice(0, 5);
+
+  useEffect(() => {
+    if (hasImageSize(backgroundImageSize)) {
+      setMeasuredBackgroundImageSize(backgroundImageSize);
+    }
+  }, [backgroundImageSize]);
 
   return (
     <section className="panel home-command-stage">
@@ -87,32 +111,60 @@ export function HomeCommandStage({
             </div>
           </div>
 
-          {resolvedBackgroundImageUrl ? (
-            <img
-              alt="家庭户型图"
-              className="home-command-stage__image"
-              src={resolvedBackgroundImageUrl}
-            />
-          ) : (
-            <div
-              className="floorplan-fallback home-command-stage__placeholder"
-              aria-hidden="true"
-            >
-              <span className="floorplan-fallback__room floorplan-fallback__room--living" />
-              <span className="floorplan-fallback__room floorplan-fallback__room--kitchen" />
-              <span className="floorplan-fallback__room floorplan-fallback__room--bedroom" />
-              <span className="floorplan-fallback__room floorplan-fallback__room--study" />
-              <span className="floorplan-fallback__room floorplan-fallback__room--bath" />
-              <span className="floorplan-fallback__wall floorplan-fallback__wall--one" />
-              <span className="floorplan-fallback__wall floorplan-fallback__wall--two" />
-              <span className="floorplan-fallback__wall floorplan-fallback__wall--three" />
-              <div className="home-command-stage__empty">
-                <span className="card-eyebrow">户型图待发布</span>
-                <strong>上传并发布背景图后，这里会成为首页主舞台。</strong>
-                <p>先去编辑页上传户型图、摆好热点，再回到总览体验完整交互。</p>
+          <div className="home-command-stage__viewport" ref={viewportRef}>
+            {resolvedBackgroundImageUrl ? (
+              <img
+                alt="家庭户型图"
+                className="home-command-stage__image"
+                onLoad={(event) => {
+                  const nextSize = readImageSize(event.currentTarget);
+                  if (nextSize) {
+                    setMeasuredBackgroundImageSize(nextSize);
+                  }
+                }}
+                src={resolvedBackgroundImageUrl}
+              />
+            ) : (
+              <div
+                className="floorplan-fallback home-command-stage__placeholder"
+                aria-hidden="true"
+              >
+                <span className="floorplan-fallback__room floorplan-fallback__room--living" />
+                <span className="floorplan-fallback__room floorplan-fallback__room--kitchen" />
+                <span className="floorplan-fallback__room floorplan-fallback__room--bedroom" />
+                <span className="floorplan-fallback__room floorplan-fallback__room--study" />
+                <span className="floorplan-fallback__room floorplan-fallback__room--bath" />
+                <span className="floorplan-fallback__wall floorplan-fallback__wall--one" />
+                <span className="floorplan-fallback__wall floorplan-fallback__wall--two" />
+                <span className="floorplan-fallback__wall floorplan-fallback__wall--three" />
+                <div className="home-command-stage__empty">
+                  <span className="card-eyebrow">户型图待发布</span>
+                  <strong>上传并发布背景图后，这里会成为首页主舞台。</strong>
+                  <p>先去编辑页上传户型图、摆好热点，再回到总览体验完整交互。</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {imageFrame ? (
+              <div
+                className="home-command-stage__hotspot-frame"
+                style={{
+                  left: `${imageFrame.left}px`,
+                  top: `${imageFrame.top}px`,
+                  width: `${imageFrame.width}px`,
+                  height: `${imageFrame.height}px`,
+                }}
+              >
+                <HomeHotspotOverlay
+                  hotspots={hotspots}
+                  onActivateHotspot={onActivateHotspot}
+                  onLongPressHotspot={onLongPressHotspot}
+                  pendingHotspotIds={pendingHotspotIds}
+                  selectedHotspotId={selectedHotspotId}
+                />
+              </div>
+            ) : null}
+          </div>
 
           <div className="home-command-stage__stage-summary">
             <span>主舞台</span>
@@ -123,14 +175,6 @@ export function HomeCommandStage({
                 : "点击热点可直接操作，复杂设备会打开控制浮层。"}
             </small>
           </div>
-
-          <HomeHotspotOverlay
-            hotspots={hotspots}
-            onActivateHotspot={onActivateHotspot}
-            onLongPressHotspot={onLongPressHotspot}
-            pendingHotspotIds={pendingHotspotIds}
-            selectedHotspotId={selectedHotspotId}
-          />
 
           {feedItems.length ? (
             <section className="home-stage-feed">

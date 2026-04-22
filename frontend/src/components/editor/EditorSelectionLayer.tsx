@@ -38,31 +38,6 @@ function clampPosition(value: number) {
   return Math.min(Math.max(value, 0), 1);
 }
 
-function deriveEditorPreviewGlyph(hotspot: EditorHotspotViewModel) {
-  const source = `${hotspot.iconType} ${hotspot.deviceId} ${hotspot.label}`.toLowerCase();
-
-  if (source.includes("light") || source.includes("lamp")) {
-    return "灯";
-  }
-  if (source.includes("fan")) {
-    return "扇";
-  }
-  if (source.includes("climate") || source.includes("air")) {
-    return "空";
-  }
-  if (source.includes("curtain") || source.includes("cover")) {
-    return "帘";
-  }
-  if (source.includes("sensor")) {
-    return "感";
-  }
-  if (source.includes("media") || source.includes("tv")) {
-    return "媒";
-  }
-
-  return "控";
-}
-
 function getCanvasCoordinates(
   container: HTMLDivElement,
   event: PointerEvent<HTMLElement>,
@@ -261,24 +236,29 @@ export function EditorSelectionLayer({
             style={{ left: `${hotspot.x * 100}%`, top: `${hotspot.y * 100}%` }}
             type="button"
           >
+            <span className="editor-selection-layer__anchor">
+              <span className="editor-selection-layer__badge">
+                <HotspotIcon
+                  iconAssetUrl={hotspot.iconAssetUrl}
+                  iconType={hotspot.iconType}
+                  variant="editor-preview"
+                />
+              </span>
+            </span>
             {mode === "preview" ? (
               <>
-                <span className="editor-selection-layer__badge">
-                  <HotspotIcon
-                    deviceType={hotspot.iconType}
-                    iconAssetUrl={hotspot.iconAssetUrl}
-                    iconType={hotspot.iconType}
-                    variant="editor-preview"
-                  />
-                </span>
-                {showPreviewLabel ? <span>{hotspot.label}</span> : null}
-                {showPreviewLabel ? <small>发布后首页展示</small> : null}
+                {showPreviewLabel ? (
+                  <span className="editor-selection-layer__label-card">
+                    <span className="editor-selection-layer__title">{hotspot.label}</span>
+                    <small className="editor-selection-layer__meta">发布后首页展示</small>
+                  </span>
+                ) : null}
               </>
             ) : (
-              <>
-                <span>{hotspot.label}</span>
-                <small>{`${Math.round(hotspot.x * 100)}%, ${Math.round(hotspot.y * 100)}%`}</small>
-              </>
+              <span className="editor-selection-layer__label-card">
+                <span className="editor-selection-layer__title">{hotspot.label}</span>
+                <small className="editor-selection-layer__meta">{`${Math.round(hotspot.x * 100)}%, ${Math.round(hotspot.y * 100)}%`}</small>
+              </span>
             )}
           </button>
         );

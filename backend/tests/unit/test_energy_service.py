@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
-
-import pytest
 
 from src.infrastructure.ha.HaConnectionGateway import HaStateEntry
 from src.modules.energy.services.EnergyService import EnergyService
@@ -92,9 +91,34 @@ class _OutboxRepository:
 class _HaGateway:
     def __init__(self, states):
         self.states = states
+        self.call_service_requests = []
 
     async def fetch_states(self, *_args, **_kwargs):
+        if isinstance(self.states, list) and self.states and isinstance(self.states[0], list):
+            if len(self.states) > 1:
+                return self.states.pop(0)
+            return self.states[0]
         return self.states
+
+    async def call_service(self, home_id, domain, service, payload):
+        self.call_service_requests.append((home_id, domain, service, payload))
+
+
+class _Restarter:
+    def __init__(self, should_fail: bool = False):
+        self.should_fail = should_fail
+        self.restart_count = 0
+        self.fetch_count = 0
+
+    async def restart(self):
+        self.restart_count += 1
+        if self.should_fail:
+            raise RuntimeError("restart failed")
+
+    async def fetch(self):
+        self.fetch_count += 1
+        if self.should_fail:
+            raise RuntimeError("fetch failed")
 
 
 def _state(entity_id: str, value: str, updated_at: str = "2026-04-20T07:58:00+00:00"):
@@ -107,7 +131,11 @@ def _state(entity_id: str, value: str, updated_at: str = "2026-04-20T07:58:00+00
     )
 
 
-def _service(*, accounts=None, snapshots=None, gateway=None):
+def _run(coro):
+    return asyncio.run(coro)
+
+
+def _service(*, accounts=None, snapshots=None, gateway=None, restarter=None, mode="none"):
     account_repository = accounts or _EnergyAccountRepository()
     snapshot_repository = snapshots or _EnergySnapshotRepository()
     outbox_repository = _OutboxRepository()
@@ -119,37 +147,41 @@ def _service(*, accounts=None, snapshots=None, gateway=None):
         ha_connection_gateway=gateway or _HaGateway([]),
         event_id_generator=_EventIdGenerator(),
         clock=_Clock(),
+        sgcc_container_restarter=restarter,
+        upstream_refresh_mode=mode,
+        upstream_wait_timeout_seconds=1,
+        upstream_poll_interval_seconds=0.01,
     )
     return service, account_repository, snapshot_repository, outbox_repository
 
 
-@pytest.mark.asyncio
-async def test_energy_binding_is_normalized_for_home_assistant_sgcc():
+def test_energy_binding_is_normalized_for_home_assistant_sgcc():
     service, accounts, _, _ = _service()
 
-    result = await service.update_binding(
-        "home-1",
-        "terminal-1",
-        {
-            "provider": "HOME_ASSISTANT_SGCC",
-            "account_id": " 1234567890 ",
-            "entity_map": {"balance": " sensor.custom_balance "},
-            "ignored": "value",
-        },
-        "member-1",
+    result = _run(
+        service.update_binding(
+            "home-1",
+            "terminal-1",
+            {
+                "provider": "HOME_ASSISTANT_SGCC",
+                "account_id": " 1234567890 ",
+                "entity_map": {"balance": " sensor.custom_balance "},
+                "ignored": "value",
+            },
+            "member-1",
+        )
     )
 
     assert result.binding_status == "BOUND"
     assert accounts.upserts[0].account_payload_encrypted
     assert "sensor.custom_balance" in accounts.upserts[0].account_payload_encrypted
-    view = await service.get_energy("home-1")
+    view = _run(service.get_energy("home-1"))
     assert view.provider == "HOME_ASSISTANT_SGCC"
     assert view.account_id_masked == "12******90"
     assert view.entity_map == {"balance": "sensor.custom_balance"}
 
 
-@pytest.mark.asyncio
-async def test_energy_refresh_reads_default_state_grid_entities_from_ha():
+def test_energy_refresh_reads_default_state_grid_entities_from_ha():
     states = [
         _state("sensor.last_electricity_usage_1234567890", "1.23"),
         _state("sensor.month_electricity_usage_1234567890", "45.6"),
@@ -157,9 +189,9 @@ async def test_energy_refresh_reads_default_state_grid_entities_from_ha():
         _state("sensor.yearly_electricity_usage_1234567890", "345.67"),
     ]
     service, _, snapshots, outbox = _service(gateway=_HaGateway(states))
-    await service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"})
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
 
-    result = await service.refresh("home-1", "terminal-1")
+    result = _run(service.refresh("home-1", "terminal-1"))
 
     assert result.refresh_status == "SUCCESS"
     assert snapshots.inserts[-1].yesterday_usage == 1.23
@@ -170,8 +202,7 @@ async def test_energy_refresh_reads_default_state_grid_entities_from_ha():
     assert outbox.events[-1].event_type == "energy_refresh_completed"
 
 
-@pytest.mark.asyncio
-async def test_energy_refresh_prefers_manual_entity_map_over_account_suffix():
+def test_energy_refresh_prefers_manual_entity_map_over_account_suffix():
     states = [
         _state("sensor.manual_yesterday", "2.5"),
         _state("sensor.month_electricity_usage_1234567890", "40"),
@@ -179,23 +210,24 @@ async def test_energy_refresh_prefers_manual_entity_map_over_account_suffix():
         _state("sensor.yearly_electricity_usage_1234567890", "300"),
     ]
     service, _, snapshots, _ = _service(gateway=_HaGateway(states))
-    await service.update_binding(
-        "home-1",
-        "terminal-1",
-        {
-            "account_id": "1234567890",
-            "entity_map": {"yesterday_usage": "sensor.manual_yesterday"},
-        },
+    _run(
+        service.update_binding(
+            "home-1",
+            "terminal-1",
+            {
+                "account_id": "1234567890",
+                "entity_map": {"yesterday_usage": "sensor.manual_yesterday"},
+            },
+        )
     )
 
-    await service.refresh("home-1", "terminal-1")
+    _run(service.refresh("home-1", "terminal-1"))
 
     assert snapshots.inserts[-1].refresh_status == "SUCCESS"
     assert snapshots.inserts[-1].yesterday_usage == 2.5
 
 
-@pytest.mark.asyncio
-async def test_energy_refresh_auto_discovers_single_sgcc_suffix_from_states():
+def test_energy_refresh_auto_discovers_single_sgcc_suffix_from_states():
     states = [
         _state("sensor.last_electricity_usage_83920123", "2.1"),
         _state("sensor.month_electricity_usage_83920123", "42"),
@@ -211,7 +243,7 @@ async def test_energy_refresh_auto_discovers_single_sgcc_suffix_from_states():
         updated_at="2026-04-20T08:00:00+00:00",
     )
 
-    result = await service.refresh("home-1", "terminal-1")
+    result = _run(service.refresh("home-1", "terminal-1"))
 
     assert result.refresh_status == "SUCCESS"
     assert snapshots.inserts[-1].yesterday_usage == 2.1
@@ -220,8 +252,7 @@ async def test_energy_refresh_auto_discovers_single_sgcc_suffix_from_states():
     assert snapshots.inserts[-1].yearly_usage == 388.0
 
 
-@pytest.mark.asyncio
-async def test_energy_refresh_failure_keeps_previous_values_as_cache():
+def test_energy_refresh_failure_keeps_previous_values_as_cache():
     previous = EnergySnapshotRow(
         id="previous",
         home_id="home-1",
@@ -238,9 +269,9 @@ async def test_energy_refresh_failure_keeps_previous_values_as_cache():
     )
     snapshots = _EnergySnapshotRepository(previous)
     service, _, _, outbox = _service(snapshots=snapshots, gateway=_HaGateway(None))
-    await service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"})
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
 
-    result = await service.refresh("home-1", "terminal-1")
+    result = _run(service.refresh("home-1", "terminal-1"))
 
     assert result.refresh_status == "FAILED"
     assert snapshots.inserts[-1].cache_mode is True
@@ -249,8 +280,7 @@ async def test_energy_refresh_failure_keeps_previous_values_as_cache():
     assert outbox.events[-1].event_type == "energy_refresh_failed"
 
 
-@pytest.mark.asyncio
-async def test_energy_auto_refresh_all_bound_accounts_uses_internal_refresh_path():
+def test_energy_auto_refresh_all_bound_accounts_uses_internal_refresh_path():
     states = [
         _state("sensor.last_electricity_usage_1234567890", "1.23"),
         _state("sensor.month_electricity_usage_1234567890", "45.6"),
@@ -258,9 +288,9 @@ async def test_energy_auto_refresh_all_bound_accounts_uses_internal_refresh_path
         _state("sensor.yearly_electricity_usage_1234567890", "345.67"),
     ]
     service, accounts, snapshots, outbox = _service(gateway=_HaGateway(states))
-    await service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"})
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
 
-    result = await service.refresh_all_bound_accounts()
+    result = _run(service.refresh_all_bound_accounts())
 
     assert result.refreshed_count == 1
     assert result.success_count == 1
@@ -268,3 +298,100 @@ async def test_energy_auto_refresh_all_bound_accounts_uses_internal_refresh_path
     assert snapshots.inserts[-1].refresh_status == "SUCCESS"
     assert snapshots.inserts[-1].monthly_usage == 45.6
     assert outbox.events[-1].event_type == "energy_refresh_completed"
+
+
+def test_energy_refresh_restarts_sgcc_and_reports_stale_source_when_timestamp_does_not_change():
+    states = [
+        [
+            _state("sensor.last_electricity_usage_1234567890", "1.23", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "45.6", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "78.9", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "345.67", "2026-04-20T07:58:00+00:00"),
+        ],
+        [
+            _state("sensor.last_electricity_usage_1234567890", "1.23", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "45.6", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "78.9", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "345.67", "2026-04-20T07:58:00+00:00"),
+        ],
+    ]
+    restarter = _Restarter()
+    service, _, snapshots, _ = _service(
+        gateway=_HaGateway(states),
+        restarter=restarter,
+        mode="docker_restart",
+    )
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
+
+    result = _run(service.refresh("home-1", "terminal-1"))
+
+    assert restarter.restart_count == 1
+    assert result.refresh_status == "SUCCESS"
+    assert result.refresh_status_detail == "SUCCESS_STALE_SOURCE"
+    assert result.source_updated is False
+    assert snapshots.inserts[-1].last_error_code == "SOURCE_NOT_UPDATED"
+
+
+def test_energy_refresh_restarts_sgcc_and_reports_updated_source_when_timestamp_advances():
+    states = [
+        [
+            _state("sensor.last_electricity_usage_1234567890", "1.23", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "45.6", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "78.9", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "345.67", "2026-04-20T07:58:00+00:00"),
+        ],
+        [
+            _state("sensor.last_electricity_usage_1234567890", "2.00", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "46.0", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "77.9", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "346.00", "2026-04-20T08:05:00+00:00"),
+        ],
+    ]
+    restarter = _Restarter()
+    service, _, snapshots, _ = _service(
+        gateway=_HaGateway(states),
+        restarter=restarter,
+        mode="docker_restart",
+    )
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
+
+    result = _run(service.refresh("home-1", "terminal-1"))
+
+    assert restarter.restart_count == 1
+    assert result.refresh_status == "SUCCESS"
+    assert result.refresh_status_detail == "SUCCESS_UPDATED"
+    assert result.source_updated is True
+    assert snapshots.inserts[-1].monthly_usage == 46.0
+
+
+def test_energy_refresh_execs_sgcc_fetch_and_reports_updated_source_when_timestamp_advances():
+    states = [
+        [
+            _state("sensor.last_electricity_usage_1234567890", "1.23", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "45.6", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "78.9", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "345.67", "2026-04-20T07:58:00+00:00"),
+        ],
+        [
+            _state("sensor.last_electricity_usage_1234567890", "2.00", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "46.0", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "77.9", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "346.00", "2026-04-20T08:05:00+00:00"),
+        ],
+    ]
+    restarter = _Restarter()
+    service, _, snapshots, _ = _service(
+        gateway=_HaGateway(states),
+        restarter=restarter,
+        mode="docker_exec_fetch",
+    )
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
+
+    result = _run(service.refresh("home-1", "terminal-1"))
+
+    assert restarter.restart_count == 0
+    assert restarter.fetch_count == 1
+    assert result.refresh_status == "SUCCESS"
+    assert result.refresh_status_detail == "SUCCESS_UPDATED"
+    assert result.source_updated is True
+    assert snapshots.inserts[-1].monthly_usage == 46.0

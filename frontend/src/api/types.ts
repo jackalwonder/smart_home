@@ -127,7 +127,11 @@ export type SystemConnectionSaveDto = Schema<"SystemConnectionSaveResponse">;
 
 export type SystemConnectionTestDto = Schema<"SystemConnectionTestResponse">;
 
-export type EnergyDto = Schema<"EnergyResponse">;
+export type EnergyDto = Schema<"EnergyResponse"> & {
+  system_updated_at?: string | null;
+  source_updated_at?: string | null;
+  refresh_status_detail?: string | null;
+};
 
 export type EnergyBindingInput = Omit<
   Schema<"EnergyBindingBody">,
@@ -136,7 +140,13 @@ export type EnergyBindingInput = Omit<
 
 export type EnergyBindingDto = Schema<"EnergyBindingResponse">;
 
-export type EnergyRefreshDto = Schema<"EnergyRefreshResponse">;
+export type EnergyRefreshDto = Schema<"EnergyRefreshResponse"> & {
+  upstream_triggered?: boolean;
+  source_updated?: boolean;
+  source_updated_at?: string | null;
+  system_updated_at?: string | null;
+  refresh_status_detail?: string | null;
+};
 
 export type DefaultMediaDto = Schema<"DefaultMediaResponse">;
 

@@ -199,6 +199,7 @@ export function HomeDashboardPage() {
       >
         <HomeCommandStage
           backgroundImageUrl={viewModel.stage.backgroundImageUrl}
+          backgroundImageSize={viewModel.stage.backgroundImageSize}
           cacheMode={viewModel.cacheMode}
           connectionStatus={realtime.connectionStatus}
           events={formattedEvents}

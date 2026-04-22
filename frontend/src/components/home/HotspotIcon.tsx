@@ -86,6 +86,7 @@ export function HotspotIcon({
   className,
 }: HotspotIconProps) {
   const iconKey = deriveHotspotIconKey(iconType, deviceType);
+  const paths = iconPaths[iconKey] ?? iconPaths.device;
   const running = isHotspotRunning(status, isOffline);
   const spinning = shouldSpinHotspotIcon({ iconType, deviceType, status, isOffline });
   const classes = [
@@ -103,14 +104,14 @@ export function HotspotIcon({
 
   if (iconAssetUrl) {
     return (
-      <span className={classes} data-icon-key={iconKey}>
+      <i aria-hidden="true" className={classes} data-icon-key={iconKey}>
         <img alt="" src={iconAssetUrl} />
-      </span>
+      </i>
     );
   }
 
   return (
-    <span className={classes} data-icon-key={iconKey}>
+    <i aria-hidden="true" className={classes} data-icon-key={iconKey}>
       <svg
         aria-hidden="true"
         fill="none"
@@ -120,10 +121,10 @@ export function HotspotIcon({
         strokeWidth="2"
         viewBox="0 0 24 24"
       >
-        {iconPaths[iconKey].map((path) => (
+        {paths.map((path) => (
           <path d={path} key={path} />
         ))}
       </svg>
-    </span>
+    </i>
   );
 }

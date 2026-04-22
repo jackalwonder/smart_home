@@ -42,6 +42,7 @@ import {
   DefaultMediaDto,
   DeviceListItemDto,
   EnergyDto,
+  EnergyRefreshDto,
   SgccLoginQrCodeStatusDto,
   SystemConnectionsEnvelopeDto,
   TerminalBootstrapTokenAuditItemDto,
@@ -317,6 +318,21 @@ function buildEnergyBindingPayload(draft: EnergyBindingDraft) {
     ...(draft.accountId.trim() ? { account_id: draft.accountId.trim() } : {}),
     ...(Object.keys(entityMap).length ? { entity_map: entityMap } : {}),
   };
+}
+
+function formatEnergyRefreshMessage(response: EnergyRefreshDto) {
+  switch (response.refresh_status_detail) {
+    case "SUCCESS_UPDATED":
+      return "已完成刷新，HA 源数据已更新。";
+    case "SUCCESS_STALE_SOURCE":
+      return "已完成刷新，但 HA 源数据未更新。";
+    case "FAILED_UPSTREAM_TRIGGER":
+      return "触发上游同步失败，请检查 sgcc_electricity_new 或 HA 服务入口配置。";
+    case "FAILED_SOURCE_TIMEOUT":
+      return "已触发上游同步，但等待 HA 更新超时。";
+    default:
+      return `刷新任务已完成，状态 ${response.refresh_status}。`;
+  }
 }
 
 function SettingsOperationsWorkflow({
@@ -1576,11 +1592,11 @@ export function SettingsWorkspacePage() {
       return;
     }
 
-    setEnergyMessage(null);
+    setEnergyMessage("正在触发上游同步并等待 HA 更新...");
     setEnergyRefreshBusy(true);
     try {
       const response = await refreshEnergy();
-      setEnergyMessage(`刷新任务已受理，状态 ${response.refresh_status}。`);
+      setEnergyMessage(formatEnergyRefreshMessage(response));
       await Promise.all([loadEnergyState(), loadSettings()]);
     } catch (error) {
       setEnergyMessage(normalizeApiError(error).message);

@@ -433,7 +433,6 @@ export function EditorInspector({
             <div className="editor-hotspot-icon-picker__preview">
               <span className="editor-hotspot-icon-picker__sample">
                 <HotspotIcon
-                  deviceType={hotspot.iconType}
                   iconAssetUrl={hotspot.iconAssetUrl}
                   iconType={hotspot.iconType}
                 />

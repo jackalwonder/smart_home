@@ -38,8 +38,11 @@ class EnergyResponse(ApiSchema):
     balance: float | None = None
     yearly_usage: float | None = None
     updated_at: str | None = None
+    system_updated_at: str | None = None
+    source_updated_at: str | None = None
     cache_mode: bool
     last_error_code: str | None = None
+    refresh_status_detail: str | None = None
     provider: str | None = None
     account_id_masked: str | None = None
     entity_map: dict[str, str] = Field(default_factory=dict)
@@ -57,6 +60,11 @@ class EnergyRefreshResponse(ApiSchema):
     refresh_status: str
     started_at: str
     timeout_seconds: int
+    upstream_triggered: bool
+    source_updated: bool
+    source_updated_at: str | None = None
+    system_updated_at: str | None = None
+    refresh_status_detail: str
 
 
 @router.get("", response_model=SuccessEnvelope[EnergyResponse])

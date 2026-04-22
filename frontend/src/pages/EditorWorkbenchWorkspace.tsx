@@ -24,10 +24,12 @@ import { mapEditorViewModel } from "../view-models/editor";
 import { EditorHotspotViewModel } from "../view-models/editor";
 import { deriveHotspotIconKey } from "../utils/hotspotIcons";
 import { WsEvent } from "../ws/types";
+import { hasImageSize, type ImageSize } from "../types/image";
 
 interface EditorDraftState {
   backgroundAssetId: string | null;
   backgroundImageUrl: string | null;
+  backgroundImageSize: ImageSize | null;
   layoutMetaText: string;
   hotspots: EditorHotspotViewModel[];
 }
@@ -389,6 +391,21 @@ function clampPosition(value: number) {
   return Math.min(Math.max(value, 0), 1);
 }
 
+function normalizeImageSize(value: {
+  width?: number | null;
+  height?: number | null;
+} | null | undefined): ImageSize | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized: ImageSize = {
+    width: value.width ?? null,
+    height: value.height ?? null,
+  };
+  return hasImageSize(normalized) ? normalized : null;
+}
+
 function isTextEditingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false;
@@ -613,6 +630,7 @@ export function EditorWorkbenchWorkspace() {
   const [draftState, setDraftState] = useState<EditorDraftState>({
     backgroundAssetId: null,
     backgroundImageUrl: null,
+    backgroundImageSize: null,
     layoutMetaText: "{}",
     hotspots: [],
   });
@@ -918,6 +936,7 @@ export function EditorWorkbenchWorkspace() {
     const nextDraftState = {
       backgroundAssetId: viewModel.backgroundAssetId,
       backgroundImageUrl: viewModel.backgroundImageUrl,
+      backgroundImageSize: viewModel.backgroundImageSize,
       layoutMetaText: stringifyLayoutMeta(viewModel.layoutMeta),
       hotspots: resequenceHotspots(viewModel.hotspots),
     };
@@ -1299,6 +1318,7 @@ export function EditorWorkbenchWorkspace() {
         ...current,
         backgroundAssetId: uploaded.asset_id,
         backgroundImageUrl: uploaded.background_image_url,
+        backgroundImageSize: normalizeImageSize(uploaded.background_image_size),
       }), "更新背景图");
       showEditorNotice({
         tone: "success",
@@ -1368,6 +1388,7 @@ export function EditorWorkbenchWorkspace() {
       ...current,
       backgroundAssetId: null,
       backgroundImageUrl: null,
+      backgroundImageSize: null,
     }), "清除背景图");
     showEditorNotice({
       tone: "success",
@@ -2314,10 +2335,23 @@ export function EditorWorkbenchWorkspace() {
         />
         <EditorCanvasWorkspace
           batchSelectedHotspotIds={batchSelectedHotspotIds}
+          backgroundImageSize={draftState.backgroundImageSize}
           backgroundImageUrl={draftState.backgroundImageUrl}
           canEdit={canEdit}
           hotspots={draftState.hotspots}
           mode={canvasMode}
+          onBackgroundImageSizeChange={(backgroundImageSize) => {
+            setDraftState((current) => {
+              const sameWidth = current.backgroundImageSize?.width === backgroundImageSize.width;
+              const sameHeight = current.backgroundImageSize?.height === backgroundImageSize.height;
+              return sameWidth && sameHeight
+                ? current
+                : {
+                    ...current,
+                    backgroundImageSize,
+                  };
+            });
+          }}
           onModeChange={setCanvasMode}
           onMoveHotspot={moveHotspot}
           onMoveHotspots={moveHotspotGroup}

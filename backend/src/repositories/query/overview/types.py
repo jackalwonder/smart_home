@@ -23,6 +23,7 @@ class EnergySummaryReadModel:
     yearly_usage: float | None
     balance: float | None
     updated_at: str | None
+    source_updated_at: str | None
 
 
 @dataclass(frozen=True)

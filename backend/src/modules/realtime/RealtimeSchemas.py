@@ -61,6 +61,12 @@ class ConnectionStatusPayload(ApiSchema):
 
 class EnergyRefreshPayload(ApiSchema):
     refresh_status: str
+    last_error_code: str | None = None
+    upstream_triggered: bool = False
+    source_updated: bool = False
+    source_updated_at: str | None = None
+    system_updated_at: str | None = None
+    refresh_status_detail: str | None = None
 
 
 class DraftLockAcquiredPayload(ApiSchema):

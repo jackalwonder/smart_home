@@ -155,6 +155,9 @@ from src.modules.settings.services.query.FavoritesQueryService import FavoritesQ
 from src.modules.settings.services.query.SgccLoginQrCodeService import (
     SgccLoginQrCodeService,
 )
+from src.modules.settings.services.query.SgccRuntimeControlService import (
+    DockerUnixSocketContainerRestarter,
+)
 from src.modules.settings.services.query.SettingsQueryService import SettingsQueryService
 from src.modules.system_connections.services.HaEntitySyncService import HaEntitySyncService
 from src.modules.system_connections.services.HaRealtimeSyncService import HaRealtimeSyncService
@@ -563,6 +566,15 @@ def get_sgcc_login_qr_code_service() -> SgccLoginQrCodeService:
 
 
 @lru_cache(maxsize=1)
+def get_sgcc_container_restarter() -> DockerUnixSocketContainerRestarter:
+    settings = get_settings()
+    return DockerUnixSocketContainerRestarter(
+        settings.sgcc_docker_socket_path,
+        settings.sgcc_docker_container_name,
+    )
+
+
+@lru_cache(maxsize=1)
 def get_settings_save_service() -> SettingsSaveService:
     return SettingsSaveService(
         unit_of_work=get_unit_of_work(),
@@ -678,6 +690,7 @@ def get_system_connection_service() -> SystemConnectionService:
 
 @lru_cache(maxsize=1)
 def get_energy_service() -> EnergyService:
+    settings = get_settings()
     return EnergyService(
         energy_account_repository=get_energy_account_repository(),
         energy_snapshot_repository=get_energy_snapshot_repository(),
@@ -686,6 +699,13 @@ def get_energy_service() -> EnergyService:
         ha_connection_gateway=get_ha_connection_gateway(),
         event_id_generator=get_event_id_generator(),
         clock=get_clock(),
+        sgcc_container_restarter=get_sgcc_container_restarter(),
+        upstream_refresh_mode=settings.energy_upstream_refresh_mode,
+        upstream_ha_domain=settings.energy_upstream_ha_domain,
+        upstream_ha_service=settings.energy_upstream_ha_service,
+        upstream_ha_entity_id=settings.energy_upstream_ha_entity_id,
+        upstream_wait_timeout_seconds=settings.energy_upstream_wait_timeout_seconds,
+        upstream_poll_interval_seconds=settings.energy_upstream_poll_interval_seconds,
     )
 
 

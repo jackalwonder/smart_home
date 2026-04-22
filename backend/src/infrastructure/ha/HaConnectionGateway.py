@@ -48,6 +48,13 @@ class HaConnectionGateway(Protocol):
     async def test_connection(self, input: HaConnectionTestInput) -> HaConnectionTestResult: ...
     async def trigger_full_reload(self, home_id: str) -> None: ...
     async def fetch_states(self, home_id: str) -> list[HaStateEntry] | None: ...
+    async def call_service(
+        self,
+        home_id: str,
+        domain: str,
+        service: str,
+        payload: dict[str, Any],
+    ) -> None: ...
     async def call_service_response(
         self,
         home_id: str,

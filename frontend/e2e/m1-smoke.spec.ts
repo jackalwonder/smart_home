@@ -4,6 +4,7 @@ import {
   test,
   type APIRequestContext,
   type APIResponse,
+  type Locator,
   type Page,
 } from "@playwright/test";
 
@@ -34,6 +35,14 @@ const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTjwAAAABJRU5ErkJggg==",
   "base64",
 );
+const WIDE_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAACElEQVR4nAMAAAAAAUgGidIAAAAASUVORK5CYII=",
+  "base64",
+);
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 type Envelope<T> = {
   success: boolean;
@@ -1222,6 +1231,31 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   page,
   request,
 }) => {
+  async function centerInContainer(subject: Locator, container: Locator) {
+    await expect(subject).toBeVisible();
+    const [subjectBox, containerBox] = await Promise.all([
+      subject.boundingBox(),
+      container.boundingBox(),
+    ]);
+    expect(subjectBox).toBeTruthy();
+    expect(containerBox).toBeTruthy();
+    if (!subjectBox || !containerBox) {
+      throw new Error("Unable to resolve geometry for hotspot alignment check");
+    }
+    return {
+      x: (subjectBox.x + subjectBox.width / 2 - containerBox.x) / containerBox.width,
+      y: (subjectBox.y + subjectBox.height / 2 - containerBox.y) / containerBox.height,
+    };
+  }
+
+  function canvasHotspotByLabel(label: string) {
+    return page.locator(".editor-selection-layer__item").filter({
+      has: page.locator(".editor-selection-layer__title").filter({
+        hasText: new RegExp(`^${escapeRegExp(label)}$`),
+      }),
+    });
+  }
+
   const session = await bootstrapSession(request);
   await ensureDevicesReady(request, session.access_token);
 
@@ -1234,7 +1268,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await page.getByLabel("上传背景图").setInputFiles({
     name: "floorplan-smoke.png",
     mimeType: "image/png",
-    buffer: TINY_PNG,
+    buffer: WIDE_PNG,
   });
   await expect(page.getByText("背景图已更新")).toBeVisible();
   await expect(page.getByAltText("编辑器草稿户型图")).toBeVisible();
@@ -1245,7 +1279,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await page.getByLabel("上传背景图").setInputFiles({
     name: "floorplan-smoke.png",
     mimeType: "image/png",
-    buffer: TINY_PNG,
+    buffer: WIDE_PNG,
   });
   await expect(page.getByText("背景图已更新")).toBeVisible();
 
@@ -1256,23 +1290,38 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
       message: "waiting for bindable devices to appear in the editor",
     })
     .toBeGreaterThan(1);
-  const deviceOptionText =
-    (await deviceSelect.locator("option").nth(1).textContent())?.trim() ?? "";
-  const deviceLabel = deviceOptionText.split(" · ")[0];
   const customLabel = `E2E 热点 ${Date.now()}`;
   await deviceSelect.selectOption({ index: 1 });
   await page.getByLabel("显示名称").fill(customLabel);
-  await page.getByLabel("图标类型").selectOption("light");
+  await page.getByRole("button", { name: "Use Light icon" }).click();
   await page.getByLabel("X (%)").fill("35");
   await page.getByLabel("Y (%)").fill("45");
+  const canvasHotspot = canvasHotspotByLabel(customLabel).first();
+  await expect(canvasHotspot.locator(".editor-selection-layer__badge .hotspot-icon svg")).toBeVisible();
+  await page.getByRole("button", { name: "Use Fridge icon" }).click();
+  await expect(
+    canvasHotspot.locator(".editor-selection-layer__badge .hotspot-icon[data-icon-key='refrigerator'] svg"),
+  ).toBeVisible();
+  const hotspotIconUpload = page.locator(".editor-hotspot-icon-picker input[type='file']");
+  await hotspotIconUpload.setInputFiles({
+    name: "hotspot-icon-smoke.png",
+    mimeType: "image/png",
+    buffer: TINY_PNG,
+  });
+  await expect(page.getByText("Hotspot icon uploaded")).toBeVisible();
+  await expect(
+    canvasHotspot.locator(".editor-selection-layer__badge .hotspot-icon.has-custom-icon img"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Use built-in icon" }).click();
+  await expect(
+    canvasHotspot.locator(".editor-selection-layer__badge .hotspot-icon[data-icon-key='refrigerator'] svg"),
+  ).toBeVisible();
+  const editorFrame = page.locator(".editor-canvas-workspace__hotspot-frame");
   await page.getByRole("button", { name: "右移 1%" }).click();
   await page.getByRole("button", { name: "下移 1%" }).click();
   await page.getByRole("button", { name: "复制热点" }).click();
   await page.getByRole("button", { name: "全选当前" }).click();
   await expect(page.getByRole("button", { name: "左对齐" })).toBeEnabled();
-  const canvasHotspot = page
-    .locator(".editor-selection-layer__item", { hasText: customLabel })
-    .first();
   const hotspotBox = await canvasHotspot.boundingBox();
   expect(hotspotBox).toBeTruthy();
   if (!hotspotBox) {
@@ -1302,11 +1351,39 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await expect(page.getByLabel("发布前变更摘要")).toContainText("新增热点");
   await expect(page.getByLabel("发布前变更摘要")).toContainText("背景图更新");
   await expect(page.getByText(customLabel).first()).toBeVisible();
+  const editAnchor = page
+    .locator(".editor-selection-layer__item")
+    .filter({
+      has: page.locator(".editor-selection-layer__title").filter({
+        hasText: new RegExp(`^${escapeRegExp(customLabel)}$`),
+      }),
+    })
+    .first()
+    .locator(".editor-selection-layer__badge");
+  const editCenter = await centerInContainer(editAnchor, editorFrame);
   await page.getByRole("button", { name: "首页预览" }).click();
   await expect(page.getByText("首页预览仅显示可见热点。")).toBeVisible();
   await expect(
     page.getByRole("button", { name: customLabel }).first(),
   ).toBeVisible();
+  await expect(
+    page
+      .locator(".editor-selection-layer__item", { hasText: customLabel })
+      .first()
+      .locator(".editor-selection-layer__badge .hotspot-icon[data-icon-key='refrigerator'] svg"),
+  ).toBeVisible();
+  const editorPreviewAnchor = page
+    .locator(".editor-selection-layer__item")
+    .filter({
+      has: page.locator(".editor-selection-layer__title").filter({
+        hasText: new RegExp(`^${escapeRegExp(customLabel)}$`),
+      }),
+    })
+    .first()
+    .locator(".editor-selection-layer__badge");
+  const editorPreviewCenter = await centerInContainer(editorPreviewAnchor, editorFrame);
+  expect(Math.abs(editCenter.x - editorPreviewCenter.x)).toBeLessThan(0.01);
+  expect(Math.abs(editCenter.y - editorPreviewCenter.y)).toBeLessThan(0.01);
 
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
@@ -1322,6 +1399,13 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await expect(
     page.getByRole("button", { name: customLabel }).first(),
   ).toBeVisible();
+  const homeFrame = page.locator(".home-command-stage__hotspot-frame");
+  const homeAnchor = page.locator(
+    `.home-hotspot-overlay__item[aria-label="${customLabel}"] .home-hotspot-overlay__dot`,
+  );
+  const homeCenter = await centerInContainer(homeAnchor, homeFrame);
+  expect(Math.abs(editorPreviewCenter.x - homeCenter.x)).toBeLessThan(0.01);
+  expect(Math.abs(editorPreviewCenter.y - homeCenter.y)).toBeLessThan(0.01);
 });
 
 test("editor downgrades to readonly after takeover and can recover", async ({
@@ -1818,6 +1902,175 @@ test("home control UI sends null payload for no-value actions and shows result",
   expect(
     (postedBody?.payload as { target_key?: unknown } | undefined)?.target_key,
   ).toBe("button.trigger");
+});
+
+test("home overview renders built-in and custom hotspot icons", async ({ page }) => {
+  const customIconUrl = `data:image/png;base64,${TINY_PNG.toString("base64")}`;
+
+  await page.route("**/api/v1/home/overview", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(
+        successEnvelope({
+          layout_version: "layout-e2e-icons",
+          settings_version: "settings-e2e-icons",
+          cache_mode: false,
+          home_info: {
+            home_id: HOME_ID,
+            home_name: "E2E Home",
+          },
+          stage: {
+            background_image_url: null,
+            hotspots: [
+              {
+                hotspot_id: "hotspot-fridge-icon",
+                device_id: "device-fridge-icon",
+                display_name: "冰箱热点",
+                device_type: "FRIDGE",
+                x: 0.38,
+                y: 0.26,
+                icon_type: "refrigerator",
+                icon_asset_id: null,
+                icon_asset_url: null,
+                label_mode: "AUTO",
+                status: "idle",
+                status_summary: "待机",
+                is_offline: false,
+                is_complex_device: true,
+                is_readonly_device: false,
+                entry_behavior: "OPEN_PANEL",
+              },
+              {
+                hotspot_id: "hotspot-light-icon",
+                device_id: "device-light-icon",
+                display_name: "灯光热点",
+                device_type: "LIGHT",
+                x: 0.5,
+                y: 0.48,
+                icon_type: "lightbulb",
+                icon_asset_id: null,
+                icon_asset_url: null,
+                label_mode: "AUTO",
+                status: "on",
+                status_summary: "已开启",
+                is_offline: false,
+                is_complex_device: false,
+                is_readonly_device: false,
+                entry_behavior: "TOGGLE",
+              },
+              {
+                hotspot_id: "hotspot-custom-icon",
+                device_id: "device-custom-icon",
+                display_name: "自定义热点",
+                device_type: "SWITCH",
+                x: 0.62,
+                y: 0.36,
+                icon_type: "device",
+                icon_asset_id: "custom-asset",
+                icon_asset_url: customIconUrl,
+                label_mode: "AUTO",
+                status: "idle",
+                status_summary: "待机",
+                is_offline: false,
+                is_complex_device: false,
+                is_readonly_device: false,
+                entry_behavior: "OPEN_PANEL",
+              },
+            ],
+          },
+          sidebar: {
+            summary: {
+              online_count: 3,
+              offline_count: 0,
+              lights_on_count: 1,
+              running_device_count: 1,
+              low_battery_count: 0,
+              position_device_summary: {
+                opened_count: 0,
+                closed_count: 0,
+                partial_count: 0,
+              },
+            },
+            weather: {
+              cache_mode: false,
+              condition: "晴",
+              fetched_at: new Date().toISOString(),
+              temperature: "22",
+              humidity: "45%",
+            },
+            datetime: { current_time: new Date().toISOString() },
+            music_card: {
+              binding_status: "UNBOUND",
+              availability_status: "UNKNOWN",
+              device_id: null,
+              display_name: null,
+              entry_behavior: null,
+              play_state: null,
+              track_title: null,
+              artist: null,
+            },
+          },
+          favorite_devices: [],
+          energy_bar: {
+            binding_status: "UNBOUND",
+            refresh_status: "IDLE",
+            monthly_usage: null,
+            balance: null,
+          },
+          quick_entries: {},
+          system_state: {
+            default_media: {
+              binding_status: "UNBOUND",
+              device_id: null,
+              display_name: null,
+              play_state: null,
+            },
+            home_assistant: null,
+          },
+          ui_policy: {
+            favorite_limit: 8,
+            room_label_mode: "EDIT_ONLY",
+          },
+        }),
+      ),
+    });
+  });
+
+  await page.route("**/api/v1/devices?page=1&page_size=200", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(
+        successEnvelope({
+          items: [],
+          page: 1,
+          page_size: 200,
+          total: 0,
+        }),
+      ),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("link", { name: "总览" }).click();
+
+  const fridgeIcon = page.locator(
+    '.home-hotspot-overlay__item[aria-label="冰箱热点"] .hotspot-icon--refrigerator',
+  );
+  const lightIcon = page.locator(
+    '.home-hotspot-overlay__item[aria-label="灯光热点"] .hotspot-icon--lightbulb',
+  );
+  const customIcon = page.locator(
+    '.home-hotspot-overlay__item[aria-label="自定义热点"] .hotspot-icon.has-custom-icon img',
+  );
+
+  await expect(fridgeIcon).toBeVisible();
+  await expect(fridgeIcon.locator("svg")).toBeVisible();
+  await expect(lightIcon).toBeVisible();
+  await expect(lightIcon.locator("svg")).toBeVisible();
+  await expect(customIcon).toBeVisible();
+
+  expect(await fridgeIcon.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
+  expect(await lightIcon.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
 });
 
 test("backup restore syncs to another terminal through realtime", async ({

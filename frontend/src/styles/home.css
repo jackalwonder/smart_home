@@ -269,15 +269,13 @@
   height: 12px;
 }
 
-.home-hotspot-overlay,
-.editor-selection-layer {
+.home-hotspot-overlay {
   position: absolute;
   z-index: 4;
   inset: 0;
 }
 
-.home-hotspot-overlay__item,
-.editor-selection-layer__item {
+.home-hotspot-overlay__item {
   position: absolute;
   transform: translate(-50%, -50%);
   min-width: 46px;
@@ -332,14 +330,13 @@
   animation: hotspot-pulse 2.4s ease-out infinite;
 }
 
-.home-hotspot-overlay__item span,
-.editor-selection-layer__item {
+.home-hotspot-overlay__label-card {
   display: block;
   font-weight: 600;
   font-size: 12px;
 }
 
-.home-hotspot-overlay__item span,
+.home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item small,
 .home-hotspot-overlay__item em {
   max-width: 150px;
@@ -375,8 +372,7 @@
 
 .home-hotspot-overlay__item.is-selected,
 .home-hotspot-overlay__item:hover,
-.home-hotspot-overlay__item:focus-visible,
-.editor-selection-layer__item.is-selected {
+.home-hotspot-overlay__item:focus-visible {
   border-color: rgba(255, 198, 106, 0.62);
   background: rgba(18, 20, 18, 0.86);
   box-shadow:
@@ -390,13 +386,13 @@
   width: min(190px, 28vw);
 }
 
-.home-hotspot-overlay__item.is-selected span,
+.home-hotspot-overlay__item.is-selected .home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item.is-selected small,
 .home-hotspot-overlay__item.is-selected em,
-.home-hotspot-overlay__item:hover span,
+.home-hotspot-overlay__item:hover .home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item:hover small,
 .home-hotspot-overlay__item:hover em,
-.home-hotspot-overlay__item:focus-visible span,
+.home-hotspot-overlay__item:focus-visible .home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item:focus-visible small,
 .home-hotspot-overlay__item:focus-visible em {
   opacity: 1;
@@ -1769,7 +1765,7 @@
   background: rgba(255, 255, 255, 0.24);
 }
 
-.home-hotspot-overlay__item span,
+.home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item small,
 .home-hotspot-overlay__item em {
   position: absolute;
@@ -1784,7 +1780,7 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
 }
 
-.home-hotspot-overlay__item span {
+.home-hotspot-overlay__label-card {
   top: -4px;
   font-size: 12px;
   font-weight: 700;
@@ -1817,13 +1813,13 @@
     0 18px 34px rgba(0, 0, 0, 0.28);
 }
 
-.home-hotspot-overlay__item.is-selected span,
+.home-hotspot-overlay__item.is-selected .home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item.is-selected small,
 .home-hotspot-overlay__item.is-selected em,
-.home-hotspot-overlay__item:hover span,
+.home-hotspot-overlay__item:hover .home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item:hover small,
 .home-hotspot-overlay__item:hover em,
-.home-hotspot-overlay__item:focus-visible span,
+.home-hotspot-overlay__item:focus-visible .home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item:focus-visible small,
 .home-hotspot-overlay__item:focus-visible em {
   opacity: 1;
@@ -2162,7 +2158,7 @@
   box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3);
 }
 
-.home-hotspot-overlay__item span,
+.home-hotspot-overlay__label-card,
 .home-hotspot-overlay__item small,
 .home-hotspot-overlay__item em {
   max-width: 132px;
@@ -2276,12 +2272,38 @@
     inset 0 0 88px rgba(0, 0, 0, 0.26);
 }
 
+.home-command-stage__viewport {
+  position: absolute;
+  z-index: 2;
+  inset: 16px 12px 12px;
+  overflow: hidden;
+}
+
+.home-command-stage__viewport .home-hotspot-overlay {
+  inset: 0;
+  z-index: 4;
+  pointer-events: auto;
+}
+
+.home-command-stage__hotspot-frame {
+  position: absolute;
+  z-index: 4;
+}
+
 .home-command-stage__image {
-  inset: 16px 12px 12px 12px;
-  width: calc(100% - 24px);
-  height: calc(100% - 28px);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   filter: saturate(0.96) contrast(1.03) brightness(0.98);
+  pointer-events: none;
+}
+
+.home-command-stage__placeholder {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .home-command-stage__topline {
@@ -2976,7 +2998,7 @@
 
 .bottom-energy-band {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: clamp(5px, 0.7dvh, 8px);
   height: 100%;
   min-height: 0;
@@ -4718,6 +4740,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  z-index: 5;
   width: 44px;
   min-width: 44px;
   max-width: 44px;
@@ -4783,11 +4806,11 @@
   border: 1px solid rgba(180, 194, 231, 0.28);
   border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(22, 30, 47, 0.92), rgba(10, 16, 28, 0.9)),
-    rgba(255, 255, 255, 0.04);
+    linear-gradient(180deg, rgba(24, 33, 52, 0.96), rgba(10, 16, 28, 0.94)),
+    rgba(255, 255, 255, 0.08);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 22px rgba(0, 0, 0, 0.22);
+    0 12px 28px rgba(0, 0, 0, 0.28);
   color: #edf3ff;
   opacity: 1;
   transform: none;
@@ -4816,9 +4839,19 @@
 }
 
 .home-hotspot-overlay__dot .hotspot-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   width: 22px;
   height: 22px;
+  max-width: none;
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
   color: inherit;
+  pointer-events: none;
+  transform: none;
   filter:
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22))
     drop-shadow(0 6px 12px rgba(10, 16, 28, 0.18));
@@ -4826,6 +4859,9 @@
 
 .home-hotspot-overlay__dot .hotspot-icon svg,
 .home-hotspot-overlay__dot .hotspot-icon img {
+  display: block;
+  opacity: 1;
+  visibility: visible;
   overflow: visible;
 }
 

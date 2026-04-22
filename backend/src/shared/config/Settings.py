@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     energy_auto_refresh_hour: int = 7
     energy_auto_refresh_minute: int = 30
     energy_auto_refresh_timezone: str = "Asia/Shanghai"
+    energy_upstream_refresh_mode: str = "docker_exec_fetch"
+    energy_upstream_ha_domain: str | None = None
+    energy_upstream_ha_service: str | None = None
+    energy_upstream_ha_entity_id: str | None = None
+    energy_upstream_wait_timeout_seconds: int = 900
+    energy_upstream_poll_interval_seconds: float = 10.0
 
 
 @lru_cache(maxsize=1)

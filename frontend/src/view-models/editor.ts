@@ -2,6 +2,7 @@ import { formatRealtimeEvent } from "../ws/eventPresentation";
 import { WsEvent } from "../ws/types";
 import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
 import { asArray, asNumber, asOptionalString, asRecord, asString } from "./utils";
+import { type ImageSize } from "../types/image";
 
 export interface EditorHotspotViewModel {
   id: string;
@@ -22,10 +23,26 @@ export interface EditorViewModel {
   hotspots: EditorHotspotViewModel[];
   backgroundAssetId: string | null;
   backgroundImageUrl: string | null;
+  backgroundImageSize: ImageSize | null;
   layoutMeta: Record<string, unknown>;
   modeLabel: string;
   helperText: string;
   eventRows: Array<{ id: string; title: string; subtitle: string }>;
+}
+
+function parseImageSize(value: unknown): ImageSize | null {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const width = asNumber(record.width, 0);
+  const height = asNumber(record.height, 0);
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { width, height };
 }
 
 function translateLockStatus(value: string | null) {
@@ -131,6 +148,7 @@ export function mapEditorViewModel(input: {
     hotspots,
     backgroundAssetId: asOptionalString(draft?.background_asset_id),
     backgroundImageUrl: asOptionalString(draft?.background_image_url),
+    backgroundImageSize: parseImageSize(draft?.background_image_size),
     layoutMeta: asRecord(draft?.layout_meta) ?? {},
     modeLabel,
     helperText,

@@ -207,6 +207,23 @@ class HomeAssistantConnectionGateway:
             if isinstance(state, dict)
         ]
 
+    async def call_service(
+        self,
+        home_id: str,
+        domain: str,
+        service: str,
+        payload: dict[str, object],
+    ) -> None:
+        response = await self._post_with_fallback(
+            home_id=home_id,
+            path=f"/api/services/{domain}/{service}",
+            payload=payload,
+            timeout=12.0,
+        )
+        if response is None:
+            return
+        response.raise_for_status()
+
     async def call_service_response(
         self,
         home_id: str,

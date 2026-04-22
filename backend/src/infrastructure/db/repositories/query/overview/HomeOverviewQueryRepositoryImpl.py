@@ -301,7 +301,8 @@ class HomeOverviewQueryRepositoryImpl:
                             monthly_usage,
                             yearly_usage,
                             balance,
-                            created_at::text AS updated_at
+                            created_at::text AS updated_at,
+                            source_updated_at::text AS source_updated_at
                         FROM energy_snapshots
                         WHERE home_id = :home_id
                         ORDER BY created_at DESC
@@ -504,6 +505,7 @@ class HomeOverviewQueryRepositoryImpl:
                 yearly_usage=_to_float(energy_row["yearly_usage"]),
                 balance=_to_float(energy_row["balance"]),
                 updated_at=energy_row["updated_at"],
+                source_updated_at=energy_row["source_updated_at"],
             )
             if energy_row is not None
             else None,

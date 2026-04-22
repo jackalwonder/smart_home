@@ -3,14 +3,16 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-import socket
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 from src.infrastructure.ha.HaConnectionGateway import HaConnectionGateway, HaStateEntry
+from src.modules.settings.services.query.SgccRuntimeControlService import (
+    DockerUnixSocketContainerRestarter,
+    SgccContainerRestarter,
+)
 from src.repositories.base.energy.EnergyAccountRepository import (
     EnergyAccountRepository,
     EnergyAccountUpsertRow,
@@ -63,78 +65,6 @@ class SgccAutoBindingResult:
     account_id: str
     entity_map: dict[str, str]
     changed: bool
-
-
-class SgccContainerRestarter:
-    async def restart(self) -> None:
-        raise NotImplementedError
-
-
-class DockerUnixSocketContainerRestarter(SgccContainerRestarter):
-    def __init__(self, socket_path: str, container_name: str) -> None:
-        self._socket_path = socket_path
-        self._container_name = container_name
-
-    async def restart(self) -> None:
-        await asyncio.to_thread(self._restart_sync)
-
-    def _restart_sync(self) -> None:
-        socket_path = Path(self._socket_path)
-        if not socket_path.exists():
-            raise AppError(
-                ErrorCode.INVALID_PARAMS,
-                "Docker socket is not mounted; cannot restart sgcc_electricity.",
-                details={"socket_path": self._socket_path},
-            )
-
-        target = quote(self._container_name, safe="")
-        request = (
-            f"POST /containers/{target}/restart?t=0 HTTP/1.1\r\n"
-            "Host: docker\r\n"
-            "Content-Length: 0\r\n"
-            "Connection: close\r\n"
-            "\r\n"
-        ).encode("ascii")
-
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
-            client.settimeout(10)
-            client.connect(self._socket_path)
-            client.sendall(request)
-            response = bytearray()
-            while True:
-                chunk = client.recv(65536)
-                if not chunk:
-                    break
-                response.extend(chunk)
-
-        status_line = bytes(response).split(b"\r\n", 1)[0].decode(
-            "ascii",
-            errors="replace",
-        )
-        parts = status_line.split()
-        if len(parts) < 2:
-            raise AppError(
-                ErrorCode.INTERNAL_SERVER_ERROR,
-                "Docker returned an invalid response while restarting sgcc_electricity.",
-            )
-        try:
-            status_code = int(parts[1])
-        except ValueError as exc:
-            raise AppError(
-                ErrorCode.INTERNAL_SERVER_ERROR,
-                "Docker returned an invalid status code while restarting sgcc_electricity.",
-                details={"status_line": status_line},
-            ) from exc
-        if status_code not in {200, 204, 304}:
-            body = bytes(response).split(b"\r\n\r\n", 1)[-1].decode(
-                "utf-8",
-                errors="replace",
-            )
-            raise AppError(
-                ErrorCode.INTERNAL_SERVER_ERROR,
-                "Docker failed to restart sgcc_electricity.",
-                details={"status_code": status_code, "response": body[:500]},
-            )
 
 
 class SgccLoginQrCodeService:
