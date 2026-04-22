@@ -145,7 +145,8 @@ class DockerUnixSocketContainerRestarter(SgccContainerRestarter):
 
 
 def _parse_docker_response(response: bytes) -> tuple[int, str]:
-    status_line = response.split(b"\r\n", 1)[0].decode(
+    header_bytes, _, raw_body = response.partition(b"\r\n\r\n")
+    status_line = header_bytes.split(b"\r\n", 1)[0].decode(
         "ascii",
         errors="replace",
     )
@@ -164,6 +165,27 @@ def _parse_docker_response(response: bytes) -> tuple[int, str]:
             details={"status_line": status_line},
         ) from exc
 
-    body_bytes = response.split(b"\r\n\r\n", 1)[-1]
+    headers = header_bytes.decode("iso-8859-1", errors="replace").lower()
+    body_bytes = _decode_chunked_body(raw_body) if "transfer-encoding: chunked" in headers else raw_body
     body = body_bytes.decode("utf-8", errors="replace")
     return status_code, body
+
+
+def _decode_chunked_body(raw_body: bytes) -> bytes:
+    output = bytearray()
+    index = 0
+    while index < len(raw_body):
+        line_end = raw_body.find(b"\r\n", index)
+        if line_end < 0:
+            break
+        size_line = raw_body[index:line_end].split(b";", 1)[0]
+        try:
+            size = int(size_line.strip() or b"0", 16)
+        except ValueError:
+            return raw_body
+        index = line_end + 2
+        if size == 0:
+            break
+        output.extend(raw_body[index : index + size])
+        index += size + 2
+    return bytes(output)
