@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { useContainedImageFrame, useViewportSize, readImageSize } from "../../hooks/useContainedImageFrame";
+import {
+  readImageSize,
+  useContainedImageFrame,
+  useViewportSize,
+} from "../../hooks/useContainedImageFrame";
 import { useResolvedAssetImageUrl } from "../../hooks/useResolvedAssetImageUrl";
 import { hasImageSize, type ImageSize } from "../../types/image";
 import { HomeHotspotViewModel } from "../../view-models/home";
 import { HomeDeviceControlPanel } from "./HomeDeviceControlPanel";
 import { HomeHotspotOverlay } from "./HomeHotspotOverlay";
+
+interface StageFeedItem {
+  id: string;
+  title: string;
+  subtitle: string;
+}
 
 interface HomeCommandStageProps {
   backgroundImageUrl: string | null;
@@ -19,7 +29,7 @@ interface HomeCommandStageProps {
   onClearSelectedExternalHotspot?: () => void;
   cacheMode: boolean;
   connectionStatus: string;
-  events: Array<{ title: string; subtitle: string }>;
+  events: StageFeedItem[];
 }
 
 function countRunningHotspots(hotspots: HomeHotspotViewModel[]) {
@@ -46,6 +56,17 @@ function connectionCopy(status: string) {
   return { label: "HA 未连接", tone: "is-offline" };
 }
 
+function latestFeedItems(events: StageFeedItem[]) {
+  return events.slice(0, 3).reverse();
+}
+
+function sameFeedSequence(current: StageFeedItem[], next: StageFeedItem[]) {
+  if (current.length !== next.length) {
+    return false;
+  }
+  return current.every((item, index) => item.id === next[index]?.id);
+}
+
 export function HomeCommandStage({
   backgroundImageUrl,
   backgroundImageSize,
@@ -54,7 +75,6 @@ export function HomeCommandStage({
   selectedHotspotId,
   onActivateHotspot,
   onLongPressHotspot,
-  onSelectHotspot,
   selectedExternalHotspot = null,
   onClearSelectedExternalHotspot,
   cacheMode,
@@ -62,12 +82,13 @@ export function HomeCommandStage({
   events,
 }: HomeCommandStageProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [measuredBackgroundImageSize, setMeasuredBackgroundImageSize] = useState<ImageSize | null>(
-    backgroundImageSize,
+  const feedTimeoutRef = useRef<number | null>(null);
+  const [measuredBackgroundImageSize, setMeasuredBackgroundImageSize] =
+    useState<ImageSize | null>(backgroundImageSize);
+  const [displayedFeedItems, setDisplayedFeedItems] = useState<StageFeedItem[]>(() =>
+    latestFeedItems(events),
   );
-  const selectedStageHotspot =
-    hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? null;
-  const selectedHotspot = selectedStageHotspot ?? selectedExternalHotspot;
+  const [fadingFeedItemId, setFadingFeedItemId] = useState<string | null>(null);
   const resolvedBackgroundImageUrl = useResolvedAssetImageUrl(backgroundImageUrl);
   const viewportSize = useViewportSize(viewportRef);
   const effectiveBackgroundImageSize = hasImageSize(backgroundImageSize)
@@ -83,13 +104,65 @@ export function HomeCommandStage({
   const { label: connectionLabel, tone: connectionTone } = connectionCopy(
     connectionStatus,
   );
-  const feedItems = events.slice(0, 5);
 
   useEffect(() => {
     if (hasImageSize(backgroundImageSize)) {
       setMeasuredBackgroundImageSize(backgroundImageSize);
     }
   }, [backgroundImageSize]);
+
+  useEffect(() => {
+    return () => {
+      if (feedTimeoutRef.current !== null) {
+        window.clearTimeout(feedTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const nextFeedItems = latestFeedItems(events);
+
+    setDisplayedFeedItems((currentFeedItems) => {
+      if (sameFeedSequence(currentFeedItems, nextFeedItems)) {
+        return currentFeedItems;
+      }
+
+      if (feedTimeoutRef.current !== null) {
+        window.clearTimeout(feedTimeoutRef.current);
+        feedTimeoutRef.current = null;
+      }
+
+      const outgoingItem = currentFeedItems[0] ?? null;
+      const incomingItems = nextFeedItems.filter(
+        (nextItem) =>
+          !currentFeedItems.some((currentItem) => currentItem.id === nextItem.id),
+      );
+
+      if (
+        currentFeedItems.length === 3 &&
+        nextFeedItems.length === 3 &&
+        outgoingItem &&
+        incomingItems.length > 0
+      ) {
+        const retainedItems = currentFeedItems.filter(
+          (item) => item.id !== outgoingItem.id,
+        );
+        const transitionalItems = [...retainedItems, ...incomingItems];
+
+        setFadingFeedItemId(outgoingItem.id);
+        feedTimeoutRef.current = window.setTimeout(() => {
+          setDisplayedFeedItems(nextFeedItems);
+          setFadingFeedItemId(null);
+          feedTimeoutRef.current = null;
+        }, 420);
+
+        return [outgoingItem, ...transitionalItems];
+      }
+
+      setFadingFeedItemId(null);
+      return nextFeedItems;
+    });
+  }, [events]);
 
   return (
     <section className="panel home-command-stage">
@@ -98,11 +171,6 @@ export function HomeCommandStage({
           <div className="home-command-stage__ambient" aria-hidden="true" />
 
           <div className="home-command-stage__topline">
-            <div className="home-command-stage__brand">
-              <span className="card-eyebrow">Overview Console</span>
-              <h2>家庭总览</h2>
-              <p>主舞台直接看户型、热点和实时状态。</p>
-            </div>
             <div className="home-command-stage__pill-row">
               <span className={`state-chip ${connectionTone}`}>{connectionLabel}</span>
               <span className="state-chip">{cacheMode ? "缓存模式" : "实时模式"}</span>
@@ -140,7 +208,7 @@ export function HomeCommandStage({
                 <div className="home-command-stage__empty">
                   <span className="card-eyebrow">户型图待发布</span>
                   <strong>上传并发布背景图后，这里会成为首页主舞台。</strong>
-                  <p>先去编辑页上传户型图、摆好热点，再回到总览体验完整交互。</p>
+                  <p>先去设置里的首页高级设置上传户型图，再回到总览轻编辑布点和调舞台。</p>
                 </div>
               </div>
             )}
@@ -166,25 +234,23 @@ export function HomeCommandStage({
             ) : null}
           </div>
 
-          <div className="home-command-stage__stage-summary">
-            <span>主舞台</span>
-            <strong>{`${hotspots.length} 个设备热点`}</strong>
-            <small>
-              {selectedHotspot
-                ? `当前正在查看：${selectedHotspot.label}`
-                : "点击热点可直接操作，复杂设备会打开控制浮层。"}
-            </small>
-          </div>
-
-          {feedItems.length ? (
+          {displayedFeedItems.length ? (
             <section className="home-stage-feed">
               <div className="home-stage-feed__header">
                 <span className="card-eyebrow">实时动态</span>
                 <strong>现场更新</strong>
               </div>
               <div className="home-stage-feed__list">
-                {feedItems.map((event, index) => (
-                  <article key={`${event.title}-${index}`} className="home-stage-feed__item">
+                {displayedFeedItems.map((event) => (
+                  <article
+                    key={event.id}
+                    className={[
+                      "home-stage-feed__item",
+                      fadingFeedItemId === event.id ? "is-fading" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
                     <b />
                     <div>
                       <strong>{event.title}</strong>

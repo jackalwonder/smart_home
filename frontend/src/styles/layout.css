@@ -649,6 +649,10 @@
   gap: 8px;
 }
 
+.system-status-icons > * {
+  flex: 0 0 auto;
+}
+
 .signal-pill,
 .state-chip {
   display: inline-flex;
@@ -674,6 +678,38 @@
 
 .signal-pill.is-muted {
   opacity: 0.72;
+}
+
+button.signal-pill {
+  appearance: none;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+button.signal-pill:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button.signal-pill:disabled {
+  cursor: not-allowed;
+}
+
+.signal-pill--action {
+  border-color: rgba(101, 214, 255, 0.26);
+  background: linear-gradient(180deg, rgba(34, 104, 255, 0.2), rgba(32, 178, 255, 0.14));
+  color: #f1f6ff;
+  box-shadow: 0 0 16px rgba(47, 140, 255, 0.16);
+}
+
+.signal-pill--action.is-active {
+  border-color: rgba(118, 214, 255, 0.42);
+  background: linear-gradient(180deg, rgba(30, 110, 255, 0.28), rgba(53, 198, 255, 0.22));
+  box-shadow: 0 0 20px rgba(47, 140, 255, 0.22);
 }
 
 .page {

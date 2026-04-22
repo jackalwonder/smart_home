@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   createBackup,
   fetchBackupRestoreAudits,
@@ -69,7 +70,6 @@ import { PageSettingsPanel } from "../components/settings/PageSettingsPanel";
 import { SettingsActionDock } from "../components/settings/SettingsActionDock";
 import { SettingsHeaderBar } from "../components/settings/SettingsHeaderBar";
 import { SettingsOverviewCard } from "../components/settings/SettingsOverviewCard";
-import { SettingsShowcaseGrid } from "../components/settings/SettingsShowcaseGrid";
 import { SettingsSideNav } from "../components/settings/SettingsSideNav";
 import { SgccLoginQrCodePanel } from "../components/settings/SgccLoginQrCodePanel";
 import {
@@ -80,6 +80,7 @@ import { SystemConnectionPanel } from "../components/settings/SystemConnectionPa
 import { TerminalBootstrapTokenPanel } from "../components/settings/TerminalBootstrapTokenPanel";
 import { TerminalDeliveryOverviewPanel } from "../components/settings/TerminalDeliveryOverviewPanel";
 import { TerminalPairingClaimPanel } from "../components/settings/TerminalPairingClaimPanel";
+import { EditorWorkbenchWorkspace } from "./EditorWorkbenchWorkspace";
 import { appStore, useAppStore } from "../store/useAppStore";
 import {
   SettingsSectionViewModel,
@@ -178,7 +179,6 @@ function isMediaCandidateDevice(device: DeviceListItemDto) {
 
 let policyEntryCounter = 0;
 const OPERATIONS_SECTION_KEYS: SettingsSectionViewModel["key"][] = [
-  "system",
   "delivery",
   "backup",
 ];
@@ -278,6 +278,26 @@ function getSettingsTaskFlow(flowKey: SettingsTaskFlowKey) {
   );
 }
 
+function normalizeSettingsSectionKey(
+  value: string | null,
+): SettingsSectionViewModel["key"] {
+  if (
+    value === "favorites" ||
+    value === "home-advanced" ||
+    value === "page" ||
+    value === "function" ||
+    value === "home"
+  ) {
+    return "home";
+  }
+
+  if (value === "system" || value === "delivery" || value === "backup") {
+    return value;
+  }
+
+  return "home";
+}
+
 function createEnergyBindingDraft(
   energy: EnergyDto | null = null,
   current?: EnergyBindingDraft,
@@ -350,9 +370,7 @@ function SettingsOperationsWorkflow({
 }) {
   const activeFlowConfig = getSettingsTaskFlow(activeFlow);
   const sectionLabels = new Map(
-    sections
-      .filter((section) => OPERATIONS_SECTION_KEYS.includes(section.key))
-      .map((section) => [section.key, section.label]),
+    sections.map((section) => [section.key, section.label]),
   );
 
   return (
@@ -575,10 +593,17 @@ export function SettingsWorkspacePage() {
   const pin = useAppStore((state) => state.pin);
   const settings = useAppStore((state) => state.settings);
   const latestWsEvent = useAppStore((state) => state.wsEvents[0] ?? null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSection = searchParams.get("section");
+  const normalizedRequestedSection = normalizeSettingsSectionKey(requestedSection);
   const [activeSection, setActiveSection] =
-    useState<SettingsSectionViewModel["key"]>("favorites");
+    useState<SettingsSectionViewModel["key"]>(
+      normalizedRequestedSection,
+    );
   const [activeTaskFlow, setActiveTaskFlow] =
-    useState<SettingsTaskFlowKey>("new-terminal");
+    useState<SettingsTaskFlowKey>(
+      normalizedRequestedSection === "backup" ? "backup-restore" : "new-terminal",
+    );
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<SettingsDraftState>(() =>
@@ -655,6 +680,24 @@ export function SettingsWorkspacePage() {
   const [backupRestoreBusyId, setBackupRestoreBusyId] = useState<string | null>(
     null,
   );
+
+  useEffect(() => {
+    if (requestedSection && requestedSection !== normalizedRequestedSection) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("section", normalizedRequestedSection);
+      setSearchParams(nextParams, { replace: true });
+    }
+
+    if (normalizedRequestedSection !== activeSection) {
+      setActiveSection(normalizedRequestedSection);
+    }
+  }, [
+    activeSection,
+    normalizedRequestedSection,
+    requestedSection,
+    searchParams,
+    setSearchParams,
+  ]);
 
   async function loadSystemConnection() {
     const response = await fetchSystemConnections();
@@ -1037,12 +1080,35 @@ export function SettingsWorkspacePage() {
     viewModel.sections.find((section) => section.key === activeSection) ??
     viewModel.sections[0];
   const activeTaskFlowConfig = getSettingsTaskFlow(activeTaskFlow);
+  const settingsOverviewRows = [
+    ...viewModel.overview,
+    { label: "HA 连接", value: systemDraft.connectionStatus },
+    { label: "能耗状态", value: energyState?.binding_status ?? "-" },
+    {
+      label: "默认媒体",
+      value: mediaState?.display_name ?? mediaState?.binding_status ?? "-",
+    },
+    { label: "备份", value: `${backupItems.length} 条` },
+    { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
+  ];
+  settingsOverviewRows.splice(1, 0, {
+    label: "终端激活",
+    value: bootstrapTokenState?.token_configured ? "已配置" : "待配置",
+  });
+  const currentSectionConfig = activeSectionConfig;
+  const currentTaskFlowConfig = activeTaskFlowConfig;
+  const headerDescription = OPERATIONS_SECTION_KEYS.includes(activeSection)
+    ? `${currentSectionConfig.description} 当前任务：${currentTaskFlowConfig.title}。${currentTaskFlowConfig.description}`
+    : currentSectionConfig.description;
 
   const canSave =
     Boolean(session.data?.terminalId) && pin.active && Boolean(settings.data);
 
   function handleSelectSection(nextSection: SettingsSectionViewModel["key"]) {
     setActiveSection(nextSection);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("section", nextSection);
+    setSearchParams(nextParams, { replace: true });
     if (nextSection === "backup") {
       setActiveTaskFlow("backup-restore");
       return;
@@ -1055,7 +1121,7 @@ export function SettingsWorkspacePage() {
   function handleSelectTaskFlow(flowKey: SettingsTaskFlowKey) {
     const nextFlow = getSettingsTaskFlow(flowKey);
     setActiveTaskFlow(flowKey);
-    setActiveSection(nextFlow.primarySection);
+    handleSelectSection(nextFlow.primarySection);
   }
 
   function updatePageDraft(field: "roomLabelMode", value: string) {
@@ -1693,12 +1759,90 @@ export function SettingsWorkspacePage() {
   }
 
   let sectionPanel = (
-    <FavoritesDevicePanel
-      favorites={settingsDraft.favorites}
-      onAddFavorite={addFavoriteDraft}
-      onRemoveFavorite={removeFavoriteDraft}
-      onUpdateFavorite={updateFavoriteDraft}
-    />
+    <section className="settings-home-shell">
+      <section className="panel settings-home-shell__summary">
+        <div className="settings-home-shell__summary-copy">
+          <span className="card-eyebrow">首页治理</span>
+          <h3>把首页内容、规则和发布治理收口到同一个工作台</h3>
+          <p className="muted-copy">
+            总览页继续负责轻编辑，这里负责首页设备编排、规则治理以及布局与发布能力，避免在多个设置分区之间来回切换。
+          </p>
+        </div>
+        <div className="badge-row settings-home-shell__summary-actions">
+          <Link className="button button--ghost" to="/devices">
+            前往设备页添加更多
+          </Link>
+          <Link className="button button--primary" to="/?edit=1">
+            进入总览轻编辑
+          </Link>
+        </div>
+      </section>
+
+      <section className="settings-home-shell__group">
+        <div className="settings-home-shell__group-header">
+          <span className="card-eyebrow">首页内容</span>
+          <h3>常用设备与首页入口编排</h3>
+          <p className="muted-copy">
+            这里负责首页常用设备的启停、排序和基础入口治理，设备的浏览与发现仍然放在设备页。
+          </p>
+        </div>
+        <FavoritesDevicePanel
+          favorites={settingsDraft.favorites}
+          onAddFavorite={addFavoriteDraft}
+          onRemoveFavorite={removeFavoriteDraft}
+          onUpdateFavorite={updateFavoriteDraft}
+        />
+      </section>
+
+      <section className="settings-home-shell__group">
+        <div className="settings-home-shell__group-header">
+          <span className="card-eyebrow">首页规则</span>
+          <h3>显示策略与行为规则</h3>
+          <p className="muted-copy">
+            页面策略和功能策略在这里连续呈现，统一处理显示、阈值、入口行为和自动返回等规则。
+          </p>
+        </div>
+        <PageSettingsPanel
+          draft={settingsDraft.page}
+          onAddPolicyEntry={addPolicyDraft}
+          onChangePolicyEntry={updatePolicyDraft}
+          onChangeRoomLabelMode={(value) =>
+            updatePageDraft("roomLabelMode", value)
+          }
+          onRemovePolicyEntry={removePolicyDraft}
+          onSetPolicyValue={upsertPolicyDraft}
+        />
+        <FunctionSettingsPanel
+          draft={settingsDraft.function}
+          onChange={updateFunctionDraft}
+        />
+      </section>
+
+      <section className="settings-home-shell__group">
+        <div className="settings-home-shell__group-header">
+          <span className="card-eyebrow">布局与发布</span>
+          <h3>高级资源、草稿治理和发布入口</h3>
+          <p className="muted-copy">
+            背景资源、热点高级配置、批量调整和草稿发布都在这里统一处理；若只想直接调整首页舞台，请回到总览页轻编辑。
+          </p>
+        </div>
+        <section className="panel settings-home-advanced__intro">
+          <div>
+            <span className="card-eyebrow">首页高级设置</span>
+            <h3>布局资源、批量编排和草稿治理都在这里</h3>
+            <p className="muted-copy">
+              总览页只保留所见即所得的轻编辑；背景资源、批量调整、草稿和发布治理统一收口到这一页。
+            </p>
+          </div>
+          <div className="badge-row">
+            <Link className="button button--primary" to="/?edit=1">
+              进入总览轻编辑
+            </Link>
+          </div>
+        </section>
+        <EditorWorkbenchWorkspace embedded />
+      </section>
+    </section>
   );
   if (activeSection === "system") {
     sectionPanel = (
@@ -1804,7 +1948,27 @@ export function SettingsWorkspacePage() {
         />
       </>
     );
-  } else if (activeSection === "page") {
+  } else if (false) {
+    sectionPanel = (
+      <section className="settings-home-advanced-shell">
+        <section className="panel settings-home-advanced__intro">
+          <div>
+            <span className="card-eyebrow">首页高级设置</span>
+            <h3>布局资源、批量编排和草稿治理都在这里</h3>
+            <p className="muted-copy">
+              总览页只保留所见即所得的轻编辑；背景资源、批量调整、草稿和发布治理统一收口到这一页。
+            </p>
+          </div>
+          <div className="badge-row">
+            <Link className="button button--primary" to="/?edit=1">
+              进入总览轻编辑
+            </Link>
+          </div>
+        </section>
+        <EditorWorkbenchWorkspace embedded />
+      </section>
+    );
+  } else if (false) {
     sectionPanel = (
       <PageSettingsPanel
         draft={settingsDraft.page}
@@ -1817,7 +1981,7 @@ export function SettingsWorkspacePage() {
         onSetPolicyValue={upsertPolicyDraft}
       />
     );
-  } else if (activeSection === "function") {
+  } else if (false) {
     sectionPanel = (
       <FunctionSettingsPanel
         draft={settingsDraft.function}
@@ -1870,13 +2034,7 @@ export function SettingsWorkspacePage() {
         asidePosition="left"
         className="page-frame--settings"
       >
-        <div
-          className={
-            activeSection === "favorites"
-              ? "settings-showcase-shell is-favorites"
-              : "settings-showcase-shell"
-          }
-        >
+        <div className="settings-showcase-shell">
           <SettingsHeaderBar
             description={
               OPERATIONS_SECTION_KEYS.includes(activeSection)
@@ -1884,7 +2042,7 @@ export function SettingsWorkspacePage() {
                 : activeSectionConfig.description
             }
             status={settings.status}
-            title={activeSectionConfig.label}
+            title={currentSectionConfig.label}
             version={viewModel.version}
           />
           {OPERATIONS_SECTION_KEYS.includes(activeSection) ? (
@@ -1896,8 +2054,7 @@ export function SettingsWorkspacePage() {
               sections={viewModel.sections}
             />
           ) : null}
-          {activeSection === "favorites" ? <SettingsShowcaseGrid /> : null}
-          <SettingsOverviewCard rows={overviewRows} />
+          <SettingsOverviewCard rows={settingsOverviewRows} />
         </div>
         {sectionPanel}
       </PageFrame>

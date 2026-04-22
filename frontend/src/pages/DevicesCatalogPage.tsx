@@ -469,8 +469,8 @@ export function DevicesCatalogPage() {
             >
               刷新目录
             </button>
-            <Link className="button button--ghost" to="/editor">
-              去编辑器布点
+            <Link className="button button--ghost" to="/?edit=1">
+              去总览编辑首页
             </Link>
           </div>
         </div>

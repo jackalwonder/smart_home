@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { fetchDeviceDetail, fetchDevices } from "../api/devicesApi";
 import { fetchHomeOverview } from "../api/homeApi";
 import { normalizeApiError } from "../api/httpClient";
@@ -16,6 +17,7 @@ import {
 import { HomeCommandStage } from "../components/home/HomeCommandStage";
 import { HomeHotspotControlModal } from "../components/home/HomeHotspotControlModal";
 import { HomeInsightRail } from "../components/home/HomeInsightRail";
+import { HomeStageEditorWorkspace } from "../components/home/HomeStageEditorWorkspace";
 import { PageFrame } from "../components/layout/PageFrame";
 import { appStore, useAppStore } from "../store/useAppStore";
 import {
@@ -32,9 +34,12 @@ type HotspotModalState = {
 
 export function HomeDashboardPage() {
   const session = useAppStore((state) => state.session);
+  const pin = useAppStore((state) => state.pin);
   const home = useAppStore((state) => state.home);
   const realtime = useAppStore((state) => state.realtime);
   const events = useAppStore((state) => state.wsEvents);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [devices, setDevices] = useState<DeviceListItemDto[]>([]);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
   const [selectedFavoriteDeviceId, setSelectedFavoriteDeviceId] = useState<string | null>(null);
@@ -44,6 +49,11 @@ export function HomeDashboardPage() {
   const [pendingHotspotControls, setPendingHotspotControls] = useState<
     Record<string, boolean>
   >({});
+  const [dashboardReloadToken, setDashboardReloadToken] = useState(0);
+
+  const homeEditRequested = searchParams.get("edit") === "1";
+  const isHomeEditing = homeEditRequested && pin.active;
+  const isHomeEditBlocked = homeEditRequested && !pin.active;
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -74,7 +84,7 @@ export function HomeDashboardPage() {
     return () => {
       active = false;
     };
-  }, [session.data?.accessToken, session.status]);
+  }, [dashboardReloadToken, session.data?.accessToken, session.status]);
 
   const viewModel = mapHomeOverviewViewModel(home.data);
   const selectedFavoriteDeviceIndex = viewModel.favoriteDevices.findIndex(
@@ -89,7 +99,11 @@ export function HomeDashboardPage() {
       : null;
 
   const formattedEvents = useMemo(
-    () => events.slice(0, 6).map(formatRealtimeEvent),
+    () =>
+      events.slice(0, 6).map((event) => ({
+        id: event.event_id,
+        ...formatRealtimeEvent(event),
+      })),
     [events],
   );
   const pendingHotspotIds = useMemo(
@@ -102,6 +116,24 @@ export function HomeDashboardPage() {
 
   function setHotspotPending(hotspotId: string, pending: boolean) {
     setPendingHotspotControls((current) => ({ ...current, [hotspotId]: pending }));
+  }
+
+  function setHomeEditMode(enabled: boolean) {
+    const nextParams = new URLSearchParams(searchParams);
+    if (enabled) {
+      nextParams.set("edit", "1");
+    } else {
+      nextParams.delete("edit");
+    }
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  function closeHomeEditor() {
+    setHomeEditMode(false);
+  }
+
+  function openAdvancedHomeSettings() {
+    navigate("/settings?section=home");
   }
 
   async function handleActivateHotspot(hotspot: HomeHotspotViewModel) {
@@ -118,12 +150,7 @@ export function HomeDashboardPage() {
       setSelectedHotspotModal({ hotspot, mode: "detail" });
     };
 
-    if (
-      !hotspot.deviceId ||
-      hotspot.isOffline ||
-      hotspot.isReadonly ||
-      hotspot.isComplex
-    ) {
+    if (!hotspot.deviceId || hotspot.isOffline || hotspot.isReadonly || hotspot.isComplex) {
       openDetailModal();
       return;
     }
@@ -174,9 +201,46 @@ export function HomeDashboardPage() {
     setSelectedHotspotModal({ hotspot, mode: "group" });
   }
 
+  if (isHomeEditing) {
+    return (
+      <HomeStageEditorWorkspace
+        devices={devices}
+        onApplied={async () => {
+          setDashboardReloadToken((current) => current + 1);
+        }}
+        onExit={closeHomeEditor}
+        onOpenAdvancedSettings={openAdvancedHomeSettings}
+        stats={viewModel.bottomStats}
+      />
+    );
+  }
+
   return (
     <section className="page page--home">
       {home.error ? <p className="inline-error">{home.error}</p> : null}
+      {isHomeEditBlocked ? (
+        <section className="panel home-page-edit-gate">
+          <div>
+            <span className="card-eyebrow">首页轻编辑</span>
+            <strong>请先在设置页验证管理 PIN</strong>
+            <p className="muted-copy">
+              总览轻编辑只负责舞台和热点的即时调整。验证管理 PIN 后，就可以直接回到总览页编辑首页。
+            </p>
+          </div>
+          <div className="badge-row">
+            <button className="button button--ghost" onClick={closeHomeEditor} type="button">
+              先看总览
+            </button>
+            <button
+              className="button button--primary"
+              onClick={openAdvancedHomeSettings}
+              type="button"
+            >
+              去设置验证并继续
+            </button>
+          </div>
+        </section>
+      ) : null}
       <PageFrame
         aside={
           <HomeInsightRail

@@ -616,7 +616,13 @@ function buildLocalPublishSummary(
   return { items, totalChanges };
 }
 
-export function EditorWorkbenchWorkspace() {
+interface EditorWorkbenchWorkspaceProps {
+  embedded?: boolean;
+}
+
+export function EditorWorkbenchWorkspace({
+  embedded = false,
+}: EditorWorkbenchWorkspaceProps) {
   const session = useAppStore((state) => state.session);
   const editor = useAppStore((state) => state.editor);
   const pin = useAppStore((state) => state.pin);
@@ -2270,7 +2276,9 @@ export function EditorWorkbenchWorkspace() {
   }
 
   return (
-    <section className="page page--editor">
+    <section
+      className={embedded ? "editor-workspace-embedded" : "page page--editor"}
+    >
       {editorNotice ? (
         <section className={`editor-recovery editor-recovery--${editorNotice.tone}`}>
           <div>
@@ -2293,6 +2301,7 @@ export function EditorWorkbenchWorkspace() {
         canTakeover={canTakeover}
         canUndo={canUndo}
         canDiscard={canDiscard}
+        embedded={embedded}
         helperText={viewModel.helperText}
         historyLabel={historyState.lastAction}
         hotspotCount={draftState.hotspots.length}

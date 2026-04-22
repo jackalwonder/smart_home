@@ -47,7 +47,6 @@ export function formatRealtimeDomain(changeDomain: WsChangeDomain): string {
 
 export function formatRealtimeEvent(event: WsEvent): RealtimeEventPresentation {
   const domainLabel = formatRealtimeDomain(event.change_domain);
-
   switch (event.event_type) {
     case "backup_restore_completed":
       return {

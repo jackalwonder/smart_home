@@ -39,7 +39,7 @@ const showcaseItems: Array<{
     key: "floorplan",
     title: "户型图热点",
     subtitle: "Floorplan Hotspots",
-    meta: "通过编辑器发布到总览",
+    meta: "通过总览轻编辑与设置高级治理完成发布",
     glyph: "图",
   },
 ];

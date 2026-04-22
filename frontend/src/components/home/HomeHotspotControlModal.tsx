@@ -172,6 +172,41 @@ function isModeSchema(schema: DeviceControlSchemaItemDto) {
   return source.includes("mode") || source.includes("preset");
 }
 
+function controlSchemaSource(schema: DeviceControlSchemaItemDto) {
+  return normalizeControlKeyword(
+    `${schema.action_type} ${schema.target_scope ?? ""} ${schema.target_key ?? ""}`,
+  );
+}
+
+function temperatureSchemaTitle(schema: DeviceControlSchemaItemDto) {
+  const min = rangeNumber(schema.value_range?.min);
+  const max = rangeNumber(schema.value_range?.max);
+  const source = controlSchemaSource(schema);
+
+  if (max !== undefined && max <= 0) {
+    return "冷冻室温度";
+  }
+  if (min !== undefined && min >= 0) {
+    return "冷藏室温度";
+  }
+  if (source.includes("freeze") || source.includes("freezer")) {
+    return "冷冻室温度";
+  }
+  if (source.includes("fridge") || source.includes("refrigerator")) {
+    return "冷藏室温度";
+  }
+  return "目标温度";
+}
+
+function actionSchemaTitle(schema: DeviceControlSchemaItemDto) {
+  const source = controlSchemaSource(schema);
+
+  if (source.includes("reset")) {
+    return "重置";
+  }
+  return "执行动作";
+}
+
 function getInitialValue(schema: DeviceControlSchemaItemDto) {
   const type = schema.value_type?.toUpperCase() ?? "NONE";
   if (Array.isArray(schema.allowed_values) && schema.allowed_values.length > 0) {
@@ -220,9 +255,10 @@ function optionLabel(value: unknown) {
 }
 
 function schemaTitle(schema: DeviceControlSchemaItemDto) {
-  const source = normalizeControlKeyword(
-    `${schema.action_type} ${schema.target_scope ?? ""} ${schema.target_key ?? ""}`,
-  );
+  const source = controlSchemaSource(schema);
+  if (isTemperatureSchema(schema)) {
+    return temperatureSchemaTitle(schema);
+  }
   if (isTemperatureSchema(schema)) {
     return "目标温度";
   }
@@ -548,6 +584,59 @@ export function HomeHotspotControlModal({
       return (
         <article className="home-hotspot-control-modal__detail-control is-range" key={key}>
           <span>{schemaTitle(schema)}</span>
+          <div className="home-hotspot-control-modal__detail-inline">
+            <div className="home-hotspot-control-modal__detail-stepper">
+              <button
+                disabled={disabled}
+                onClick={() =>
+                  setValues((current) => ({
+                    ...current,
+                    [key]: Math.max(min, numericValue - step),
+                  }))
+                }
+                type="button"
+              >
+                -
+              </button>
+              <strong>
+                {Number.isFinite(numericValue) ? numericValue : min}
+                {schema.unit ? ` ${schema.unit}` : ""}
+              </strong>
+              <button
+                disabled={disabled}
+                onClick={() =>
+                  setValues((current) => ({
+                    ...current,
+                    [key]: Math.min(max, numericValue + step),
+                  }))
+                }
+                type="button"
+              >
+                +
+              </button>
+            </div>
+            <button
+              className="home-hotspot-control-modal__detail-apply"
+              disabled={disabled}
+              onClick={() => void submitSchema(detail, schema, index)}
+              type="button"
+            >
+              应用
+            </button>
+          </div>
+          {message ? <em>{message}</em> : null}
+        </article>
+      );
+    }
+
+    if (isNumberControlSchema(schema)) {
+      const min = rangeNumber(schema.value_range?.min) ?? 0;
+      const max = rangeNumber(schema.value_range?.max) ?? 100;
+      const step = rangeNumber(schema.value_range?.step) ?? 1;
+      const numericValue = Number(value ?? min);
+      return (
+        <article className="home-hotspot-control-modal__detail-control is-range" key={key}>
+          <span>{schemaTitle(schema)}</span>
           <div className="home-hotspot-control-modal__detail-stepper">
             <button
               disabled={disabled}
@@ -622,6 +711,23 @@ export function HomeHotspotControlModal({
               </button>
             ))}
           </div>
+          {message ? <em>{message}</em> : null}
+        </article>
+      );
+    }
+
+    if (schemaType === "NONE") {
+      return (
+        <article className="home-hotspot-control-modal__detail-control is-action" key={key}>
+          <span>{schemaTitle(schema)}</span>
+          <button
+            className="home-hotspot-control-modal__detail-apply"
+            disabled={disabled}
+            onClick={() => void submitSchema(detail, schema, index, null)}
+            type="button"
+          >
+            {actionSchemaTitle(schema)}
+          </button>
           {message ? <em>{message}</em> : null}
         </article>
       );
@@ -707,9 +813,11 @@ export function HomeHotspotControlModal({
               当前设备暂时没有可用控制项。
             </p>
           ) : null}
-          {schemas.map((schema, index) =>
-            primaryDetail ? renderDetailControl(primaryDetail, schema, index) : null,
-          )}
+          <div className="home-hotspot-control-modal__detail-controls">
+            {schemas.map((schema, index) =>
+              primaryDetail ? renderDetailControl(primaryDetail, schema, index) : null,
+            )}
+          </div>
         </article>
       </div>
     );

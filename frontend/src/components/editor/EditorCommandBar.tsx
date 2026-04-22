@@ -2,6 +2,7 @@ interface EditorCommandBarProps {
   rows: Array<{ label: string; value: string }>;
   modeLabel: string;
   helperText: string;
+  embedded?: boolean;
   canSave: boolean;
   canPublish: boolean;
   canUndo: boolean;
@@ -30,6 +31,7 @@ export function EditorCommandBar({
   rows,
   modeLabel,
   helperText,
+  embedded = false,
   canSave,
   canPublish,
   canUndo,
@@ -54,8 +56,10 @@ export function EditorCommandBar({
   onDiscardDraft,
 }: EditorCommandBarProps) {
   return (
-    <header className="panel editor-command-bar">
-      <div>
+    <header
+      className={embedded ? "panel editor-command-bar is-embedded" : "panel editor-command-bar"}
+    >
+      <div className="editor-command-bar__intro">
         <span className="card-eyebrow">工作台</span>
         <h2>户型编辑器</h2>
         <p className="muted-copy">{helperText}</p>
@@ -63,10 +67,12 @@ export function EditorCommandBar({
           背景图和热点先保存到草稿，点“发布到首页”后才会在总览显示。
         </p>
       </div>
-      <div className="badge-row">
+      <div className="badge-row editor-command-bar__actions">
         <span className="state-chip">{modeLabel}</span>
         <span className="state-chip">{hotspotCount} 个热点</span>
-        <span className="state-chip">{historyLabel ? `最近：${historyLabel}` : "无本地历史"}</span>
+        <span className="state-chip">
+          {historyLabel ? `最近：${historyLabel}` : "无本地历史"}
+        </span>
         <button
           className="button button--ghost"
           disabled={!canSave}
@@ -91,20 +97,10 @@ export function EditorCommandBar({
         >
           {saveBusy ? "保存中..." : "保存草稿"}
         </button>
-        <button
-          className="button button--ghost"
-          disabled={!canUndo}
-          onClick={onUndo}
-          type="button"
-        >
+        <button className="button button--ghost" disabled={!canUndo} onClick={onUndo} type="button">
           撤销
         </button>
-        <button
-          className="button button--ghost"
-          disabled={!canRedo}
-          onClick={onRedo}
-          type="button"
-        >
+        <button className="button button--ghost" disabled={!canRedo} onClick={onRedo} type="button">
           重做
         </button>
         <button
@@ -129,11 +125,12 @@ export function EditorCommandBar({
           onClick={onPublishDraft}
           type="button"
         >
-          {publishBusy ? "\u53d1\u5e03\u4e2d..." : "\u53d1\u5e03\u5230\u9996\u9875"}
+          {publishBusy ? "发布中..." : "发布到首页"}
         </button>
       </div>
       <p className="editor-command-bar__shortcuts">
-        快捷键：⌘/Ctrl+S 保存，⌘/Ctrl+Enter 发布，⌘/Ctrl+Z 撤销，Shift+⌘/Ctrl+Z 或 Ctrl+Y 重做，方向键移动，Shift+方向键移动 5%。
+        快捷键：Ctrl+S 保存，Ctrl+Enter 发布，Ctrl+Z 撤销，Shift+Ctrl+Z 或 Ctrl+Y 重做，
+        方向键移动，Shift+方向键移动 5%。
       </p>
       <dl className="field-grid">
         {rows.map((row) => (

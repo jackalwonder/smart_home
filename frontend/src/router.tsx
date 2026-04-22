@@ -1,6 +1,5 @@
-import { createBrowserRouter } from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 import { DevicesCatalogPage } from "./pages/DevicesCatalogPage";
-import { EditorWorkbenchWorkspace } from "./pages/EditorWorkbenchWorkspace";
 import { HomeDashboardPage } from "./pages/HomeDashboardPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsWorkspacePage } from "./pages/SettingsWorkspacePage";
@@ -25,7 +24,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "editor",
-        element: <EditorWorkbenchWorkspace />,
+        element: <Navigate replace to="/settings?section=home" />,
       },
     ],
   },

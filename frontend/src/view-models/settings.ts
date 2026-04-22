@@ -1,14 +1,7 @@
-import {
-  asArray,
-  asBoolean,
-  asRecord,
-  asString,
-  formatValue,
-  labelize,
-} from "./utils";
+import { asArray, asBoolean, asRecord, asString } from "./utils";
 
 export interface SettingsSectionViewModel {
-  key: "favorites" | "system" | "delivery" | "page" | "function" | "backup";
+  key: "home" | "system" | "delivery" | "backup";
   label: string;
   eyebrow: string;
   description: string;
@@ -24,22 +17,6 @@ export interface SettingsViewModel {
   pinRequired: boolean;
   sections: SettingsSectionViewModel[];
   overview: SettingsFieldViewModel[];
-  favorites: SettingsFieldViewModel[];
-  system: SettingsFieldViewModel[];
-  page: SettingsFieldViewModel[];
-  function: SettingsFieldViewModel[];
-}
-
-function mapFields(value: unknown): SettingsFieldViewModel[] {
-  const record = asRecord(value);
-  if (!record) {
-    return [];
-  }
-
-  return Object.entries(record).map(([key, fieldValue]) => ({
-    label: labelize(key),
-    value: formatValue(fieldValue),
-  }));
 }
 
 export function mapSettingsViewModel(
@@ -53,41 +30,32 @@ export function mapSettingsViewModel(
     pinRequired: asBoolean(value?.pin_session_required, true),
     sections: [
       {
-        key: "favorites",
-        label: "首页入口管理",
-        eyebrow: "首页编排",
+        key: "home",
+        label: "首页治理",
+        eyebrow: "首页内容与发布",
         description:
-          "管理首页常用设备、快捷入口开关和显示规则；设备浏览与排查留在设备页。",
+          "统一管理首页内容、首页规则和布局发布。总览页负责轻编辑，这里负责治理和高级配置。",
       },
       {
         key: "system",
         label: "系统连接",
-        eyebrow: "基础设施",
-        description: "Home Assistant、能耗、媒体以及外部服务绑定。",
+        eyebrow: "外部服务接入",
+        description:
+          "统一处理 Home Assistant、能耗服务、国网登录和默认媒体等外部接入能力。",
       },
       {
         key: "delivery",
         label: "终端交付",
-        eyebrow: "安装恢复",
-        description: "绑定码认领、激活凭据交付以及现场恢复入口。",
-      },
-      {
-        key: "page",
-        label: "页面策略",
-        eyebrow: "空间布局",
-        description: "户型资源、房间标签和页面展示策略。",
-      },
-      {
-        key: "function",
-        label: "功能策略",
-        eyebrow: "行为规则",
-        description: "阈值、自动返回和快捷入口相关规则。",
+        eyebrow: "安装与恢复",
+        description:
+          "处理终端认领、激活凭据交付以及换机恢复等现场任务。",
       },
       {
         key: "backup",
-        label: "备份恢复",
-        eyebrow: "恢复点",
-        description: "创建设置和布局快照，查看恢复时间并触发恢复。",
+        label: "备份与恢复",
+        eyebrow: "版本回退",
+        description:
+          "创建设置与布局快照，查看恢复记录，并在需要时执行恢复。",
       },
     ],
     overview: [
@@ -98,31 +66,17 @@ export function mapSettingsViewModel(
       },
       {
         label: "系统连接",
-        value: asBoolean(system?.system_connections_configured)
-          ? "已配置"
-          : "待配置",
+        value: asBoolean(system?.system_connections_configured) ? "已配置" : "待配置",
       },
       {
         label: "能耗绑定",
         value: asString(system?.energy_binding_status ?? "-"),
       },
       {
-        label: "媒体绑定",
+        label: "默认媒体",
         value: asString(system?.default_media_binding_status ?? "-"),
       },
       { label: "首页常用设备", value: String(favorites.length) },
     ],
-    favorites:
-      favorites.length > 0
-        ? favorites.flatMap((item, index) =>
-            Object.entries(item).map(([key, fieldValue]) => ({
-              label: `${index + 1}. ${labelize(key)}`,
-              value: formatValue(fieldValue),
-            })),
-          )
-        : [{ label: "首页常用设备", value: "当前还没有加入首页的设备" }],
-    system: mapFields(value?.system_settings_summary),
-    page: mapFields(value?.page_settings),
-    function: mapFields(value?.function_settings),
   };
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
 import { TopNavTabs } from "./TopNavTabs";
 import { SystemStatusIcons } from "./SystemStatusIcons";
@@ -42,6 +43,8 @@ export function ControlTopBar() {
   const pin = useAppStore((state) => state.pin);
   const realtime = useAppStore((state) => state.realtime);
   const home = useAppStore((state) => state.home);
+  const location = useLocation();
+  const navigate = useNavigate();
   const [now, setNow] = useState(() => formatNow(new Date()));
 
   useEffect(() => {
@@ -68,6 +71,16 @@ export function ControlTopBar() {
           ? "HA Connecting"
           : "HA Waiting";
   const weatherDataStatus = resolveWeatherDataStatus(home.data);
+  const isHomeRoute = location.pathname === "/";
+  const isHomeEditing = isHomeRoute && new URLSearchParams(location.search).get("edit") === "1";
+
+  function openHomeEditor() {
+    if (!pin.active) {
+      navigate("/settings?section=home");
+      return;
+    }
+    navigate("/?edit=1");
+  }
 
   return (
     <header className="control-top-bar">
@@ -104,6 +117,22 @@ export function ControlTopBar() {
             { label: "能耗", active: features.energy_enabled },
             { label: "编辑", active: features.editor_enabled },
           ]}
+          inlineAction={
+            isHomeRoute ? (
+              <button
+                aria-pressed={isHomeEditing}
+                className={
+                  isHomeEditing
+                    ? "signal-pill signal-pill--action is-active"
+                    : "signal-pill signal-pill--action"
+                }
+                onClick={openHomeEditor}
+                type="button"
+              >
+                编辑首页
+              </button>
+            ) : null
+          }
           pinVerified={pin.active}
         />
         <div className="control-top-bar__quick-status" aria-label="系统快速状态">

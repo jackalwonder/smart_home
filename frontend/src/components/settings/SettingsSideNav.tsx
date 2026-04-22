@@ -13,7 +13,10 @@ export function SettingsSideNav({
 }: SettingsSideNavProps) {
   return (
     <nav className="settings-side-nav" aria-label="设置分区">
-      <span className="card-eyebrow">设置</span>
+      <div className="settings-side-nav__title">
+        <span className="card-eyebrow">设置</span>
+        <strong>治理中心</strong>
+      </div>
       {sections.map((section) => (
         <button
           key={section.key}
