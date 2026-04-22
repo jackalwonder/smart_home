@@ -358,14 +358,18 @@ function formatEnergyRefreshMessage(response: EnergyRefreshDto) {
 function SettingsOperationsWorkflow({
   activeFlow,
   activeSection,
+  detailsExpanded,
   onSelectSection,
   onSelectFlow,
+  onToggleDetails,
   sections,
 }: {
   activeFlow: SettingsTaskFlowKey;
   activeSection: SettingsSectionViewModel["key"];
+  detailsExpanded: boolean;
   onSelectSection: (key: SettingsSectionViewModel["key"]) => void;
   onSelectFlow: (key: SettingsTaskFlowKey) => void;
+  onToggleDetails: () => void;
   sections: SettingsSectionViewModel[];
 }) {
   const activeFlowConfig = getSettingsTaskFlow(activeFlow);
@@ -680,6 +684,13 @@ export function SettingsWorkspacePage() {
   const [backupRestoreBusyId, setBackupRestoreBusyId] = useState<string | null>(
     null,
   );
+  const [showPinManager, setShowPinManager] = useState(false);
+  const [showHomeContentManager, setShowHomeContentManager] = useState(false);
+  const [showHomePublishPanel, setShowHomePublishPanel] = useState(false);
+  const [showAdvancedEditor, setShowAdvancedEditor] = useState(false);
+  const [showOperationsGuide, setShowOperationsGuide] = useState(false);
+  const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
+  const [showBackupDetails, setShowBackupDetails] = useState(false);
 
   useEffect(() => {
     if (requestedSection && requestedSection !== normalizedRequestedSection) {
@@ -703,6 +714,21 @@ export function SettingsWorkspacePage() {
     const response = await fetchSystemConnections();
     setSystemDraft((current) => createSystemDraft(response, current));
   }
+
+  useEffect(() => {
+    setShowPinManager(false);
+    if (activeSection !== "home") {
+      setShowHomeContentManager(false);
+      setShowHomePublishPanel(false);
+      setShowAdvancedEditor(false);
+    }
+    if (activeSection !== "delivery") {
+      setShowDeliveryDetails(false);
+    }
+    if (activeSection !== "backup") {
+      setShowBackupDetails(false);
+    }
+  }, [activeSection]);
 
   async function loadEnergyState() {
     const response = await fetchEnergy();
@@ -1100,6 +1126,48 @@ export function SettingsWorkspacePage() {
   const headerDescription = OPERATIONS_SECTION_KEYS.includes(activeSection)
     ? `${currentSectionConfig.description} 当前任务：${currentTaskFlowConfig.title}。${currentTaskFlowConfig.description}`
     : currentSectionConfig.description;
+  const selectedFavoriteCount = settingsDraft.favorites.filter(
+    (favorite) => favorite.selected,
+  ).length;
+  const homeOverviewRows =
+    activeSection === "home"
+      ? [
+          { label: "首页设备", value: `${selectedFavoriteCount} 已启用` },
+          { label: "显示规则", value: `${settingsDraft.page.homepageDisplayPolicy.length} 项` },
+          { label: "行为规则", value: `${settingsDraft.function.favoriteLimit} 上限` },
+          {
+            label: "发布面板",
+            value: showHomePublishPanel ? "已展开" : "默认折叠",
+          },
+        ]
+      : [];
+  const compactOverviewRows =
+    activeSection === "system"
+      ? settingsOverviewRows.slice(0, 5)
+      : activeSection === "delivery"
+        ? [
+            { label: "终端目录", value: `${bootstrapTokenDirectory.length} 台` },
+            {
+              label: "目标终端",
+              value:
+                selectedBootstrapTerminal?.terminal_name ??
+                selectedBootstrapTerminal?.terminal_code ??
+                "-",
+            },
+            {
+              label: "激活凭据",
+              value: bootstrapTokenState?.token_configured ? "已就绪" : "待生成",
+            },
+            { label: "流程说明", value: showOperationsGuide ? "已展开" : "已收起" },
+          ]
+        : activeSection === "backup"
+          ? [
+              { label: "可用备份", value: `${backupItems.length} 条` },
+              { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
+              { label: "详情列表", value: showBackupDetails ? "已展开" : "已收起" },
+              { label: "PIN", value: pin.active ? "已验证" : "待验证" },
+            ]
+          : homeOverviewRows;
 
   const canSave =
     Boolean(session.data?.terminalId) && pin.active && Boolean(settings.data);
@@ -1786,12 +1854,81 @@ export function SettingsWorkspacePage() {
             这里负责首页常用设备的启停、排序和基础入口治理，设备的浏览与发现仍然放在设备页。
           </p>
         </div>
-        <FavoritesDevicePanel
-          favorites={settingsDraft.favorites}
-          onAddFavorite={addFavoriteDraft}
-          onRemoveFavorite={removeFavoriteDraft}
-          onUpdateFavorite={updateFavoriteDraft}
-        />
+        <section className="utility-card settings-section-summary">
+          <div className="settings-section-summary__grid">
+            <div>
+              <span>已启用设备</span>
+              <strong>{selectedFavoriteCount}</strong>
+            </div>
+            <div>
+              <span>总条目</span>
+              <strong>{settingsDraft.favorites.length}</strong>
+            </div>
+            <div>
+              <span>当前状态</span>
+              <strong>{showHomeContentManager ? "管理中" : "摘要模式"}</strong>
+            </div>
+          </div>
+          <div className="settings-home-advanced__summary-grid">
+            <div>
+              <span>发布面板</span>
+              <strong>{showHomePublishPanel ? "已展开" : "摘要模式"}</strong>
+            </div>
+            <div>
+              <span>高级编辑</span>
+              <strong>{showAdvancedEditor ? "已展开" : "默认折叠"}</strong>
+            </div>
+            <div>
+              <span>PIN</span>
+              <strong>{pin.active ? "已验证" : "待验证"}</strong>
+            </div>
+          </div>
+          <div className="settings-home-advanced__summary-grid">
+            <div>
+              <span>发布面板</span>
+              <strong>{showHomePublishPanel ? "已展开" : "摘要模式"}</strong>
+            </div>
+            <div>
+              <span>高级编辑</span>
+              <strong>{showAdvancedEditor ? "已展开" : "默认折叠"}</strong>
+            </div>
+            <div>
+              <span>PIN</span>
+              <strong>{pin.active ? "已验证" : "待验证"}</strong>
+            </div>
+          </div>
+          <div className="badge-row">
+            <button
+              className="button button--ghost"
+              onClick={() => setShowHomePublishPanel((current) => !current)}
+              type="button"
+            >
+              {showHomePublishPanel ? "收起发布面板" : "展开发布面板"}
+            </button>
+            <button
+              className="button button--ghost"
+              onClick={() => setShowHomePublishPanel((current) => !current)}
+              type="button"
+            >
+              {showHomePublishPanel ? "收起发布面板" : "展开发布面板"}
+            </button>
+            <button
+              className="button button--ghost"
+              onClick={() => setShowHomeContentManager((current) => !current)}
+              type="button"
+            >
+              {showHomeContentManager ? "收起管理" : "展开管理"}
+            </button>
+          </div>
+        </section>
+        {showHomeContentManager ? (
+          <FavoritesDevicePanel
+            favorites={settingsDraft.favorites}
+            onAddFavorite={addFavoriteDraft}
+            onRemoveFavorite={removeFavoriteDraft}
+            onUpdateFavorite={updateFavoriteDraft}
+          />
+        ) : null}
       </section>
 
       <section className="settings-home-shell__group">
@@ -1835,12 +1972,32 @@ export function SettingsWorkspacePage() {
             </p>
           </div>
           <div className="badge-row">
+            <button
+              className="button button--ghost"
+              onClick={() => setShowHomePublishPanel((current) => !current)}
+              type="button"
+            >
+              {showHomePublishPanel ? "收起发布面板" : "展开发布面板"}
+            </button>
             <Link className="button button--primary" to="/?edit=1">
               进入总览轻编辑
             </Link>
           </div>
         </section>
-        <EditorWorkbenchWorkspace embedded />
+        {showHomePublishPanel ? (
+          <section className="settings-home-shell__publish-panel">
+            <div className="badge-row settings-home-shell__publish-actions">
+              <button
+                className="button button--ghost"
+                onClick={() => setShowAdvancedEditor((current) => !current)}
+                type="button"
+              >
+                {showAdvancedEditor ? "收起高级编辑" : "展开高级编辑"}
+              </button>
+            </div>
+            {showAdvancedEditor ? <EditorWorkbenchWorkspace embedded /> : null}
+          </section>
+        ) : null}
       </section>
     </section>
   );
@@ -1909,44 +2066,77 @@ export function SettingsWorkspacePage() {
     );
   } else if (activeSection === "delivery") {
     sectionPanel = (
-      <>
-        <TerminalDeliveryOverviewPanel
-          availableTerminalCount={bootstrapTokenDirectory.length}
-          selectedTerminal={selectedBootstrapTerminal}
-        />
-        <TerminalPairingClaimPanel
-          canEdit={pin.active}
-          claimBusy={pairingClaimBusy}
-          feedback={pairingClaimFeedback}
-          onChangePairingCode={setPairingCodeInput}
-          onClaim={() => void handleClaimPairingCode()}
-          pairingCode={pairingCodeInput}
-        />
-        <TerminalBootstrapTokenPanel
-          activationCode={bootstrapActivationCode}
-          activationLink={bootstrapActivationLink}
-          audits={bootstrapTokenAudits}
-          auditLoading={bootstrapTokenAuditLoading}
-          availableTerminals={bootstrapTokenDirectory}
-          canEdit={pin.active}
-          createBusy={bootstrapTokenCreateBusy}
-          loading={bootstrapTokenLoading}
-          message={bootstrapTokenFeedback}
-          onCopy={() => void handleCopyBootstrapToken()}
-          onCopyActivationCode={() => void handleCopyBootstrapActivationCode()}
-          onCopyActivationLink={() => void handleCopyBootstrapActivationLink()}
-          onCreateOrReset={() => void handleCreateOrResetBootstrapToken()}
-          onRefresh={() => void loadBootstrapTokenDirectory()}
-          onRefreshAudits={() => void loadBootstrapTokenAudits()}
-          onSelectTerminalId={(value) => {
-            setSelectedBootstrapTerminalId(value);
-            setBootstrapTokenReveal(null);
-          }}
-          revealedToken={bootstrapTokenReveal}
-          selectedTerminalId={selectedBootstrapTerminalId}
-          status={selectedBootstrapTerminal}
-        />
-      </>
+      <section className="settings-section-stack">
+        <section className="utility-card settings-section-summary">
+          <div className="settings-section-summary__grid">
+            <div>
+              <span>终端目录</span>
+              <strong>{bootstrapTokenDirectory.length} 台</strong>
+            </div>
+            <div>
+              <span>目标终端</span>
+              <strong>
+                {selectedBootstrapTerminal?.terminal_name ??
+                  selectedBootstrapTerminal?.terminal_code ??
+                  "-"}
+              </strong>
+            </div>
+            <div>
+              <span>详情面板</span>
+              <strong>{showDeliveryDetails ? "已展开" : "已收起"}</strong>
+            </div>
+          </div>
+          <div className="badge-row">
+            <button
+              className="button button--ghost"
+              onClick={() => setShowDeliveryDetails((current) => !current)}
+              type="button"
+            >
+              {showDeliveryDetails ? "收起交付详情" : "展开交付详情"}
+            </button>
+          </div>
+        </section>
+        {showDeliveryDetails ? (
+          <>
+            <TerminalDeliveryOverviewPanel
+              availableTerminalCount={bootstrapTokenDirectory.length}
+              selectedTerminal={selectedBootstrapTerminal}
+            />
+            <TerminalPairingClaimPanel
+              canEdit={pin.active}
+              claimBusy={pairingClaimBusy}
+              feedback={pairingClaimFeedback}
+              onChangePairingCode={setPairingCodeInput}
+              onClaim={() => void handleClaimPairingCode()}
+              pairingCode={pairingCodeInput}
+            />
+            <TerminalBootstrapTokenPanel
+              activationCode={bootstrapActivationCode}
+              activationLink={bootstrapActivationLink}
+              audits={bootstrapTokenAudits}
+              auditLoading={bootstrapTokenAuditLoading}
+              availableTerminals={bootstrapTokenDirectory}
+              canEdit={pin.active}
+              createBusy={bootstrapTokenCreateBusy}
+              loading={bootstrapTokenLoading}
+              message={bootstrapTokenFeedback}
+              onCopy={() => void handleCopyBootstrapToken()}
+              onCopyActivationCode={() => void handleCopyBootstrapActivationCode()}
+              onCopyActivationLink={() => void handleCopyBootstrapActivationLink()}
+              onCreateOrReset={() => void handleCreateOrResetBootstrapToken()}
+              onRefresh={() => void loadBootstrapTokenDirectory()}
+              onRefreshAudits={() => void loadBootstrapTokenAudits()}
+              onSelectTerminalId={(value) => {
+                setSelectedBootstrapTerminalId(value);
+                setBootstrapTokenReveal(null);
+              }}
+              revealedToken={bootstrapTokenReveal}
+              selectedTerminalId={selectedBootstrapTerminalId}
+              status={selectedBootstrapTerminal}
+            />
+          </>
+        ) : null}
+      </section>
     );
   } else if (false) {
     sectionPanel = (
@@ -1990,22 +2180,59 @@ export function SettingsWorkspacePage() {
     );
   } else if (activeSection === "backup") {
     sectionPanel = (
-      <BackupManagementPanel
-        auditLoading={backupAuditLoading}
-        backups={backupItems}
-        canEdit={pin.active}
-        createBusy={backupCreateBusy}
-        loading={backupLoading}
-        message={backupMessage}
-        note={backupNote}
-        onChangeNote={setBackupNote}
-        onCreateBackup={() => void handleCreateBackup()}
-        onRefreshAudits={() => void loadBackupRestoreAudits()}
-        onRefresh={() => void loadBackups()}
-        onRestoreBackup={(backup) => void handleRestoreBackup(backup)}
-        restoreAudits={backupRestoreAudits}
-        restoreBusyId={backupRestoreBusyId}
-      />
+      <section className="settings-section-stack">
+        <section className="utility-card settings-section-summary">
+          <div className="settings-section-summary__grid">
+            <div>
+              <span>可用备份</span>
+              <strong>{backupItems.length} 条</strong>
+            </div>
+            <div>
+              <span>恢复审计</span>
+              <strong>{backupRestoreAudits.length} 条</strong>
+            </div>
+            <div>
+              <span>详情列表</span>
+              <strong>{showBackupDetails ? "已展开" : "已收起"}</strong>
+            </div>
+          </div>
+          <div className="badge-row">
+            <button
+              className="button button--ghost"
+              onClick={() => setShowBackupDetails((current) => !current)}
+              type="button"
+            >
+              {showBackupDetails ? "收起备份详情" : "展开备份详情"}
+            </button>
+            <button
+              className="button button--primary"
+              disabled={!pin.active || backupCreateBusy || backupLoading}
+              onClick={() => void handleCreateBackup()}
+              type="button"
+            >
+              {backupCreateBusy ? "创建中..." : "创建备份"}
+            </button>
+          </div>
+        </section>
+        {showBackupDetails ? (
+          <BackupManagementPanel
+            auditLoading={backupAuditLoading}
+            backups={backupItems}
+            canEdit={pin.active}
+            createBusy={backupCreateBusy}
+            loading={backupLoading}
+            message={backupMessage}
+            note={backupNote}
+            onChangeNote={setBackupNote}
+            onCreateBackup={() => void handleCreateBackup()}
+            onRefreshAudits={() => void loadBackupRestoreAudits()}
+            onRefresh={() => void loadBackups()}
+            onRestoreBackup={(backup) => void handleRestoreBackup(backup)}
+            restoreAudits={backupRestoreAudits}
+            restoreBusyId={backupRestoreBusyId}
+          />
+        ) : null}
+      </section>
     );
   }
 
@@ -2020,15 +2247,6 @@ export function SettingsWorkspacePage() {
               onSelectSection={handleSelectSection}
               sections={viewModel.sections}
             />
-            <SettingsActionDock
-              canSave={canSave}
-              onSave={() => void handleSave()}
-              pinRequired={viewModel.pinRequired}
-              saveMessage={saveMessage}
-              saving={isSaving}
-              version={viewModel.version}
-            />
-            <PinAccessCard />
           </div>
         }
         asidePosition="left"
@@ -2045,16 +2263,79 @@ export function SettingsWorkspacePage() {
             title={currentSectionConfig.label}
             version={viewModel.version}
           />
+          <SettingsActionDock
+            canSave={canSave}
+            onManagePin={() => setShowPinManager((current) => !current)}
+            onSave={() => void handleSave()}
+            pinActive={pin.active}
+            pinRequired={viewModel.pinRequired}
+            saveMessage={saveMessage}
+            saving={isSaving}
+            variant="compact"
+            version={viewModel.version}
+          />
+          {!pin.active || showPinManager ? (
+            <section className="utility-card settings-inline-pin">
+              <div className="settings-inline-pin__header">
+                <div>
+                  <span className="card-eyebrow">权限提示</span>
+                  <h3>{pin.active ? "管理 PIN 已验证" : "部分管理能力需要 PIN"}</h3>
+                  <p className="muted-copy">
+                    {pin.active
+                      ? "当前会话已经具备管理权限，如需查看有效期或重新验证，可以展开 PIN 面板。"
+                      : "保存设置、发布草稿和高权限动作前需要先验证管理 PIN。"}
+                  </p>
+                </div>
+                <button
+                  className="button button--ghost"
+                  onClick={() => setShowPinManager((current) => !current)}
+                  type="button"
+                >
+                  {showPinManager ? "收起 PIN 面板" : "展开 PIN 面板"}
+                </button>
+              </div>
+              {showPinManager || !pin.active ? <PinAccessCard /> : null}
+            </section>
+          ) : null}
           {OPERATIONS_SECTION_KEYS.includes(activeSection) ? (
+            <section className="utility-card settings-section-summary">
+              <div className="settings-section-summary__grid">
+                <div>
+                  <span>当前任务</span>
+                  <strong>{currentTaskFlowConfig.title}</strong>
+                </div>
+                <div>
+                  <span>目标结果</span>
+                  <strong>{currentTaskFlowConfig.eyebrow}</strong>
+                </div>
+                <div>
+                  <span>流程说明</span>
+                  <strong>{showOperationsGuide ? "已展开" : "已收起"}</strong>
+                </div>
+              </div>
+              <div className="badge-row">
+                <button
+                  className="button button--ghost"
+                  onClick={() => setShowOperationsGuide((current) => !current)}
+                  type="button"
+                >
+                  {showOperationsGuide ? "收起流程" : "展开流程"}
+                </button>
+              </div>
+            </section>
+          ) : null}
+          {OPERATIONS_SECTION_KEYS.includes(activeSection) && showOperationsGuide ? (
             <SettingsOperationsWorkflow
               activeFlow={activeTaskFlow}
               activeSection={activeSection}
+              detailsExpanded={true}
               onSelectFlow={handleSelectTaskFlow}
               onSelectSection={handleSelectSection}
+              onToggleDetails={() => setShowOperationsGuide(false)}
               sections={viewModel.sections}
             />
           ) : null}
-          <SettingsOverviewCard rows={settingsOverviewRows} />
+          <SettingsOverviewCard rows={compactOverviewRows} />
         </div>
         {sectionPanel}
       </PageFrame>
