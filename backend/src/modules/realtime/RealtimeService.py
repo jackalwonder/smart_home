@@ -181,8 +181,9 @@ class RealtimeService:
         home_id: str,
         terminal_id: str,
         last_event_id: str | None = None,
+        subprotocol: str | None = None,
     ) -> None:
-        await websocket.accept()
+        await websocket.accept(subprotocol=subprotocol)
         await self._touch_terminal(terminal_id, websocket.client.host if websocket.client is not None else None)
         state = RealtimeConnectionState(
             home_id=home_id,

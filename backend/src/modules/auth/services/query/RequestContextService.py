@@ -467,13 +467,15 @@ class RequestContextService:
             cookies=websocket.cookies,
             explicit_home_id=explicit_home_id,
             explicit_terminal_id=explicit_terminal_id,
-            explicit_token=explicit_token,
+            explicit_token=None,
             fallback_home_id=fallback_home_id,
             require_home=require_home,
             require_terminal=require_terminal,
             require_bearer=False,
             require_session_auth=require_session_auth,
             required_access_scope="ws",
+            allow_cookie_access_token=False,
+            allow_explicit_token=False,
         )
         websocket.state.auth_mode = context.auth_mode
         websocket.state.access_token_jti = context.access_token_jti

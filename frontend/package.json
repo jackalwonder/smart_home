@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "generate:api-types": "node scripts/generateApiTypes.mjs",
+    "typecheck": "tsc -b --pretty false",
     "test:e2e": "playwright test"
   },
   "dependencies": {

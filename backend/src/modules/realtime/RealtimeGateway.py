@@ -15,6 +15,14 @@ from src.shared.observability import (
 router = APIRouter(tags=["realtime"])
 
 
+def _select_websocket_subprotocol(websocket: WebSocket) -> str | None:
+    raw_protocols = websocket.headers.get("sec-websocket-protocol")
+    if raw_protocols is None:
+        return None
+    protocols = [part.strip().lower() for part in raw_protocols.split(",")]
+    return "bearer" if "bearer" in protocols else None
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -100,4 +108,5 @@ async def websocket_endpoint(
         context.home_id,
         context.terminal_id,
         last_event_id,
+        subprotocol=_select_websocket_subprotocol(websocket),
     )

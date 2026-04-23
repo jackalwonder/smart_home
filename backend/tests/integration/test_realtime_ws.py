@@ -73,8 +73,19 @@ class _FakeOutboxRepo:
 
 class _StrictFakeRequestContextService:
     async def resolve_websocket_request(self, websocket, **kwargs):
+        protocols = [
+            part.strip()
+            for part in (websocket.headers.get("sec-websocket-protocol") or "").split(",")
+            if part.strip()
+        ]
+        protocol_token = None
+        for index, protocol in enumerate(protocols):
+            if protocol.lower() == "bearer" and index + 1 < len(protocols):
+                protocol_token = protocols[index + 1]
+                break
         token = (
             kwargs.get("explicit_token")
+            or protocol_token
             or websocket.query_params.get("access_token")
             or websocket.query_params.get("token")
             or websocket.cookies.get("pin_session_token")
@@ -88,8 +99,8 @@ class _StrictFakeRequestContextService:
         return RequestContext(
             home_id="home-1",
             terminal_id="terminal-1",
-            session_token=None if websocket.query_params.get("access_token") else token,
-            auth_mode="bearer" if websocket.query_params.get("access_token") else "legacy_pin_session",
+            session_token=None if protocol_token or websocket.query_params.get("access_token") else token,
+            auth_mode="bearer" if protocol_token or websocket.query_params.get("access_token") else "legacy_pin_session",
         )
 
 
@@ -98,7 +109,11 @@ def test_websocket_pushes_sequence_and_ack_dispatches(app, client):
     app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
 
-    with client.websocket_connect("/ws?access_token=test-access-token") as websocket:
+    with client.websocket_connect(
+        "/ws",
+        subprotocols=["bearer", "test-access-token"],
+    ) as websocket:
+        assert websocket.accepted_subprotocol == "bearer"
         first = websocket.receive_json()
         second = websocket.receive_json()
         websocket.send_json({"type": "ack", "event_id": "evt-1"})
@@ -125,8 +140,10 @@ def test_websocket_resume_gap_requests_snapshot(app, client):
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
 
     with client.websocket_connect(
-        "/ws?access_token=test-access-token&last_event_id=evt-missing"
+        "/ws?last_event_id=evt-missing",
+        subprotocols=["bearer", "test-access-token"],
     ) as websocket:
+        assert websocket.accepted_subprotocol == "bearer"
         event = websocket.receive_json()
 
     assert event["event_type"] == "version_conflict_detected"
@@ -142,8 +159,10 @@ def test_websocket_resume_replays_events_after_last_event_id(app, client):
     app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
 
     with client.websocket_connect(
-        "/ws?access_token=test-access-token&last_event_id=evt-1"
+        "/ws?last_event_id=evt-1",
+        subprotocols=["bearer", "test-access-token"],
     ) as websocket:
+        assert websocket.accepted_subprotocol == "bearer"
         event = websocket.receive_json()
 
     assert event["event_id"] == "evt-2"
