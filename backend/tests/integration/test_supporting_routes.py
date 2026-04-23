@@ -137,8 +137,11 @@ class FakeEnergyService:
             balance=88.8,
             yearly_usage=234.5,
             updated_at="2026-04-14T09:00:00Z",
+            system_updated_at="2026-04-14T09:00:00Z",
+            source_updated_at="2026-04-14T08:55:00Z",
             cache_mode=False,
             last_error_code=None,
+            refresh_status_detail="SUCCESS_UPDATED",
             provider="HOME_ASSISTANT_SGCC",
             account_id_masked="12******90",
             entity_map={},
@@ -166,6 +169,11 @@ class FakeEnergyService:
             refresh_status="SUCCESS",
             started_at="2026-04-14T10:02:00Z",
             timeout_seconds=30,
+            upstream_triggered=True,
+            source_updated=True,
+            source_updated_at="2026-04-14T10:01:30Z",
+            system_updated_at="2026-04-14T10:02:00Z",
+            refresh_status_detail="SUCCESS_UPDATED",
         )
 
 

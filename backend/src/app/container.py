@@ -157,6 +157,9 @@ from src.modules.settings.services.query.SgccLoginQrCodeService import (
 )
 from src.modules.settings.services.query.SgccRuntimeControlService import (
     DockerUnixSocketContainerRestarter,
+    FallbackSgccRuntimeControl,
+    HttpSgccRuntimeClient,
+    SgccContainerRestarter,
 )
 from src.modules.settings.services.query.SettingsQueryService import SettingsQueryService
 from src.modules.system_connections.services.HaEntitySyncService import HaEntitySyncService
@@ -562,16 +565,27 @@ def get_sgcc_login_qr_code_service() -> SgccLoginQrCodeService:
         get_settings(),
         energy_account_repository=get_energy_account_repository(),
         ha_connection_gateway=get_ha_connection_gateway(),
+        runtime_control=get_sgcc_container_restarter(),
     )
 
 
 @lru_cache(maxsize=1)
-def get_sgcc_container_restarter() -> DockerUnixSocketContainerRestarter:
+def get_sgcc_container_restarter() -> SgccContainerRestarter:
     settings = get_settings()
-    return DockerUnixSocketContainerRestarter(
+    docker_control = DockerUnixSocketContainerRestarter(
         settings.sgcc_docker_socket_path,
         settings.sgcc_docker_container_name,
     )
+    if settings.energy_upstream_refresh_mode in {"docker_exec_fetch", "docker_restart"}:
+        return docker_control
+
+    sidecar_control = HttpSgccRuntimeClient(
+        settings.sgcc_sidecar_base_url,
+        timeout_seconds=settings.sgcc_sidecar_timeout_seconds,
+    )
+    if settings.sgcc_sidecar_fallback_enabled:
+        return FallbackSgccRuntimeControl(sidecar_control, docker_control)
+    return sidecar_control
 
 
 @lru_cache(maxsize=1)

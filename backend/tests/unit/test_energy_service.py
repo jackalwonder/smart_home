@@ -395,3 +395,35 @@ def test_energy_refresh_execs_sgcc_fetch_and_reports_updated_source_when_timesta
     assert result.refresh_status_detail == "SUCCESS_UPDATED"
     assert result.source_updated is True
     assert snapshots.inserts[-1].monthly_usage == 46.0
+
+
+def test_energy_refresh_uses_sgcc_sidecar_fetch_mode():
+    states = [
+        [
+            _state("sensor.last_electricity_usage_1234567890", "1.23", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "45.6", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "78.9", "2026-04-20T07:58:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "345.67", "2026-04-20T07:58:00+00:00"),
+        ],
+        [
+            _state("sensor.last_electricity_usage_1234567890", "2.00", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.month_electricity_usage_1234567890", "46.0", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.electricity_charge_balance_1234567890", "77.9", "2026-04-20T08:05:00+00:00"),
+            _state("sensor.yearly_electricity_usage_1234567890", "346.00", "2026-04-20T08:05:00+00:00"),
+        ],
+    ]
+    restarter = _Restarter()
+    service, _, snapshots, _ = _service(
+        gateway=_HaGateway(states),
+        restarter=restarter,
+        mode="sgcc_sidecar",
+    )
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
+
+    result = _run(service.refresh("home-1", "terminal-1"))
+
+    assert restarter.restart_count == 0
+    assert restarter.fetch_count == 1
+    assert result.refresh_status == "SUCCESS"
+    assert result.refresh_status_detail == "SUCCESS_UPDATED"
+    assert snapshots.inserts[-1].monthly_usage == 46.0

@@ -570,6 +570,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/sgcc-login-qrcode/bind-energy-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bind Sgcc Energy Account */
+        post: operations["post_api_v1_settings_sgcc_login_qrcode_bind_energy_account"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/sgcc-login-qrcode/file": {
         parameters: {
             query?: never;
@@ -1830,10 +1847,20 @@ export interface components {
             accepted: boolean;
             /** Refresh Status */
             refresh_status: string;
+            /** Refresh Status Detail */
+            refresh_status_detail: string;
+            /** Source Updated */
+            source_updated: boolean;
+            /** Source Updated At */
+            source_updated_at?: string | null;
             /** Started At */
             started_at: string;
+            /** System Updated At */
+            system_updated_at?: string | null;
             /** Timeout Seconds */
             timeout_seconds: number;
+            /** Upstream Triggered */
+            upstream_triggered: boolean;
         };
         /** EnergyResponse */
         EnergyResponse: {
@@ -1857,6 +1884,12 @@ export interface components {
             provider?: string | null;
             /** Refresh Status */
             refresh_status?: string | null;
+            /** Refresh Status Detail */
+            refresh_status_detail?: string | null;
+            /** Source Updated At */
+            source_updated_at?: string | null;
+            /** System Updated At */
+            system_updated_at?: string | null;
             /** Updated At */
             updated_at?: string | null;
             /** Yearly Usage */
@@ -1985,6 +2018,8 @@ export interface components {
             monthly_usage?: number | null;
             /** Refresh Status */
             refresh_status: string;
+            /** Source Updated At */
+            source_updated_at?: string | null;
             /** Updated At */
             updated_at?: string | null;
             /** Yearly Usage */
@@ -10486,6 +10521,187 @@ export interface operations {
         };
     };
     get_api_v1_settings_sgcc_login_qrcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_SgccLoginQrCodeStatusResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    post_api_v1_settings_sgcc_login_qrcode_bind_energy_account: {
         parameters: {
             query?: never;
             header?: never;

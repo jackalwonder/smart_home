@@ -34,6 +34,16 @@ export function regenerateSgccLoginQrCode() {
   );
 }
 
+export function bindSgccEnergyAccount() {
+  return apiRequest<SgccLoginQrCodeStatusDto>(
+    "/api/v1/settings/sgcc-login-qrcode/bind-energy-account",
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+  );
+}
+
 export async function fetchSgccLoginQrCodeImage(pathOrUrl: string) {
   const url = new URL(pathOrUrl, API_BASE_URL);
   const accessToken = getAccessToken();

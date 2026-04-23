@@ -2,12 +2,15 @@ import { SgccLoginQrCodeStatusDto } from "../../api/types";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface SgccLoginQrCodePanelProps {
+  bindBusy: boolean;
+  canBind: boolean;
   canRegenerate: boolean;
   imageUrl: string | null;
   loading: boolean;
   message: string | null;
   regenerateBusy: boolean;
   status: SgccLoginQrCodeStatusDto | null;
+  onBindEnergyAccount: () => void;
   onRegenerate: () => void;
   onRefreshStatus: () => void;
 }
@@ -33,16 +36,19 @@ function formatFileSize(value: number | null | undefined) {
 }
 
 export function SgccLoginQrCodePanel({
+  bindBusy,
+  canBind,
   canRegenerate,
   imageUrl,
   loading,
   message,
   regenerateBusy,
   status,
+  onBindEnergyAccount,
   onRegenerate,
   onRefreshStatus,
 }: SgccLoginQrCodePanelProps) {
-  const busy = loading || regenerateBusy;
+  const busy = loading || regenerateBusy || bindBusy;
 
   return (
     <SettingsModuleCard
@@ -95,9 +101,17 @@ export function SgccLoginQrCodePanel({
         >
           {regenerateBusy ? "重新生成中..." : "重新生成二维码"}
         </button>
+        <button
+          className="button button--primary"
+          disabled={!canBind || busy}
+          onClick={onBindEnergyAccount}
+          type="button"
+        >
+          {bindBusy ? "绑定中..." : "绑定电费账号"}
+        </button>
       </div>
-      {!canRegenerate ? (
-        <p className="inline-error">重新生成二维码前，请先验证管理 PIN。</p>
+      {!canRegenerate || !canBind ? (
+        <p className="inline-error">重新生成二维码或绑定账号前，请先验证管理 PIN。</p>
       ) : null}
       {message ? <p className="inline-error">{message}</p> : null}
       {!message && status?.message ? (

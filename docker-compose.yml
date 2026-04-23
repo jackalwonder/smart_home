@@ -22,18 +22,22 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://smart_home:smart_home@postgres:5432/smart_home}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       TZ: ${TZ:-Asia/Shanghai}
-      CONNECTION_ENCRYPTION_SECRET: ${CONNECTION_ENCRYPTION_SECRET:-smart-home-local-secret}
+      CONNECTION_ENCRYPTION_SECRET: ${CONNECTION_ENCRYPTION_SECRET:?CONNECTION_ENCRYPTION_SECRET is required}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:?ACCESS_TOKEN_SECRET is required}
       HOME_ASSISTANT_BOOTSTRAP_ENABLED: ${HOME_ASSISTANT_BOOTSTRAP_ENABLED:-true}
       HOME_ASSISTANT_BOOTSTRAP_URL: ${HOME_ASSISTANT_BOOTSTRAP_URL:-http://homeassistant:8123}
       HOME_ASSISTANT_BOOTSTRAP_ACCESS_TOKEN: ${HOME_ASSISTANT_BOOTSTRAP_ACCESS_TOKEN:-}
       HOME_ASSISTANT_BOOTSTRAP_CONNECTION_MODE: ${HOME_ASSISTANT_BOOTSTRAP_CONNECTION_MODE:-TOKEN}
-      BOOTSTRAP_TOKEN_SECRET: ${BOOTSTRAP_TOKEN_SECRET:-smart-home-local-bootstrap-token-secret}
+      BOOTSTRAP_TOKEN_SECRET: ${BOOTSTRAP_TOKEN_SECRET:?BOOTSTRAP_TOKEN_SECRET is required}
       BOOTSTRAP_TOKEN_TTL_SECONDS: ${BOOTSTRAP_TOKEN_TTL_SECONDS:-2592000}
       BOOTSTRAP_TOKEN_LEEWAY_SECONDS: ${BOOTSTRAP_TOKEN_LEEWAY_SECONDS:-0}
       SGCC_QR_CODE_FILE: ${SGCC_QR_CODE_FILE:-/app/backend/sgcc/login_qr_code.png}
       SGCC_CACHE_FILE: ${SGCC_CACHE_FILE:-/app/backend/sgcc/sgcc_cache.json}
       SGCC_DOCKER_SOCKET_PATH: ${SGCC_DOCKER_SOCKET_PATH:-/var/run/docker.sock}
       SGCC_DOCKER_CONTAINER_NAME: ${SGCC_DOCKER_CONTAINER_NAME:-smart-home-sgcc-electricity}
+      SGCC_SIDECAR_BASE_URL: ${SGCC_SIDECAR_BASE_URL:-http://sgcc_electricity:8080}
+      SGCC_SIDECAR_TIMEOUT_SECONDS: ${SGCC_SIDECAR_TIMEOUT_SECONDS:-10}
+      SGCC_SIDECAR_FALLBACK_ENABLED: ${SGCC_SIDECAR_FALLBACK_ENABLED:-false}
       WEATHER_LOCATION_LABEL: ${WEATHER_LOCATION_LABEL:-}
       WEATHER_HOME_ASSISTANT_ENTITY_ID: ${WEATHER_HOME_ASSISTANT_ENTITY_ID:-}
       WEATHER_LATITUDE: ${WEATHER_LATITUDE:-42.26298161148389}
@@ -42,21 +46,22 @@ services:
       ENERGY_AUTO_REFRESH_HOUR: ${ENERGY_AUTO_REFRESH_HOUR:-7}
       ENERGY_AUTO_REFRESH_MINUTE: ${ENERGY_AUTO_REFRESH_MINUTE:-30}
       ENERGY_AUTO_REFRESH_TIMEZONE: ${ENERGY_AUTO_REFRESH_TIMEZONE:-Asia/Shanghai}
-      ENERGY_UPSTREAM_REFRESH_MODE: ${ENERGY_UPSTREAM_REFRESH_MODE:-docker_exec_fetch}
+      ENERGY_UPSTREAM_REFRESH_MODE: ${ENERGY_UPSTREAM_REFRESH_MODE:-sgcc_sidecar}
       ENERGY_UPSTREAM_HA_DOMAIN: ${ENERGY_UPSTREAM_HA_DOMAIN:-}
       ENERGY_UPSTREAM_HA_SERVICE: ${ENERGY_UPSTREAM_HA_SERVICE:-}
       ENERGY_UPSTREAM_HA_ENTITY_ID: ${ENERGY_UPSTREAM_HA_ENTITY_ID:-}
-      ENERGY_UPSTREAM_WAIT_TIMEOUT_SECONDS: ${ENERGY_UPSTREAM_WAIT_TIMEOUT_SECONDS:-900}
-      ENERGY_UPSTREAM_POLL_INTERVAL_SECONDS: ${ENERGY_UPSTREAM_POLL_INTERVAL_SECONDS:-10}
+      ENERGY_UPSTREAM_WAIT_TIMEOUT_SECONDS: ${ENERGY_UPSTREAM_WAIT_TIMEOUT_SECONDS:-45}
+      ENERGY_UPSTREAM_POLL_INTERVAL_SECONDS: ${ENERGY_UPSTREAM_POLL_INTERVAL_SECONDS:-5}
     ports:
       - "${APP_PORT:-28000}:8000"
     volumes:
       - backend_storage:/app/backend/storage
       - ./deploy/sgcc_electricity:/app/backend/sgcc
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       homeassistant:
         condition: service_started
+      sgcc_electricity:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -99,13 +104,21 @@ services:
       CONTAINER_TIMEZONE: ${TZ:-Asia/Shanghai}
       DIRECT_QRCODE_LOGIN: "true"
       LOGIN_FALLBACK: "qrcode"
-    command: python3 main.py
+      PYTHON_IN_DOCKER: "true"
+      SGCC_QR_CODE_TTL_SECONDS: ${SGCC_QR_CODE_TTL_SECONDS:-60}
+    command: uvicorn sgcc_sidecar:app --host 0.0.0.0 --port 8080
     init: true
     volumes:
       - ./deploy/sgcc_electricity:/data
     depends_on:
       homeassistant:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   postgres:
     image: postgres:16-alpine

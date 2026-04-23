@@ -55,6 +55,7 @@ def test_openapi_contains_bearer_scheme_and_key_paths(client):
         "/api/v1/device-controls/{request_id}",
         "/api/v1/settings",
         "/api/v1/settings/sgcc-login-qrcode",
+        "/api/v1/settings/sgcc-login-qrcode/bind-energy-account",
         "/api/v1/settings/sgcc-login-qrcode/file",
         "/api/v1/settings/sgcc-login-qrcode/regenerate",
         "/api/v1/editor/publish",

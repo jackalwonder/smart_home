@@ -90,7 +90,13 @@ export type EventId7 = string;
 export type EventType6 = "energy_refresh_completed";
 export type HomeId8 = string;
 export type OccurredAt6 = string;
+export type LastErrorCode = string | null;
 export type RefreshStatus = string;
+export type RefreshStatusDetail = string | null;
+export type SourceUpdated = boolean;
+export type SourceUpdatedAt = string | null;
+export type SystemUpdatedAt = string | null;
+export type UpstreamTriggered = boolean;
 export type Sequence6 = number;
 export type SnapshotRequired6 = false;
 export type ChangeDomain7 = "ENERGY";
@@ -279,7 +285,13 @@ export interface EnergyRefreshCompletedEvent {
   snapshot_required: SnapshotRequired6;
 }
 export interface EnergyRefreshPayload {
+  last_error_code?: LastErrorCode;
   refresh_status: RefreshStatus;
+  refresh_status_detail?: RefreshStatusDetail;
+  source_updated?: SourceUpdated;
+  source_updated_at?: SourceUpdatedAt;
+  system_updated_at?: SystemUpdatedAt;
+  upstream_triggered?: UpstreamTriggered;
 }
 export interface EnergyRefreshFailedEvent {
   change_domain: ChangeDomain7;

@@ -263,6 +263,7 @@ class FakeHomeOverviewQueryService:
                     yearly_usage=234.5,
                     balance=88.8,
                     updated_at="2026-04-14T09:50:00Z",
+                    source_updated_at="2026-04-14T09:45:00Z",
                 ),
                 media=DefaultMediaReadModel(
                     binding_status="MEDIA_SET",

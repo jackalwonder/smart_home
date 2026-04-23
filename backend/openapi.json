@@ -3155,20 +3155,57 @@
             "title": "Refresh Status",
             "type": "string"
           },
+          "refresh_status_detail": {
+            "title": "Refresh Status Detail",
+            "type": "string"
+          },
+          "source_updated": {
+            "title": "Source Updated",
+            "type": "boolean"
+          },
+          "source_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Updated At"
+          },
           "started_at": {
             "title": "Started At",
             "type": "string"
           },
+          "system_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Updated At"
+          },
           "timeout_seconds": {
             "title": "Timeout Seconds",
             "type": "integer"
+          },
+          "upstream_triggered": {
+            "title": "Upstream Triggered",
+            "type": "boolean"
           }
         },
         "required": [
           "accepted",
           "refresh_status",
           "started_at",
-          "timeout_seconds"
+          "timeout_seconds",
+          "upstream_triggered",
+          "source_updated",
+          "refresh_status_detail"
         ],
         "title": "EnergyRefreshResponse",
         "type": "object"
@@ -3256,6 +3293,39 @@
               }
             ],
             "title": "Refresh Status"
+          },
+          "refresh_status_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Status Detail"
+          },
+          "source_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Updated At"
+          },
+          "system_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Updated At"
           },
           "updated_at": {
             "anyOf": [
@@ -3662,6 +3732,17 @@
           "refresh_status": {
             "title": "Refresh Status",
             "type": "string"
+          },
+          "source_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Updated At"
           },
           "updated_at": {
             "anyOf": [
@@ -25733,6 +25814,459 @@
           }
         ],
         "summary": "Get Sgcc Login Qr Code Status",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/sgcc-login-qrcode/bind-energy-account": {
+      "post": {
+        "operationId": "post_api_v1_settings_sgcc_login_qrcode_bind_energy_account",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope_SgccLoginQrCodeStatusResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "server_time"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invalid request parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "server_time"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "server_time"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "PIN required or permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "server_time"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "server_time"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Method not allowed"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "server_time"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Business conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "server_time"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Bind Sgcc Energy Account",
         "tags": [
           "settings"
         ]

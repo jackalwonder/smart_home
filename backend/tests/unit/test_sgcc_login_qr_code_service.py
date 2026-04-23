@@ -21,6 +21,15 @@ class FakeRestarter:
     async def restart(self) -> None:
         self.restart_count += 1
 
+    async def fetch(self) -> None:
+        return None
+
+    async def get_status(self):
+        return None
+
+    async def get_qrcode(self):
+        return None
+
 
 def build_settings(qr_path, ttl_seconds=60):
     return SimpleNamespace(
@@ -68,7 +77,7 @@ async def test_get_status_reports_ready_png(tmp_path):
     qr_path.write_bytes(PNG_SIGNATURE + b"test-payload")
     service = SgccLoginQrCodeService(
         build_settings(qr_path),
-        container_restarter=FakeRestarter(),
+        runtime_control=FakeRestarter(),
     )
 
     status = await service.get_status()
@@ -88,7 +97,7 @@ async def test_get_status_reports_pending_for_non_png(tmp_path):
     qr_path.write_text("__NO_QR__", encoding="utf-8")
     service = SgccLoginQrCodeService(
         build_settings(qr_path),
-        container_restarter=FakeRestarter(),
+        runtime_control=FakeRestarter(),
     )
 
     status = await service.get_status()
@@ -104,7 +113,7 @@ async def test_get_status_hides_expired_png(tmp_path):
     qr_path.write_bytes(PNG_SIGNATURE + b"test-payload")
     service = SgccLoginQrCodeService(
         build_settings(qr_path, ttl_seconds=-1),
-        container_restarter=FakeRestarter(),
+        runtime_control=FakeRestarter(),
     )
 
     status = await service.get_status()
@@ -118,7 +127,7 @@ async def test_get_status_hides_expired_png(tmp_path):
 async def test_get_file_raises_when_qr_not_ready(tmp_path):
     service = SgccLoginQrCodeService(
         build_settings(tmp_path / "missing.png"),
-        container_restarter=FakeRestarter(),
+        runtime_control=FakeRestarter(),
     )
 
     with pytest.raises(AppError):
@@ -132,7 +141,7 @@ async def test_regenerate_removes_old_qr_and_restarts_container(tmp_path):
     restarter = FakeRestarter()
     service = SgccLoginQrCodeService(
         build_settings(qr_path),
-        container_restarter=restarter,
+        runtime_control=restarter,
     )
 
     status = await service.regenerate()
@@ -143,7 +152,7 @@ async def test_regenerate_removes_old_qr_and_restarts_container(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_get_status_auto_binds_energy_from_sgcc_cache_and_ha_states(tmp_path):
+async def test_get_status_does_not_auto_bind_energy_from_sgcc_cache(tmp_path):
     qr_path = tmp_path / "login_qr_code.png"
     cache_path = tmp_path / "sgcc_cache.json"
     cache_path.write_text(
@@ -162,10 +171,43 @@ async def test_get_status_auto_binds_energy_from_sgcc_cache_and_ha_states(tmp_pa
                 state("sensor.yearly_electricity_usage_8170"),
             ]
         ),
-        container_restarter=FakeRestarter(),
+        runtime_control=FakeRestarter(),
     )
 
     status = await service.get_status(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        member_id="member-1",
+    )
+
+    assert status.status == "PENDING"
+    assert repository.upserts == []
+
+
+@pytest.mark.asyncio
+async def test_bind_energy_account_from_sgcc_cache_and_ha_states(tmp_path):
+    qr_path = tmp_path / "login_qr_code.png"
+    cache_path = tmp_path / "sgcc_cache.json"
+    cache_path.write_text(
+        json.dumps({"1503525238170": {"timestamp": "2026-04-20T21:35:02"}}),
+        encoding="utf-8",
+    )
+    repository = FakeEnergyAccountRepository()
+    service = SgccLoginQrCodeService(
+        build_settings(qr_path),
+        energy_account_repository=repository,
+        ha_connection_gateway=FakeHaConnectionGateway(
+            [
+                state("sensor.last_electricity_usage_8170"),
+                state("sensor.month_electricity_usage_8170"),
+                state("sensor.electricity_charge_balance_8170"),
+                state("sensor.yearly_electricity_usage_8170"),
+            ]
+        ),
+        runtime_control=FakeRestarter(),
+    )
+
+    status = await service.bind_energy_account(
         home_id="home-1",
         terminal_id="terminal-1",
         member_id="member-1",
@@ -183,7 +225,7 @@ async def test_get_status_auto_binds_energy_from_sgcc_cache_and_ha_states(tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_get_status_auto_binds_with_sgcc_last_four_suffix_when_ha_states_are_not_ready(tmp_path):
+async def test_bind_energy_account_uses_sgcc_last_four_suffix_when_ha_states_are_not_ready(tmp_path):
     qr_path = tmp_path / "login_qr_code.png"
     (tmp_path / "sgcc_cache.json").write_text(
         json.dumps({"1503525238170": {"timestamp": "2026-04-20T21:35:02"}}),
@@ -194,10 +236,10 @@ async def test_get_status_auto_binds_with_sgcc_last_four_suffix_when_ha_states_a
         build_settings(qr_path),
         energy_account_repository=repository,
         ha_connection_gateway=FakeHaConnectionGateway(None),
-        container_restarter=FakeRestarter(),
+        runtime_control=FakeRestarter(),
     )
 
-    status = await service.get_status(home_id="home-1")
+    status = await service.bind_energy_account(home_id="home-1")
 
     assert status.status == "BOUND"
     payload = json.loads(repository.upserts[0].account_payload_encrypted)

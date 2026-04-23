@@ -10,6 +10,7 @@ from src.modules.device_control.services.command.DeviceControlCommandService imp
     DeviceControlCommandInput,
     DeviceControlCommandService,
 )
+from src.infrastructure.ha.HaControlGateway import HaControlSubmitResult
 from src.repositories.rows.index import DeviceControlRequestRow, DeviceRow
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
@@ -102,11 +103,17 @@ class _WsEventOutboxRepository:
 
 
 class _Gateway:
-    def __init__(self):
+    def __init__(self, result=None):
         self.submitted_payload = None
+        self.result = result or HaControlSubmitResult(
+            submitted=True,
+            status="ACKNOWLEDGED",
+            reason="HA_ACKNOWLEDGED",
+        )
 
     async def submit_control(self, command):
         self.submitted_payload = command.payload
+        return self.result
 
 
 class _EventIdGenerator:
@@ -119,8 +126,8 @@ class _Clock:
         return datetime(2026, 4, 14, 10, 0, 0, tzinfo=timezone.utc)
 
 
-def _build_service(*, schemas, existing=None):
-    gateway = _Gateway()
+def _build_service(*, schemas, existing=None, gateway_result=None):
+    gateway = _Gateway(gateway_result)
     service = DeviceControlCommandService(
         unit_of_work=_UnitOfWork(),
         device_repository=_DeviceRepository(),
@@ -343,3 +350,45 @@ async def test_accept_reuses_existing_request_with_normalized_payload():
     assert result.confirmation_type == "ACK_DRIVEN"
     assert result.timeout_seconds == 30
     assert gateway.submitted_payload is None
+
+
+@pytest.mark.asyncio
+async def test_accept_marks_failed_when_ha_gateway_does_not_submit():
+    service, gateway = _build_service(
+        schemas=[
+            _Schema(
+                action_type="SET_POWER_STATE",
+                target_scope="PRIMARY",
+                target_key="entity.light_1",
+                value_type="BOOLEAN",
+                value_range_json=None,
+                allowed_values_json=None,
+                unit=None,
+            )
+        ],
+        gateway_result=HaControlSubmitResult(
+            submitted=False,
+            status="MISCONFIGURED",
+            reason="HA_CONNECTION_MISSING",
+            message="Home Assistant connection is not configured.",
+        ),
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await service.accept(
+            DeviceControlCommandInput(
+                home_id="home-1",
+                request_id="req-2",
+                device_id="device-1",
+                action_type="SET_POWER_STATE",
+                payload={"value": True},
+            )
+        )
+
+    assert exc_info.value.code == ErrorCode.HA_UNAVAILABLE
+    assert gateway.submitted_payload == {
+        "target_scope": "PRIMARY",
+        "target_key": "entity.light_1",
+        "value": True,
+        "unit": None,
+    }

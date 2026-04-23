@@ -138,6 +138,19 @@ class FakeSgccLoginQrCodeService:
             message="Regenerating.",
         )
 
+    async def bind_energy_account(self, **_kwargs):
+        return SgccLoginQrCodeStatusView(
+            available=False,
+            status="BOUND",
+            image_url=None,
+            updated_at="2026-04-20T12:00:00+00:00",
+            expires_at=None,
+            age_seconds=None,
+            file_size_bytes=None,
+            mime_type="application/json",
+            message="SGCC login data detected and energy binding was saved.",
+        )
+
     async def get_file(self):
         return SgccLoginQrCodeFileView(
             path=__file__,
@@ -188,6 +201,9 @@ def test_get_split_settings_routes(app, client):
     sgcc_qr_regenerate_response = client.post(
         "/api/v1/settings/sgcc-login-qrcode/regenerate"
     )
+    sgcc_qr_bind_response = client.post(
+        "/api/v1/settings/sgcc-login-qrcode/bind-energy-account"
+    )
 
     assert function_response.status_code == 200
     assert function_response.json()["data"]["music_enabled"] is True
@@ -208,6 +224,9 @@ def test_get_split_settings_routes(app, client):
 
     assert sgcc_qr_regenerate_response.status_code == 200
     assert sgcc_qr_regenerate_response.json()["data"]["status"] == "PENDING"
+
+    assert sgcc_qr_bind_response.status_code == 200
+    assert sgcc_qr_bind_response.json()["data"]["status"] == "BOUND"
 
 
 def test_put_settings_returns_new_version(app, client):

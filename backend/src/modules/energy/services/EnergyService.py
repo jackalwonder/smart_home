@@ -453,7 +453,7 @@ class EnergyService:
                 return FAILED_UPSTREAM_TRIGGER
             return None
 
-        if self._upstream_refresh_mode == "docker_exec_fetch":
+        if self._upstream_refresh_mode in {"docker_exec_fetch", "sgcc_sidecar"}:
             if self._sgcc_container_restarter is None:
                 return FAILED_UPSTREAM_TRIGGER
             try:
@@ -472,7 +472,13 @@ class EnergyService:
         entity_ids: dict[str, str],
         previous_source_updated_at: str | None,
     ) -> UpstreamWaitResult:
-        deadline = asyncio.get_running_loop().time() + self._upstream_wait_timeout_seconds
+        loop = asyncio.get_running_loop()
+        started_at = loop.time()
+        deadline = started_at + self._upstream_wait_timeout_seconds
+        stale_source_return_after = min(
+            deadline,
+            started_at + self._upstream_poll_interval_seconds * 2,
+        )
         latest_states_by_entity_id: dict[str, HaStateEntry] | None = None
 
         while True:
@@ -488,7 +494,18 @@ class EnergyService:
                         states_by_entity_id=latest_states_by_entity_id,
                         source_updated=True,
                     )
-            if asyncio.get_running_loop().time() >= deadline:
+                if (
+                    loop.time() >= stale_source_return_after
+                    and not isinstance(
+                        _extract_energy_values(entity_ids, latest_states_by_entity_id),
+                        str,
+                    )
+                ):
+                    return UpstreamWaitResult(
+                        states_by_entity_id=latest_states_by_entity_id,
+                        source_updated=False,
+                    )
+            if loop.time() >= deadline:
                 break
             await asyncio.sleep(self._upstream_poll_interval_seconds)
 
