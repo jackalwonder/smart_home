@@ -262,7 +262,108 @@ async def test_invalid_legacy_session_cookie_remains_strict_when_session_require
 
 
 @pytest.mark.asyncio
-async def test_websocket_token_query_can_carry_bearer_jwt():
+async def test_websocket_subprotocol_can_carry_bearer_jwt():
+    resolver = _resolver()
+    token = resolver.issue(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        scope=("api", "ws"),
+    )
+    service = RequestContextService(
+        database=object(),  # type: ignore[arg-type]
+        access_token_resolver=resolver,
+    )
+
+    context = await service.resolve_websocket_request(
+        _request(headers={"sec-websocket-protocol": f"bearer, {token}"}),
+        require_home=True,
+        require_terminal=True,
+        require_session_auth=True,
+    )
+
+    assert context.auth_mode == "bearer"
+    assert context.home_id == "home-1"
+    assert context.terminal_id == "terminal-1"
+
+
+@pytest.mark.asyncio
+async def test_websocket_query_access_token_is_legacy_compatible():
+    resolver = _resolver()
+    token = resolver.issue(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        scope=("api", "ws"),
+    )
+    service = RequestContextService(
+        database=object(),  # type: ignore[arg-type]
+        access_token_resolver=resolver,
+    )
+
+    context = await service.resolve_websocket_request(
+        _request(query_params={"access_token": token}),
+        require_home=True,
+        require_terminal=True,
+        require_session_auth=True,
+    )
+
+    assert context.auth_mode == "bearer"
+    assert context.home_id == "home-1"
+    assert context.terminal_id == "terminal-1"
+
+
+@pytest.mark.asyncio
+async def test_websocket_cookie_access_token_is_not_accepted():
+    resolver = _resolver()
+    token = resolver.issue(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        scope=("api", "ws"),
+    )
+    service = RequestContextService(
+        database=object(),  # type: ignore[arg-type]
+        access_token_resolver=resolver,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await service.resolve_websocket_request(
+            _request(cookies={"access_token": token}),
+            require_home=True,
+            require_terminal=True,
+            require_session_auth=True,
+        )
+
+    assert exc_info.value.code == ErrorCode.UNAUTHORIZED
+    assert exc_info.value.message == "session authentication is required"
+
+
+@pytest.mark.asyncio
+async def test_websocket_explicit_token_is_not_accepted():
+    resolver = _resolver()
+    token = resolver.issue(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        scope=("api", "ws"),
+    )
+    service = RequestContextService(
+        database=object(),  # type: ignore[arg-type]
+        access_token_resolver=resolver,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await service.resolve_websocket_request(
+            _request(),
+            explicit_token=token,
+            require_home=True,
+            require_terminal=True,
+            require_session_auth=True,
+        )
+
+    assert exc_info.value.code == ErrorCode.UNAUTHORIZED
+    assert exc_info.value.message == "session authentication is required"
+
+
+@pytest.mark.asyncio
+async def test_internal_context_can_still_resolve_explicit_ws_token():
     resolver = _resolver()
     token = resolver.issue(
         home_id="home-1",

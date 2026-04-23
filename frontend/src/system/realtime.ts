@@ -12,6 +12,7 @@ type SnapshotTarget = "editor" | "home" | "settings";
 let pendingSnapshotTargets = new Set<SnapshotTarget>();
 let snapshotRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let snapshotRefreshChain: Promise<void> = Promise.resolve();
+let snapshotRefreshResolvers: Array<() => void> = [];
 
 function targetsForEvent(event: WsEvent): SnapshotTarget[] {
   switch (event.event_type) {
@@ -107,19 +108,24 @@ function flushSnapshotRefreshes() {
   snapshotRefreshTimer = null;
   snapshotRefreshChain = snapshotRefreshChain
     .catch(() => undefined)
-    .then(() => refreshSnapshots(targets));
+    .then(() => refreshSnapshots(targets))
+    .finally(() => {
+      const resolvers = snapshotRefreshResolvers;
+      snapshotRefreshResolvers = [];
+      resolvers.forEach((resolve) => resolve());
+    });
 }
 
-function scheduleSnapshotRefresh(targets: SnapshotTarget[]) {
+function scheduleSnapshotRefresh(targets: SnapshotTarget[]): Promise<void> {
   if (targets.length === 0) {
-    return;
+    return snapshotRefreshChain;
   }
 
   targets.forEach((target) => pendingSnapshotTargets.add(target));
-  if (snapshotRefreshTimer !== null) {
-    return;
+  if (snapshotRefreshTimer === null) {
+    snapshotRefreshTimer = setTimeout(flushSnapshotRefreshes, 250);
   }
-  snapshotRefreshTimer = setTimeout(flushSnapshotRefreshes, 250);
+  return new Promise((resolve) => snapshotRefreshResolvers.push(resolve));
 }
 
 function clearSnapshotRefreshQueue() {
@@ -128,6 +134,9 @@ function clearSnapshotRefreshQueue() {
   }
   pendingSnapshotTargets = new Set();
   snapshotRefreshTimer = null;
+  const resolvers = snapshotRefreshResolvers;
+  snapshotRefreshResolvers = [];
+  resolvers.forEach((resolve) => resolve());
 }
 
 export function syncRealtimeSession(session: SessionModel) {
@@ -159,7 +168,7 @@ export function syncRealtimeSession(session: SessionModel) {
                 ? "正在建立实时连接。"
                 : null,
       }),
-    onEvent: (event) => {
+    onEvent: async (event) => {
       appStore.setRealtimeState({
         connectionStatus: "connected",
         lastEventType: event.event_type,
@@ -167,7 +176,7 @@ export function syncRealtimeSession(session: SessionModel) {
         reconnectAttempt: 0,
         notice: null,
       });
-      scheduleSnapshotRefresh(targetsForEvent(event));
+      await scheduleSnapshotRefresh(targetsForEvent(event));
     },
     onRecovered: () => {
       refreshAllSnapshots();

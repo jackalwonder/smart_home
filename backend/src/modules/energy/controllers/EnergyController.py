@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Query, Request
+from fastapi import APIRouter, Body, Depends, Request
 from pydantic import Field
 
 from src.app.container import get_energy_service, get_request_context_service

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any
 
 from psycopg.types.json import Jsonb
 from sqlalchemy import bindparam, text
 
-from src.infrastructure.ha.HaConnectionGateway import HaRegistryEntry, HaStateEntry, HaSyncSnapshot
+from src.infrastructure.ha.HaConnectionGateway import HaSyncSnapshot
 from src.repositories.base.devices.DeviceControlSchemaRepository import DeviceControlSchemaRepository
 from src.repositories.base.devices.DeviceControlSchemaRepository import NewDeviceControlSchemaRow
 from src.shared.kernel.Clock import Clock
