@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   createBackup,
@@ -182,6 +182,18 @@ const OPERATIONS_SECTION_KEYS: SettingsSectionViewModel["key"][] = [
   "delivery",
   "backup",
 ];
+const CURRENT_SETTINGS_SECTION_KEYS = new Set<SettingsSectionViewModel["key"]>([
+  "home",
+  "system",
+  "delivery",
+  "backup",
+]);
+const LEGACY_HOME_SECTION_KEYS = new Set([
+  "favorites",
+  "home-advanced",
+  "page",
+  "function",
+]);
 const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
   {
     key: "new-terminal",
@@ -281,18 +293,17 @@ function getSettingsTaskFlow(flowKey: SettingsTaskFlowKey) {
 function normalizeSettingsSectionKey(
   value: string | null,
 ): SettingsSectionViewModel["key"] {
-  if (
-    value === "favorites" ||
-    value === "home-advanced" ||
-    value === "page" ||
-    value === "function" ||
-    value === "home"
-  ) {
+  if (!value) {
     return "home";
   }
 
-  if (value === "system" || value === "delivery" || value === "backup") {
-    return value;
+  if (CURRENT_SETTINGS_SECTION_KEYS.has(value as SettingsSectionViewModel["key"])) {
+    return value as SettingsSectionViewModel["key"];
+  }
+
+  // Legacy section query values from the pre-home-governance settings UI.
+  if (LEGACY_HOME_SECTION_KEYS.has(value)) {
+    return "home";
   }
 
   return "home";
@@ -353,6 +364,30 @@ function formatEnergyRefreshMessage(response: EnergyRefreshDto) {
     default:
       return `刷新任务已完成，状态 ${response.refresh_status}。`;
   }
+}
+
+interface SettingsSectionSummaryBlockProps {
+  rows: Array<{ label: string; value: ReactNode }>;
+  actions?: ReactNode;
+}
+
+function SettingsSectionSummaryBlock({
+  rows,
+  actions,
+}: SettingsSectionSummaryBlockProps) {
+  return (
+    <section className="utility-card settings-section-summary">
+      <div className="settings-section-summary__grid">
+        {rows.map((row, index) => (
+          <div key={`${row.label}-${index}`}>
+            <span>{row.label}</span>
+            <strong>{row.value}</strong>
+          </div>
+        ))}
+      </div>
+      {actions ? <div className="badge-row">{actions}</div> : null}
+    </section>
+  );
 }
 
 function SettingsOperationsWorkflow({
@@ -1854,64 +1889,16 @@ export function SettingsWorkspacePage() {
             这里负责首页常用设备的启停、排序和基础入口治理，设备的浏览与发现仍然放在设备页。
           </p>
         </div>
-        <section className="utility-card settings-section-summary">
-          <div className="settings-section-summary__grid">
-            <div>
-              <span>已启用设备</span>
-              <strong>{selectedFavoriteCount}</strong>
-            </div>
-            <div>
-              <span>总条目</span>
-              <strong>{settingsDraft.favorites.length}</strong>
-            </div>
-            <div>
-              <span>当前状态</span>
-              <strong>{showHomeContentManager ? "管理中" : "摘要模式"}</strong>
-            </div>
-          </div>
-          <div className="settings-home-advanced__summary-grid">
-            <div>
-              <span>发布面板</span>
-              <strong>{showHomePublishPanel ? "已展开" : "摘要模式"}</strong>
-            </div>
-            <div>
-              <span>高级编辑</span>
-              <strong>{showAdvancedEditor ? "已展开" : "默认折叠"}</strong>
-            </div>
-            <div>
-              <span>PIN</span>
-              <strong>{pin.active ? "已验证" : "待验证"}</strong>
-            </div>
-          </div>
-          <div className="settings-home-advanced__summary-grid">
-            <div>
-              <span>发布面板</span>
-              <strong>{showHomePublishPanel ? "已展开" : "摘要模式"}</strong>
-            </div>
-            <div>
-              <span>高级编辑</span>
-              <strong>{showAdvancedEditor ? "已展开" : "默认折叠"}</strong>
-            </div>
-            <div>
-              <span>PIN</span>
-              <strong>{pin.active ? "已验证" : "待验证"}</strong>
-            </div>
-          </div>
-          <div className="badge-row">
-            <button
-              className="button button--ghost"
-              onClick={() => setShowHomePublishPanel((current) => !current)}
-              type="button"
-            >
-              {showHomePublishPanel ? "收起发布面板" : "展开发布面板"}
-            </button>
-            <button
-              className="button button--ghost"
-              onClick={() => setShowHomePublishPanel((current) => !current)}
-              type="button"
-            >
-              {showHomePublishPanel ? "收起发布面板" : "展开发布面板"}
-            </button>
+        <SettingsSectionSummaryBlock
+          rows={[
+            { label: "已启用设备", value: selectedFavoriteCount },
+            { label: "总条目", value: settingsDraft.favorites.length },
+            {
+              label: "当前状态",
+              value: showHomeContentManager ? "管理中" : "摘要模式",
+            },
+          ]}
+          actions={
             <button
               className="button button--ghost"
               onClick={() => setShowHomeContentManager((current) => !current)}
@@ -1919,8 +1906,8 @@ export function SettingsWorkspacePage() {
             >
               {showHomeContentManager ? "收起管理" : "展开管理"}
             </button>
-          </div>
-        </section>
+          }
+        />
         {showHomeContentManager ? (
           <FavoritesDevicePanel
             favorites={settingsDraft.favorites}
@@ -2067,26 +2054,22 @@ export function SettingsWorkspacePage() {
   } else if (activeSection === "delivery") {
     sectionPanel = (
       <section className="settings-section-stack">
-        <section className="utility-card settings-section-summary">
-          <div className="settings-section-summary__grid">
-            <div>
-              <span>终端目录</span>
-              <strong>{bootstrapTokenDirectory.length} 台</strong>
-            </div>
-            <div>
-              <span>目标终端</span>
-              <strong>
-                {selectedBootstrapTerminal?.terminal_name ??
-                  selectedBootstrapTerminal?.terminal_code ??
-                  "-"}
-              </strong>
-            </div>
-            <div>
-              <span>详情面板</span>
-              <strong>{showDeliveryDetails ? "已展开" : "已收起"}</strong>
-            </div>
-          </div>
-          <div className="badge-row">
+        <SettingsSectionSummaryBlock
+          rows={[
+            { label: "终端目录", value: `${bootstrapTokenDirectory.length} 台` },
+            {
+              label: "目标终端",
+              value:
+                selectedBootstrapTerminal?.terminal_name ??
+                selectedBootstrapTerminal?.terminal_code ??
+                "-",
+            },
+            {
+              label: "详情面板",
+              value: showDeliveryDetails ? "已展开" : "已收起",
+            },
+          ]}
+          actions={
             <button
               className="button button--ghost"
               onClick={() => setShowDeliveryDetails((current) => !current)}
@@ -2094,8 +2077,8 @@ export function SettingsWorkspacePage() {
             >
               {showDeliveryDetails ? "收起交付详情" : "展开交付详情"}
             </button>
-          </div>
-        </section>
+          }
+        />
         {showDeliveryDetails ? (
           <>
             <TerminalDeliveryOverviewPanel
@@ -2138,82 +2121,38 @@ export function SettingsWorkspacePage() {
         ) : null}
       </section>
     );
-  } else if (false) {
-    sectionPanel = (
-      <section className="settings-home-advanced-shell">
-        <section className="panel settings-home-advanced__intro">
-          <div>
-            <span className="card-eyebrow">首页高级设置</span>
-            <h3>布局资源、批量编排和草稿治理都在这里</h3>
-            <p className="muted-copy">
-              总览页只保留所见即所得的轻编辑；背景资源、批量调整、草稿和发布治理统一收口到这一页。
-            </p>
-          </div>
-          <div className="badge-row">
-            <Link className="button button--primary" to="/?edit=1">
-              进入总览轻编辑
-            </Link>
-          </div>
-        </section>
-        <EditorWorkbenchWorkspace embedded />
-      </section>
-    );
-  } else if (false) {
-    sectionPanel = (
-      <PageSettingsPanel
-        draft={settingsDraft.page}
-        onAddPolicyEntry={addPolicyDraft}
-        onChangePolicyEntry={updatePolicyDraft}
-        onChangeRoomLabelMode={(value) =>
-          updatePageDraft("roomLabelMode", value)
-        }
-        onRemovePolicyEntry={removePolicyDraft}
-        onSetPolicyValue={upsertPolicyDraft}
-      />
-    );
-  } else if (false) {
-    sectionPanel = (
-      <FunctionSettingsPanel
-        draft={settingsDraft.function}
-        onChange={updateFunctionDraft}
-      />
-    );
   } else if (activeSection === "backup") {
     sectionPanel = (
       <section className="settings-section-stack">
-        <section className="utility-card settings-section-summary">
-          <div className="settings-section-summary__grid">
-            <div>
-              <span>可用备份</span>
-              <strong>{backupItems.length} 条</strong>
-            </div>
-            <div>
-              <span>恢复审计</span>
-              <strong>{backupRestoreAudits.length} 条</strong>
-            </div>
-            <div>
-              <span>详情列表</span>
-              <strong>{showBackupDetails ? "已展开" : "已收起"}</strong>
-            </div>
-          </div>
-          <div className="badge-row">
-            <button
-              className="button button--ghost"
-              onClick={() => setShowBackupDetails((current) => !current)}
-              type="button"
-            >
-              {showBackupDetails ? "收起备份详情" : "展开备份详情"}
-            </button>
-            <button
-              className="button button--primary"
-              disabled={!pin.active || backupCreateBusy || backupLoading}
-              onClick={() => void handleCreateBackup()}
-              type="button"
-            >
-              {backupCreateBusy ? "创建中..." : "创建备份"}
-            </button>
-          </div>
-        </section>
+        <SettingsSectionSummaryBlock
+          rows={[
+            { label: "可用备份", value: `${backupItems.length} 条` },
+            { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
+            {
+              label: "详情列表",
+              value: showBackupDetails ? "已展开" : "已收起",
+            },
+          ]}
+          actions={
+            <>
+              <button
+                className="button button--ghost"
+                onClick={() => setShowBackupDetails((current) => !current)}
+                type="button"
+              >
+                {showBackupDetails ? "收起备份详情" : "展开备份详情"}
+              </button>
+              <button
+                className="button button--primary"
+                disabled={!pin.active || backupCreateBusy || backupLoading}
+                onClick={() => void handleCreateBackup()}
+                type="button"
+              >
+                {backupCreateBusy ? "创建中..." : "创建备份"}
+              </button>
+            </>
+          }
+        />
         {showBackupDetails ? (
           <BackupManagementPanel
             auditLoading={backupAuditLoading}
@@ -2254,11 +2193,7 @@ export function SettingsWorkspacePage() {
       >
         <div className="settings-showcase-shell">
           <SettingsHeaderBar
-            description={
-              OPERATIONS_SECTION_KEYS.includes(activeSection)
-                ? `${activeSectionConfig.description} 当前任务：${activeTaskFlowConfig.title}。${activeTaskFlowConfig.description}`
-                : activeSectionConfig.description
-            }
+            description={headerDescription}
             status={settings.status}
             title={currentSectionConfig.label}
             version={viewModel.version}
@@ -2298,22 +2233,16 @@ export function SettingsWorkspacePage() {
             </section>
           ) : null}
           {OPERATIONS_SECTION_KEYS.includes(activeSection) ? (
-            <section className="utility-card settings-section-summary">
-              <div className="settings-section-summary__grid">
-                <div>
-                  <span>当前任务</span>
-                  <strong>{currentTaskFlowConfig.title}</strong>
-                </div>
-                <div>
-                  <span>目标结果</span>
-                  <strong>{currentTaskFlowConfig.eyebrow}</strong>
-                </div>
-                <div>
-                  <span>流程说明</span>
-                  <strong>{showOperationsGuide ? "已展开" : "已收起"}</strong>
-                </div>
-              </div>
-              <div className="badge-row">
+            <SettingsSectionSummaryBlock
+              rows={[
+                { label: "当前任务", value: currentTaskFlowConfig.title },
+                { label: "目标结果", value: currentTaskFlowConfig.eyebrow },
+                {
+                  label: "流程说明",
+                  value: showOperationsGuide ? "已展开" : "已收起",
+                },
+              ]}
+              actions={
                 <button
                   className="button button--ghost"
                   onClick={() => setShowOperationsGuide((current) => !current)}
@@ -2321,8 +2250,8 @@ export function SettingsWorkspacePage() {
                 >
                   {showOperationsGuide ? "收起流程" : "展开流程"}
                 </button>
-              </div>
-            </section>
+              }
+            />
           ) : null}
           {OPERATIONS_SECTION_KEYS.includes(activeSection) && showOperationsGuide ? (
             <SettingsOperationsWorkflow

@@ -33,91 +33,6 @@
   min-height: 100%;
 }
 
-.settings-showcase-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.settings-showcase-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: center;
-  min-height: 106px;
-  padding: 16px 18px;
-  overflow: hidden;
-  border: 1px solid rgba(104, 219, 255, 0.16);
-  border-radius: 8px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
-    rgba(5, 12, 26, 0.82);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
-}
-
-.settings-showcase-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: rgba(47, 140, 255, 0.38);
-}
-
-.settings-showcase-card.is-active,
-.settings-showcase-card:hover {
-  border-color: rgba(104, 219, 255, 0.36);
-  background:
-    linear-gradient(90deg, rgba(22, 124, 255, 0.22), rgba(255, 255, 255, 0.028)),
-    rgba(5, 12, 26, 0.9);
-}
-
-.settings-showcase-card__glyph {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border: 1px solid rgba(104, 219, 255, 0.22);
-  border-radius: 8px;
-  background: rgba(47, 140, 255, 0.14);
-  color: #dff8ff;
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.settings-showcase-card__copy {
-  display: grid;
-  gap: 3px;
-}
-
-.settings-showcase-card__copy strong {
-  font-size: 22px;
-}
-
-.settings-showcase-card__copy small,
-.settings-showcase-card__copy em {
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
-}
-
-.settings-showcase-card__cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid rgba(104, 219, 255, 0.2);
-  border-radius: 999px;
-  background: rgba(47, 140, 255, 0.12);
-  color: #cdefff;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .settings-side-nav {
   display: grid;
   gap: 8px;
@@ -1087,14 +1002,6 @@
   justify-content: flex-end;
 }
 
-.settings-home-shell__group:first-of-type .settings-home-advanced__summary-grid {
-  display: none;
-}
-
-.settings-home-shell__group:first-of-type .badge-row .button:nth-child(-n + 2) {
-  display: none;
-}
-
 .settings-home-shell__stack,
 .settings-section-stack,
 .settings-home-shell__publish-panel {
@@ -1185,15 +1092,6 @@
 
   .settings-overview-card__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .settings-showcase-card {
-    grid-template-columns: 56px minmax(0, 1fr);
-  }
-
-  .settings-showcase-card__cta {
-    grid-column: 2;
-    justify-self: start;
   }
 
   .settings-form-grid,
