@@ -896,12 +896,17 @@ async function openRealtimeProbe(page: Page, accessToken: string) {
 async function unlockManagementPin(page: Page) {
   await page.goto("/");
   await page.getByRole("link", { name: "设置" }).click();
-  await expect(page.getByRole("heading", { name: "管理 PIN" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "设置分区" }),
+  ).toBeVisible();
 
-  const pinInput = page.getByPlaceholder("输入管理 PIN");
-  if (await pinInput.isVisible()) {
+  const pinCard = page.locator(".settings-inline-pin .pin-card").first();
+  await expect(pinCard).toBeVisible();
+
+  const pinInput = pinCard.getByPlaceholder("输入管理 PIN");
+  if ((await pinInput.count()) > 0 && (await pinInput.isVisible())) {
     await pinInput.fill(DEV_PIN);
-    await page.getByRole("button", { name: "验证 PIN" }).click();
+    await pinCard.locator("form").getByRole("button", { name: "验证 PIN" }).click();
   }
 
   await expect(
@@ -977,15 +982,20 @@ async function ensureEditorWritable(page: Page) {
 test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "总览" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "家庭总览" })).toBeVisible();
+  await expect(page.locator(".home-command-stage")).toBeVisible();
 
   await page.getByRole("link", { name: "设置" }).click();
-  await expect(page.getByRole("heading", { name: "管理 PIN" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "设置分区" }),
+  ).toBeVisible();
 
-  const pinInput = page.getByPlaceholder("输入管理 PIN");
-  if (await pinInput.isVisible()) {
+  const pinCard = page.locator(".settings-inline-pin .pin-card").first();
+  await expect(pinCard).toBeVisible();
+
+  const pinInput = pinCard.getByPlaceholder("输入管理 PIN");
+  if ((await pinInput.count()) > 0 && (await pinInput.isVisible())) {
     await pinInput.fill(DEV_PIN);
-    await page.getByRole("button", { name: "验证 PIN" }).click();
+    await pinCard.locator("form").getByRole("button", { name: "验证 PIN" }).click();
   }
 
   await expect(
@@ -1595,7 +1605,7 @@ test("realtime reconnect resumes with last_event_id and refreshes settings snaps
   ).toBeVisible();
 });
 
-test("device control request can be accepted and queried to final result", async ({
+test("device control request reports execution or HA unavailability explicitly", async ({
   request,
 }) => {
   const session = await bootstrapSession(request);
@@ -1606,23 +1616,32 @@ test("device control request can be accepted and queried to final result", async
   const requestId = `e2e-control-${Date.now()}`;
   const headers = { authorization: `Bearer ${session.access_token}` };
 
-  const accepted = await expectEnvelope<{
+  const acceptedResponse = await request.post("/api/v1/device-controls", {
+    headers,
+    data: {
+      request_id: requestId,
+      device_id: supportedRequest.device_id,
+      action_type: supportedRequest.action_type,
+      payload: supportedRequest.payload,
+      client_ts: new Date().toISOString(),
+    },
+  });
+
+  if (!acceptedResponse.ok()) {
+    expect(acceptedResponse.status()).toBe(503);
+    const envelope = (await acceptedResponse.json()) as Envelope<null>;
+    expect(envelope.success).toBe(false);
+    expect(envelope.error?.code).toBe("HA_UNAVAILABLE");
+    return;
+  }
+
+  const accepted = (await acceptedResponse.json()) as Envelope<{
     accepted: boolean;
     request_id: string;
-  }>(
-    await request.post("/api/v1/device-controls", {
-      headers,
-      data: {
-        request_id: requestId,
-        device_id: supportedRequest.device_id,
-        action_type: supportedRequest.action_type,
-        payload: supportedRequest.payload,
-        client_ts: new Date().toISOString(),
-      },
-    }),
-  );
-  expect(accepted.accepted).toBe(true);
-  expect(accepted.request_id).toBe(requestId);
+  }>;
+  expect(accepted.success, accepted.error?.message).toBe(true);
+  expect(accepted.data.accepted).toBe(true);
+  expect(accepted.data.request_id).toBe(requestId);
 
   let queried: {
     execution_status: string;
