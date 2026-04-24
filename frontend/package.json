@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "generate:api-types": "node scripts/generateApiTypes.mjs",
     "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --environment jsdom src",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -19,13 +20,16 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@testing-library/react": "^16.3.2",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.5.0",
+    "jsdom": "^29.0.2",
     "json-schema-to-typescript": "^15.0.4",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^4.1.5"
   }
 }
