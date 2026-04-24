@@ -142,7 +142,7 @@ class FakeEnergyService:
             cache_mode=False,
             last_error_code=None,
             refresh_status_detail="SUCCESS_UPDATED",
-            provider="HOME_ASSISTANT_SGCC",
+            provider="SGCC_SIDECAR",
             account_id_masked="12******90",
             entity_map={},
         )

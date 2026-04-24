@@ -104,7 +104,7 @@ function buildEnergyBindingPayload(draft: EnergyBindingDraft) {
       .filter(([, value]) => value),
   );
   return {
-    provider: "HOME_ASSISTANT_SGCC",
+    provider: "SGCC_SIDECAR",
     ...(draft.accountId.trim() ? { account_id: draft.accountId.trim() } : {}),
     ...(Object.keys(entityMap).length ? { entity_map: entityMap } : {}),
   };
@@ -115,7 +115,7 @@ function formatEnergyRefreshMessage(response: EnergyRefreshDto) {
     case "SUCCESS_UPDATED":
       return "已完成刷新，HA 源数据已更新。";
     case "SUCCESS_STALE_SOURCE":
-      return "已完成刷新，但 HA 源数据未更新。";
+      return "已完成刷新，但源数据未更新。";
     case "FAILED_UPSTREAM_TRIGGER":
       return "触发上游同步失败，请检查 sgcc_electricity_new 或 HA 服务入口配置。";
     case "FAILED_SOURCE_TIMEOUT":

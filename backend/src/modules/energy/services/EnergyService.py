@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from src.infrastructure.ha.HaConnectionGateway import HaConnectionGateway, HaStateEntry
@@ -27,7 +28,9 @@ from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.kernel.Clock import Clock
 from src.shared.kernel.EventIdGenerator import EventIdGenerator
 
-ENERGY_PROVIDER = "HOME_ASSISTANT_SGCC"
+ENERGY_PROVIDER = "SGCC_SIDECAR"
+LEGACY_ENERGY_PROVIDERS = {"HOME_ASSISTANT_SGCC"}
+SUPPORTED_ENERGY_PROVIDERS = {ENERGY_PROVIDER, *LEGACY_ENERGY_PROVIDERS}
 ENERGY_ENTITY_KEYS = ("yesterday_usage", "monthly_usage", "balance", "yearly_usage")
 ENERGY_ENTITY_PREFIXES = {
     "yesterday_usage": "sensor.last_electricity_usage",
@@ -113,6 +116,15 @@ class UpstreamWaitResult:
     error_code: str | None = None
 
 
+@dataclass(frozen=True)
+class SgccCacheValues:
+    yesterday_usage: float
+    monthly_usage: float
+    yearly_usage: float
+    balance: float
+    source_updated_at: str | None
+
+
 class EnergyService:
     def __init__(
         self,
@@ -130,6 +142,7 @@ class EnergyService:
         upstream_ha_entity_id: str | None = None,
         upstream_wait_timeout_seconds: int = 20,
         upstream_poll_interval_seconds: float = 2.0,
+        sgcc_cache_file: str | None = None,
     ) -> None:
         self._energy_account_repository = energy_account_repository
         self._energy_snapshot_repository = energy_snapshot_repository
@@ -145,6 +158,7 @@ class EnergyService:
         self._upstream_ha_entity_id = _clean_optional_string(upstream_ha_entity_id)
         self._upstream_wait_timeout_seconds = max(1, int(upstream_wait_timeout_seconds))
         self._upstream_poll_interval_seconds = max(0.5, float(upstream_poll_interval_seconds))
+        self._sgcc_cache_file = Path(sgcc_cache_file) if sgcc_cache_file else None
 
     async def get_energy(self, home_id: str) -> EnergyView:
         account = await self._energy_account_repository.find_by_home_id(home_id)
@@ -310,25 +324,56 @@ class EnergyService:
         binding_payload = _decode_binding_payload(account_payload_encrypted)
         initial_states = await self._fetch_states_view(home_id)
         if isinstance(initial_states, str):
-            snapshot = await self._insert_failed_snapshot(home_id, "BOUND", initial_states, previous_snapshot)
+            upstream_triggered = False
+            trigger_error = None
+            if self._upstream_refresh_mode != "none":
+                upstream_triggered = True
+                trigger_error = await self._trigger_upstream_refresh(home_id)
+            cache_outcome = await self._try_refresh_from_sgcc_cache(
+                home_id,
+                binding_payload,
+                previous_snapshot,
+                upstream_triggered=upstream_triggered,
+            )
+            if cache_outcome is not None:
+                return cache_outcome
+            snapshot = await self._insert_failed_snapshot(
+                home_id,
+                "BOUND",
+                trigger_error or initial_states,
+                previous_snapshot,
+            )
             return EnergyRefreshOutcome(
                 snapshot=snapshot,
-                upstream_triggered=False,
+                upstream_triggered=upstream_triggered,
                 source_updated=False,
                 refresh_status_detail=_derive_refresh_status_detail(snapshot),
             )
 
         entity_ids = binding_payload.resolve_entity_ids(initial_states.states_by_entity_id)
         if not entity_ids:
+            upstream_triggered = False
+            trigger_error = None
+            if self._upstream_refresh_mode != "none":
+                upstream_triggered = True
+                trigger_error = await self._trigger_upstream_refresh(home_id)
+            cache_outcome = await self._try_refresh_from_sgcc_cache(
+                home_id,
+                binding_payload,
+                previous_snapshot,
+                upstream_triggered=upstream_triggered,
+            )
+            if cache_outcome is not None:
+                return cache_outcome
             snapshot = await self._insert_failed_snapshot(
                 home_id,
                 "BOUND",
-                "ENTITY_MAPPING_REQUIRED",
+                trigger_error or "ENTITY_MAPPING_REQUIRED",
                 previous_snapshot,
             )
             return EnergyRefreshOutcome(
                 snapshot=snapshot,
-                upstream_triggered=False,
+                upstream_triggered=upstream_triggered,
                 source_updated=False,
                 refresh_status_detail=_derive_refresh_status_detail(snapshot),
             )
@@ -342,6 +387,14 @@ class EnergyService:
             upstream_triggered = True
             trigger_error = await self._trigger_upstream_refresh(home_id)
             if trigger_error is not None:
+                cache_outcome = await self._try_refresh_from_sgcc_cache(
+                    home_id,
+                    binding_payload,
+                    previous_snapshot,
+                    upstream_triggered=True,
+                )
+                if cache_outcome is not None:
+                    return cache_outcome
                 snapshot = await self._insert_failed_snapshot(
                     home_id,
                     "BOUND",
@@ -361,6 +414,14 @@ class EnergyService:
                 baseline_source_updated_at,
             )
             if wait_result.error_code is not None:
+                cache_outcome = await self._try_refresh_from_sgcc_cache(
+                    home_id,
+                    binding_payload,
+                    previous_snapshot,
+                    upstream_triggered=True,
+                )
+                if cache_outcome is not None:
+                    return cache_outcome
                 snapshot = await self._insert_failed_snapshot(
                     home_id,
                     "BOUND",
@@ -379,6 +440,14 @@ class EnergyService:
 
         values_result = _extract_energy_values(entity_ids, final_states_by_entity_id)
         if isinstance(values_result, str):
+            cache_outcome = await self._try_refresh_from_sgcc_cache(
+                home_id,
+                binding_payload,
+                previous_snapshot,
+                upstream_triggered=upstream_triggered,
+            )
+            if cache_outcome is not None:
+                return cache_outcome
             snapshot = await self._insert_failed_snapshot(home_id, "BOUND", values_result, previous_snapshot)
             return EnergyRefreshOutcome(
                 snapshot=snapshot,
@@ -400,6 +469,53 @@ class EnergyService:
                 cache_mode=False,
                 last_error_code=None if source_updated else "SOURCE_NOT_UPDATED",
                 source_updated_at=source_updated_at or self._clock.now().isoformat(),
+            )
+        )
+        return EnergyRefreshOutcome(
+            snapshot=snapshot,
+            upstream_triggered=upstream_triggered,
+            source_updated=source_updated,
+            refresh_status_detail=SUCCESS_UPDATED if source_updated else SUCCESS_STALE_SOURCE,
+        )
+
+    async def _try_refresh_from_sgcc_cache(
+        self,
+        home_id: str,
+        binding_payload: EnergyBindingPayload,
+        previous_snapshot: EnergySnapshotRow | None,
+        *,
+        upstream_triggered: bool,
+    ) -> EnergyRefreshOutcome | None:
+        if self._sgcc_cache_file is None:
+            return None
+
+        cache_values = await asyncio.to_thread(
+            _read_sgcc_cache_values,
+            self._sgcc_cache_file,
+            binding_payload.account_id,
+        )
+        if cache_values is None:
+            return None
+
+        source_updated = _is_iso_newer(
+            cache_values.source_updated_at,
+            previous_snapshot.source_updated_at if previous_snapshot else None,
+        )
+        if previous_snapshot is None and cache_values.source_updated_at:
+            source_updated = True
+
+        snapshot = await self._energy_snapshot_repository.insert(
+            NewEnergySnapshotRow(
+                home_id=home_id,
+                binding_status="BOUND",
+                refresh_status="SUCCESS",
+                yesterday_usage=cache_values.yesterday_usage,
+                monthly_usage=cache_values.monthly_usage,
+                yearly_usage=cache_values.yearly_usage,
+                balance=cache_values.balance,
+                cache_mode=True,
+                last_error_code=None if source_updated else "SOURCE_NOT_UPDATED",
+                source_updated_at=cache_values.source_updated_at or self._clock.now().isoformat(),
             )
         )
         return EnergyRefreshOutcome(
@@ -608,7 +724,7 @@ def _decode_binding_payload(raw_payload: str | None) -> EnergyBindingPayload:
     if not isinstance(payload, dict):
         return EnergyBindingPayload(provider=None, account_id=None, entity_map={})
     return EnergyBindingPayload(
-        provider=str(payload.get("provider") or ENERGY_PROVIDER),
+        provider=_normalize_provider(payload.get("provider")),
         account_id=_clean_optional_string(
             payload.get("account_id") or payload.get("account_suffix") or payload.get("account")
         ),
@@ -617,11 +733,11 @@ def _decode_binding_payload(raw_payload: str | None) -> EnergyBindingPayload:
 
 
 def _normalize_binding_payload(payload: dict) -> EnergyBindingPayload:
-    provider = str(payload.get("provider") or ENERGY_PROVIDER)
-    if provider != ENERGY_PROVIDER:
+    provider = _normalize_provider(payload.get("provider"))
+    if provider not in SUPPORTED_ENERGY_PROVIDERS:
         raise AppError(
             ErrorCode.INVALID_PARAMS,
-            "Only HOME_ASSISTANT_SGCC energy provider is supported",
+            "Only SGCC_SIDECAR energy provider is supported",
             status_code=400,
         )
     account_id = _clean_optional_string(payload.get("account_id") or payload.get("account_suffix"))
@@ -633,6 +749,13 @@ def _normalize_binding_payload(payload: dict) -> EnergyBindingPayload:
             status_code=400,
         )
     return EnergyBindingPayload(provider=provider, account_id=account_id, entity_map=entity_map)
+
+
+def _normalize_provider(value: object) -> str:
+    provider = str(value or ENERGY_PROVIDER).strip().upper()
+    if provider in LEGACY_ENERGY_PROVIDERS:
+        return ENERGY_PROVIDER
+    return provider
 
 
 def _sanitize_entity_map(raw_entity_map: object) -> dict[str, str]:
@@ -721,6 +844,53 @@ def _extract_energy_values(
     return values, source_updated_at
 
 
+def _read_sgcc_cache_values(cache_file: Path, account_id: str | None) -> SgccCacheValues | None:
+    if not cache_file.exists() or not cache_file.is_file():
+        return None
+    try:
+        payload = json.loads(cache_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    account_payload = _select_sgcc_cache_account(payload, account_id)
+    if account_payload is None:
+        return None
+
+    yesterday_usage = _parse_numeric_value(account_payload.get("last_daily_usage"))
+    monthly_usage = _parse_numeric_value(account_payload.get("month_usage"))
+    yearly_usage = _parse_numeric_value(account_payload.get("yearly_usage"))
+    balance = _parse_numeric_value(account_payload.get("balance"))
+    if (
+        yesterday_usage is None
+        or monthly_usage is None
+        or yearly_usage is None
+        or balance is None
+    ):
+        return None
+
+    timestamp = account_payload.get("timestamp")
+    return SgccCacheValues(
+        yesterday_usage=yesterday_usage,
+        monthly_usage=monthly_usage,
+        yearly_usage=yearly_usage,
+        balance=balance,
+        source_updated_at=str(timestamp).strip() if timestamp else None,
+    )
+
+
+def _select_sgcc_cache_account(payload: dict[str, Any], account_id: str | None) -> dict[str, Any] | None:
+    if account_id:
+        account_payload = payload.get(account_id)
+        return account_payload if isinstance(account_payload, dict) else None
+
+    account_payloads = [value for value in payload.values() if isinstance(value, dict)]
+    if len(account_payloads) == 1:
+        return account_payloads[0]
+    return None
+
+
 def _collect_source_updated_at(
     entity_ids: dict[str, str],
     states_by_entity_id: dict[str, HaStateEntry],
@@ -737,10 +907,13 @@ def _collect_source_updated_at(
 
 
 def _parse_ha_numeric_state(state: HaStateEntry) -> float | None:
-    raw_value = state.payload.get("state")
-    if raw_value is None:
+    return _parse_numeric_value(state.payload.get("state"))
+
+
+def _parse_numeric_value(value: object) -> float | None:
+    if value is None:
         return None
-    normalized = str(raw_value).strip()
+    normalized = str(value).strip()
     if normalized.lower() in UNAVAILABLE_STATES:
         return None
     normalized = normalized.replace(",", "")

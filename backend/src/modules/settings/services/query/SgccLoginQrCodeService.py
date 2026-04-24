@@ -24,7 +24,7 @@ from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-ENERGY_PROVIDER = "HOME_ASSISTANT_SGCC"
+ENERGY_PROVIDER = "SGCC_SIDECAR"
 ENERGY_ENTITY_KEYS = ("yesterday_usage", "monthly_usage", "balance", "yearly_usage")
 ENERGY_ENTITY_PREFIXES = {
     "yesterday_usage": "sensor.last_electricity_usage",

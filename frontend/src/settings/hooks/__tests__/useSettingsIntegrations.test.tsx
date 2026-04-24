@@ -170,7 +170,7 @@ describe("useSettingsIntegrations", () => {
 
     expect(mockedEnergyApi.saveEnergyBinding).toHaveBeenCalledWith({
       payload: {
-        provider: "HOME_ASSISTANT_SGCC",
+        provider: "SGCC_SIDECAR",
         account_id: "acct-1",
         entity_map: {
           balance: "sensor.balance.next",
