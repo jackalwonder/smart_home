@@ -466,11 +466,6 @@ export function HomeInsightRail({
 
   const featureSlides = useMemo<RailSlide[]>(
     () => [
-      {
-        key: "weather",
-        label: "气象脉动",
-        content: <WeatherTrendsSlide viewModel={viewModel} />,
-      },
       ...(viewModel.showFavoriteDevices
         ? [
             {
@@ -485,6 +480,11 @@ export function HomeInsightRail({
             },
           ]
         : []),
+      {
+        key: "weather",
+        label: "气象脉动",
+        content: <WeatherTrendsSlide viewModel={viewModel} />,
+      },
       {
         key: "notice",
         label: "通知功能键",
@@ -507,20 +507,6 @@ export function HomeInsightRail({
   return (
     <aside className="home-insight-rail home-status-rail">
       <HomeRailWeatherBrief viewModel={viewModel} />
-      <RailCarousel
-        activeIndex={featureIndex}
-        ariaLabel="右侧功能轮播"
-        onChange={setFeatureIndex}
-        slides={featureSlides}
-        variant="feature"
-      />
-      <RailCarousel
-        activeIndex={mediaIndex}
-        ariaLabel="右侧音频轮播"
-        onChange={setMediaIndex}
-        slides={mediaSlides}
-        variant="media"
-      />
       <section className="home-quick-grid" aria-label="全屋快捷入口">
         <button className="is-active" onClick={() => onOpenCluster("lights")} type="button">
           <span aria-hidden="true">♢</span>
@@ -543,6 +529,20 @@ export function HomeInsightRail({
           <small>{offlineCount}</small>
         </button>
       </section>
+      <RailCarousel
+        activeIndex={featureIndex}
+        ariaLabel="右侧功能轮播"
+        onChange={setFeatureIndex}
+        slides={featureSlides}
+        variant="feature"
+      />
+      <RailCarousel
+        activeIndex={mediaIndex}
+        ariaLabel="右侧音频轮播"
+        onChange={setMediaIndex}
+        slides={mediaSlides}
+        variant="media"
+      />
     </aside>
   );
 }
