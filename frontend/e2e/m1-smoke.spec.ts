@@ -1081,7 +1081,10 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await page
     .getByPlaceholder("例如：联调前、夜间稳定版")
     .fill("e2e smoke backup");
-  await page.getByRole("button", { name: "创建备份" }).click();
+  await page
+    .locator(".backup-panel__toolbar")
+    .getByRole("button", { name: "创建备份" })
+    .click();
   await expect(page.getByText(/备份 bk_/)).toBeVisible();
   await expect(page.getByText("e2e smoke backup").first()).toBeVisible();
   await expect(page.getByText("快照摘要").first()).toBeVisible();
