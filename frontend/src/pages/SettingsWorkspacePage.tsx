@@ -1,11 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  createBackup,
-  fetchBackupRestoreAudits,
-  fetchBackups,
-  restoreBackup,
-} from "../api/backupsApi";
 import { fetchDevices } from "../api/devicesApi";
 import {
   clearEnergyBinding,
@@ -19,11 +13,7 @@ import {
   unbindDefaultMedia,
 } from "../api/mediaApi";
 import {
-  bindSgccEnergyAccount,
   fetchSettings,
-  fetchSgccLoginQrCodeImage,
-  fetchSgccLoginQrCodeStatus,
-  regenerateSgccLoginQrCode,
   saveSettings,
 } from "../api/settingsApi";
 import {
@@ -33,29 +23,13 @@ import {
   testHomeAssistantConnection,
 } from "../api/systemConnectionsApi";
 import {
-  createOrResetTerminalBootstrapToken,
-  fetchTerminalBootstrapTokenAudits,
-  fetchTerminalBootstrapTokenDirectory,
-} from "../api/terminalBootstrapTokensApi";
-import { claimTerminalPairingCode } from "../api/terminalPairingCodesApi";
-import {
-  BackupListItemDto,
-  BackupRestoreAuditItemDto,
   DefaultMediaDto,
   DeviceListItemDto,
   EnergyDto,
   EnergyRefreshDto,
-  SgccLoginQrCodeStatusDto,
   SystemConnectionsEnvelopeDto,
-  TerminalBootstrapTokenAuditItemDto,
-  TerminalBootstrapTokenCreateDto,
-  TerminalBootstrapTokenDirectoryItemDto,
 } from "../api/types";
 import { normalizeApiError } from "../api/httpClient";
-import {
-  buildBootstrapActivationCode,
-  buildBootstrapActivationLink,
-} from "../auth/bootstrapToken";
 import { PinAccessCard } from "../components/auth/PinAccessCard";
 import { PageFrame } from "../components/layout/PageFrame";
 import { BackupManagementPanel } from "../components/settings/BackupManagementPanel";
@@ -89,6 +63,9 @@ import { SystemConnectionPanel } from "../components/settings/SystemConnectionPa
 import { TerminalBootstrapTokenPanel } from "../components/settings/TerminalBootstrapTokenPanel";
 import { TerminalDeliveryOverviewPanel } from "../components/settings/TerminalDeliveryOverviewPanel";
 import { TerminalPairingClaimPanel } from "../components/settings/TerminalPairingClaimPanel";
+import { useSettingsBackups } from "../settings/hooks/useSettingsBackups";
+import { useSgccLoginQrCode } from "../settings/hooks/useSgccLoginQrCode";
+import { useTerminalDelivery } from "../settings/hooks/useTerminalDelivery";
 import { appStore, useAppStore } from "../store/useAppStore";
 import {
   SettingsSectionViewModel,
@@ -143,11 +120,6 @@ interface SystemConnectionDraftState {
   lastTestResult: string | null;
   lastSyncAt: string | null;
   lastSyncResult: string | null;
-}
-
-interface FeedbackState {
-  tone: "success" | "error";
-  text: string;
 }
 
 const DEFAULT_SGCC_SUFFIX = "8170";
@@ -405,27 +377,6 @@ export function SettingsWorkspacePage() {
   const [systemSaveBusy, setSystemSaveBusy] = useState(false);
   const [systemTestBusy, setSystemTestBusy] = useState(false);
   const [systemSyncBusy, setSystemSyncBusy] = useState(false);
-  const [bootstrapTokenDirectory, setBootstrapTokenDirectory] = useState<
-    TerminalBootstrapTokenDirectoryItemDto[]
-  >([]);
-  const [selectedBootstrapTerminalId, setSelectedBootstrapTerminalId] =
-    useState("");
-  const [bootstrapTokenReveal, setBootstrapTokenReveal] =
-    useState<TerminalBootstrapTokenCreateDto | null>(null);
-  const [bootstrapTokenAudits, setBootstrapTokenAudits] = useState<
-    TerminalBootstrapTokenAuditItemDto[]
-  >([]);
-  const [bootstrapTokenFeedback, setBootstrapTokenFeedback] =
-    useState<FeedbackState | null>(null);
-  const [bootstrapTokenLoading, setBootstrapTokenLoading] = useState(false);
-  const [bootstrapTokenAuditLoading, setBootstrapTokenAuditLoading] =
-    useState(false);
-  const [bootstrapTokenCreateBusy, setBootstrapTokenCreateBusy] =
-    useState(false);
-  const [pairingCodeInput, setPairingCodeInput] = useState("");
-  const [pairingClaimBusy, setPairingClaimBusy] = useState(false);
-  const [pairingClaimFeedback, setPairingClaimFeedback] =
-    useState<FeedbackState | null>(null);
   const [energyState, setEnergyState] = useState<EnergyDto | null>(null);
   const [energyDraft, setEnergyDraft] = useState<EnergyBindingDraft>(() =>
     createEnergyBindingDraft(),
@@ -434,18 +385,6 @@ export function SettingsWorkspacePage() {
   const [energySaveBusy, setEnergySaveBusy] = useState(false);
   const [energyClearBusy, setEnergyClearBusy] = useState(false);
   const [energyRefreshBusy, setEnergyRefreshBusy] = useState(false);
-  const [sgccLoginQrCode, setSgccLoginQrCode] =
-    useState<SgccLoginQrCodeStatusDto | null>(null);
-  const [sgccLoginQrCodeLoading, setSgccLoginQrCodeLoading] = useState(false);
-  const [sgccLoginQrCodeRegenerateBusy, setSgccLoginQrCodeRegenerateBusy] =
-    useState(false);
-  const [sgccLoginQrCodeBindBusy, setSgccLoginQrCodeBindBusy] = useState(false);
-  const [sgccLoginQrCodeMessage, setSgccLoginQrCodeMessage] = useState<
-    string | null
-  >(null);
-  const [sgccLoginQrCodeImageUrl, setSgccLoginQrCodeImageUrl] = useState<
-    string | null
-  >(null);
   const [mediaState, setMediaState] = useState<DefaultMediaDto | null>(null);
   const [mediaMessage, setMediaMessage] = useState<string | null>(null);
   const [mediaBindBusy, setMediaBindBusy] = useState(false);
@@ -455,18 +394,66 @@ export function SettingsWorkspacePage() {
     [],
   );
   const [selectedMediaDeviceId, setSelectedMediaDeviceId] = useState("");
-  const [backupItems, setBackupItems] = useState<BackupListItemDto[]>([]);
-  const [backupNote, setBackupNote] = useState("");
-  const [backupMessage, setBackupMessage] = useState<string | null>(null);
-  const [backupRestoreAudits, setBackupRestoreAudits] = useState<
-    BackupRestoreAuditItemDto[]
-  >([]);
-  const [backupLoading, setBackupLoading] = useState(false);
-  const [backupAuditLoading, setBackupAuditLoading] = useState(false);
-  const [backupCreateBusy, setBackupCreateBusy] = useState(false);
-  const [backupRestoreBusyId, setBackupRestoreBusyId] = useState<string | null>(
-    null,
-  );
+  const {
+    activationCode: bootstrapActivationCode,
+    activationLink: bootstrapActivationLink,
+    auditLoading: bootstrapTokenAuditLoading,
+    audits: bootstrapTokenAudits,
+    copyActivationCode: handleCopyBootstrapActivationCode,
+    copyActivationLink: handleCopyBootstrapActivationLink,
+    copyToken: handleCopyBootstrapToken,
+    createBusy: bootstrapTokenCreateBusy,
+    createOrReset: handleCreateOrResetBootstrapToken,
+    directory: bootstrapTokenDirectory,
+    feedback: bootstrapTokenFeedback,
+    loadAudits: loadBootstrapTokenAudits,
+    loadDirectory: loadBootstrapTokenDirectory,
+    loadInitialDirectory: loadBootstrapTokenDirectoryForSettingsLoad,
+    loading: bootstrapTokenLoading,
+    pairingClaimBusy,
+    pairingClaimFeedback,
+    pairingCode: pairingCodeInput,
+    claimPairingCode: handleClaimPairingCode,
+    reveal: bootstrapTokenReveal,
+    selectedTerminalId: selectedBootstrapTerminalId,
+    setPairingCode: setPairingCodeInput,
+    setSelectedTerminalId: setSelectedBootstrapTerminalId,
+  } = useTerminalDelivery({
+    canEdit: pin.active,
+    currentTerminalId: session.data?.terminalId,
+  });
+  const {
+    bindBusy: sgccLoginQrCodeBindBusy,
+    bindEnergyAccount: handleBindSgccEnergyAccount,
+    imageUrl: sgccLoginQrCodeImageUrl,
+    loadStatus: loadSgccLoginQrCode,
+    loading: sgccLoginQrCodeLoading,
+    message: sgccLoginQrCodeMessage,
+    regenerate: handleRegenerateSgccLoginQrCode,
+    regenerateBusy: sgccLoginQrCodeRegenerateBusy,
+    status: sgccLoginQrCode,
+  } = useSgccLoginQrCode({
+    canEdit: pin.active,
+    onEnergyAccountBound: loadEnergyState,
+  });
+  const {
+    auditLoading: backupAuditLoading,
+    create: handleCreateBackup,
+    createBusy: backupCreateBusy,
+    items: backupItems,
+    loadBackups,
+    loadRestoreAudits: loadBackupRestoreAudits,
+    loading: backupLoading,
+    message: backupMessage,
+    note: backupNote,
+    restore: handleRestoreBackup,
+    restoreAudits: backupRestoreAudits,
+    restoreBusyId: backupRestoreBusyId,
+    setNote: setBackupNote,
+  } = useSettingsBackups({
+    canEdit: pin.active,
+    onBackupRestored: loadSettings,
+  });
   const [showPinManager, setShowPinManager] = useState(false);
   const [showHomeContentManager, setShowHomeContentManager] = useState(false);
   const [showHomePublishPanel, setShowHomePublishPanel] = useState(false);
@@ -519,86 +506,6 @@ export function SettingsWorkspacePage() {
     setEnergyDraft((current) => createEnergyBindingDraft(response, current));
   }
 
-  function replaceSgccLoginQrCodeImageUrl(nextUrl: string | null) {
-    setSgccLoginQrCodeImageUrl((current) => {
-      if (current?.startsWith("blob:")) {
-        URL.revokeObjectURL(current);
-      }
-      return nextUrl;
-    });
-  }
-
-  async function loadSgccLoginQrCode(options?: { quiet?: boolean }) {
-    if (!options?.quiet) {
-      setSgccLoginQrCodeLoading(true);
-    }
-
-    try {
-      const response = await fetchSgccLoginQrCodeStatus();
-      setSgccLoginQrCode(response);
-      setSgccLoginQrCodeMessage(null);
-
-      if (!response.available || !response.image_url) {
-        replaceSgccLoginQrCodeImageUrl(null);
-        return;
-      }
-
-      const shouldReloadImage =
-        response.updated_at !== sgccLoginQrCode?.updated_at ||
-        !sgccLoginQrCodeImageUrl;
-      if (!shouldReloadImage) {
-        return;
-      }
-
-      const imageBlob = await fetchSgccLoginQrCodeImage(response.image_url);
-      replaceSgccLoginQrCodeImageUrl(URL.createObjectURL(imageBlob));
-    } catch (error) {
-      setSgccLoginQrCodeMessage(normalizeApiError(error).message);
-    } finally {
-      if (!options?.quiet) {
-        setSgccLoginQrCodeLoading(false);
-      }
-    }
-  }
-
-  async function handleRegenerateSgccLoginQrCode() {
-    if (!pin.active) {
-      setSgccLoginQrCodeMessage("重新生成国网二维码前，请先验证管理 PIN。");
-      return;
-    }
-
-    setSgccLoginQrCodeRegenerateBusy(true);
-    setSgccLoginQrCodeMessage(null);
-    replaceSgccLoginQrCodeImageUrl(null);
-    try {
-      const response = await regenerateSgccLoginQrCode();
-      setSgccLoginQrCode(response);
-    } catch (error) {
-      setSgccLoginQrCodeMessage(normalizeApiError(error).message);
-    } finally {
-      setSgccLoginQrCodeRegenerateBusy(false);
-    }
-  }
-
-  async function handleBindSgccEnergyAccount() {
-    if (!pin.active) {
-      setSgccLoginQrCodeMessage("绑定国网账号前，请先验证管理 PIN。");
-      return;
-    }
-
-    setSgccLoginQrCodeBindBusy(true);
-    setSgccLoginQrCodeMessage(null);
-    try {
-      const response = await bindSgccEnergyAccount();
-      setSgccLoginQrCode(response);
-      await loadEnergyState();
-    } catch (error) {
-      setSgccLoginQrCodeMessage(normalizeApiError(error).message);
-    } finally {
-      setSgccLoginQrCodeBindBusy(false);
-    }
-  }
-
   async function loadMediaState() {
     const response = await fetchDefaultMedia();
     setMediaState(response);
@@ -629,10 +536,8 @@ export function SettingsWorkspacePage() {
   async function loadSettings() {
     appStore.setSettingsLoading();
     try {
-      const bootstrapDirectoryPromise = pin.active
-        ? fetchTerminalBootstrapTokenDirectory()
-        : Promise.resolve(null);
-      const [settingsData, systemData, bootstrapDirectory] = await Promise.all([
+      const bootstrapDirectoryPromise = loadBootstrapTokenDirectoryForSettingsLoad();
+      const [settingsData, systemData] = await Promise.all([
         fetchSettings(),
         fetchSystemConnections(),
         bootstrapDirectoryPromise,
@@ -645,114 +550,8 @@ export function SettingsWorkspacePage() {
       setSettingsDraft(createSettingsDraft(nextSettingsData));
       setDraftSourceSettingsVersion(getSettingsVersion(nextSettingsData));
       setSystemDraft((current) => createSystemDraft(systemData, current));
-      const items = bootstrapDirectory?.items ?? [];
-      setBootstrapTokenDirectory(items);
-      setSelectedBootstrapTerminalId((current) => {
-        if (current && items.some((item) => item.terminal_id === current)) {
-          return current;
-        }
-        if (
-          session.data?.terminalId &&
-          items.some((item) => item.terminal_id === session.data?.terminalId)
-        ) {
-          return session.data.terminalId;
-        }
-        return items[0]?.terminal_id ?? "";
-      });
     } catch (error) {
       appStore.setSettingsError(normalizeApiError(error).message);
-    }
-  }
-
-  async function loadBootstrapTokenDirectory() {
-    if (!pin.active) {
-      setBootstrapTokenDirectory([]);
-      setSelectedBootstrapTerminalId("");
-      return;
-    }
-
-    setBootstrapTokenLoading(true);
-    try {
-      const response = await fetchTerminalBootstrapTokenDirectory();
-      setBootstrapTokenDirectory(response.items);
-      setSelectedBootstrapTerminalId((current) => {
-        if (
-          current &&
-          response.items.some((item) => item.terminal_id === current)
-        ) {
-          return current;
-        }
-        if (
-          session.data?.terminalId &&
-          response.items.some(
-            (item) => item.terminal_id === session.data?.terminalId,
-          )
-        ) {
-          return session.data.terminalId;
-        }
-        return response.items[0]?.terminal_id ?? "";
-      });
-    } catch (error) {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: normalizeApiError(error).message,
-      });
-    } finally {
-      setBootstrapTokenLoading(false);
-    }
-  }
-
-  async function loadBootstrapTokenAudits() {
-    if (!pin.active) {
-      setBootstrapTokenAudits([]);
-      return;
-    }
-
-    setBootstrapTokenAuditLoading(true);
-    try {
-      const response = await fetchTerminalBootstrapTokenAudits();
-      setBootstrapTokenAudits(response.items);
-    } catch (error) {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: normalizeApiError(error).message,
-      });
-    } finally {
-      setBootstrapTokenAuditLoading(false);
-    }
-  }
-
-  async function loadBackups() {
-    if (!pin.active) {
-      setBackupItems([]);
-      return;
-    }
-
-    setBackupLoading(true);
-    try {
-      const response = await fetchBackups();
-      setBackupItems(response.items);
-    } catch (error) {
-      setBackupMessage(normalizeApiError(error).message);
-    } finally {
-      setBackupLoading(false);
-    }
-  }
-
-  async function loadBackupRestoreAudits() {
-    if (!pin.active) {
-      setBackupRestoreAudits([]);
-      return;
-    }
-
-    setBackupAuditLoading(true);
-    try {
-      const response = await fetchBackupRestoreAudits();
-      setBackupRestoreAudits(response.items);
-    } catch (error) {
-      setBackupMessage(normalizeApiError(error).message);
-    } finally {
-      setBackupAuditLoading(false);
     }
   }
 
@@ -781,14 +580,8 @@ export function SettingsWorkspacePage() {
     }
 
     if (activeSection === "delivery") {
-      if (pin.active) {
-        void loadBootstrapTokenDirectory();
-        void loadBootstrapTokenAudits();
-      } else {
-        setBootstrapTokenDirectory([]);
-        setSelectedBootstrapTerminalId("");
-        setBootstrapTokenAudits([]);
-      }
+      void loadBootstrapTokenDirectory();
+      void loadBootstrapTokenAudits();
     }
   }, [activeSection, pin.active, session.data?.accessToken, session.status]);
 
@@ -811,14 +604,6 @@ export function SettingsWorkspacePage() {
     sgccLoginQrCode?.updated_at,
     sgccLoginQrCodeImageUrl,
   ]);
-
-  useEffect(() => {
-    return () => {
-      if (sgccLoginQrCodeImageUrl?.startsWith("blob:")) {
-        URL.revokeObjectURL(sgccLoginQrCodeImageUrl);
-      }
-    };
-  }, [sgccLoginQrCodeImageUrl]);
 
   useEffect(() => {
     if (session.status !== "success") {
@@ -883,12 +668,6 @@ export function SettingsWorkspacePage() {
       (item) => item.terminal_id === selectedBootstrapTerminalId,
     ) ?? null;
   const bootstrapTokenState = selectedBootstrapTerminal;
-  const bootstrapActivationLink = bootstrapTokenReveal
-    ? buildBootstrapActivationLink(bootstrapTokenReveal.bootstrap_token)
-    : null;
-  const bootstrapActivationCode = bootstrapTokenReveal
-    ? buildBootstrapActivationCode(bootstrapTokenReveal.bootstrap_token)
-    : null;
   const overviewRows = [
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
@@ -1317,166 +1096,6 @@ export function SettingsWorkspacePage() {
     }
   }
 
-  async function handleCreateOrResetBootstrapToken() {
-    if (!pin.active) {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: "创建终端激活令牌前，请先验证管理 PIN。",
-      });
-      return;
-    }
-    if (!selectedBootstrapTerminalId) {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: "当前终端会话还未就绪，请稍后重试。",
-      });
-      return;
-    }
-
-    setBootstrapTokenFeedback(null);
-    setBootstrapTokenCreateBusy(true);
-    try {
-      const response = await createOrResetTerminalBootstrapToken(
-        selectedBootstrapTerminalId,
-      );
-      setBootstrapTokenReveal(response);
-      setBootstrapTokenFeedback({
-        tone: "success",
-        text: response.rotated
-          ? "激活凭据已重置，旧凭据已立即失效。"
-          : "激活凭据已生成，可用于新终端激活。",
-      });
-      await Promise.all([
-        loadBootstrapTokenDirectory(),
-        loadBootstrapTokenAudits(),
-      ]);
-    } catch (error) {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: normalizeApiError(error).message,
-      });
-    } finally {
-      setBootstrapTokenCreateBusy(false);
-    }
-  }
-
-  async function handleClaimPairingCode() {
-    if (!pin.active) {
-      setPairingClaimFeedback({
-        tone: "error",
-        text: "认领绑定码前，请先验证管理 PIN。",
-      });
-      return;
-    }
-    if (!pairingCodeInput.trim()) {
-      setPairingClaimFeedback({
-        tone: "error",
-        text: "请先输入终端屏幕上的绑定码。",
-      });
-      return;
-    }
-
-    setPairingClaimFeedback(null);
-    setPairingClaimBusy(true);
-    try {
-      const response = await claimTerminalPairingCode(pairingCodeInput.trim());
-      setPairingCodeInput("");
-      setSelectedBootstrapTerminalId(response.terminal_id);
-      setBootstrapTokenReveal(null);
-      setPairingClaimFeedback({
-        tone: "success",
-        text: `${response.terminal_name} (${response.terminal_code}) 已认领，终端将自动完成激活。`,
-      });
-      await Promise.all([
-        loadBootstrapTokenDirectory(),
-        loadBootstrapTokenAudits(),
-      ]);
-    } catch (error) {
-      setPairingClaimFeedback({
-        tone: "error",
-        text: normalizeApiError(error).message,
-      });
-    } finally {
-      setPairingClaimBusy(false);
-    }
-  }
-
-  async function handleCopyBootstrapToken() {
-    if (!bootstrapTokenReveal?.bootstrap_token) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(bootstrapTokenReveal.bootstrap_token);
-      setBootstrapTokenFeedback({
-        tone: "success",
-        text: "原始激活凭据已复制到剪贴板。",
-      });
-    } catch {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: "复制失败，请手动复制当前展示的原始激活凭据。",
-      });
-    }
-  }
-
-  async function handleCopyBootstrapActivationLink() {
-    if (!bootstrapActivationLink) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(bootstrapActivationLink);
-      setBootstrapTokenFeedback({
-        tone: "success",
-        text: "激活链接已复制到剪贴板。",
-      });
-    } catch {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: "复制激活链接失败，请稍后重试。",
-      });
-    }
-  }
-
-  async function handleCopyBootstrapActivationCode() {
-    if (!bootstrapActivationCode) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(bootstrapActivationCode);
-      setBootstrapTokenFeedback({
-        tone: "success",
-        text: "激活码已复制到剪贴板。",
-      });
-    } catch {
-      setBootstrapTokenFeedback({
-        tone: "error",
-        text: "复制激活码失败，请稍后重试。",
-      });
-    }
-  }
-
-  async function handleCreateBackup() {
-    if (!pin.active) {
-      setBackupMessage("创建备份前，请先验证管理 PIN。");
-      return;
-    }
-
-    setBackupMessage(null);
-    setBackupCreateBusy(true);
-    try {
-      const response = await createBackup({
-        note: backupNote.trim() || undefined,
-      });
-      setBackupNote("");
-      setBackupMessage(`备份 ${response.backup_id} 已创建。`);
-      await loadBackups();
-    } catch (error) {
-      setBackupMessage(normalizeApiError(error).message);
-    } finally {
-      setBackupCreateBusy(false);
-    }
-  }
-
   async function handleSaveEnergyBinding() {
     if (!pin.active) {
       setEnergyMessage("保存能耗绑定前，请先验证管理 PIN。");
@@ -1587,44 +1206,6 @@ export function SettingsWorkspacePage() {
       setMediaMessage(normalizeApiError(error).message);
     } finally {
       setMediaUnbindBusy(false);
-    }
-  }
-
-  async function handleRestoreBackup(backup: BackupListItemDto) {
-    if (!pin.active) {
-      setBackupMessage("恢复备份前，请先验证管理 PIN。");
-      return;
-    }
-    const summary = backup.summary;
-    const comparison = backup.comparison;
-    const confirmCopy = [
-      `恢复备份 ${backup.backup_id} 会生成新的设置和布局版本。`,
-      `快照设置版本 ${summary.settings_version ?? "-"}，当前 ${comparison.current_settings_version ?? "-"}。`,
-      `快照布局版本 ${summary.layout_version ?? "-"}，当前 ${comparison.current_layout_version ?? "-"}。`,
-      `包含首页常用 ${summary.favorite_count} 个，热点 ${summary.hotspot_count} 个。`,
-      "是否继续？",
-    ].join("\n");
-    if (!window.confirm(confirmCopy)) {
-      return;
-    }
-
-    setBackupMessage(null);
-    setBackupRestoreBusyId(backup.backup_id);
-    try {
-      const response = await restoreBackup(backup.backup_id);
-      setBackupMessage(
-        `恢复完成，audit_id ${response.audit_id}，settings_version ${response.settings_version}。`,
-      );
-      await Promise.all([
-        loadSettings(),
-        loadBackups(),
-        loadBackupRestoreAudits(),
-      ]);
-    } catch (error) {
-      setBackupMessage(normalizeApiError(error).message);
-      await loadBackupRestoreAudits();
-    } finally {
-      setBackupRestoreBusyId(null);
     }
   }
 
@@ -1889,10 +1470,7 @@ export function SettingsWorkspacePage() {
               onCreateOrReset={() => void handleCreateOrResetBootstrapToken()}
               onRefresh={() => void loadBootstrapTokenDirectory()}
               onRefreshAudits={() => void loadBootstrapTokenAudits()}
-              onSelectTerminalId={(value) => {
-                setSelectedBootstrapTerminalId(value);
-                setBootstrapTokenReveal(null);
-              }}
+              onSelectTerminalId={setSelectedBootstrapTerminalId}
               revealedToken={bootstrapTokenReveal}
               selectedTerminalId={selectedBootstrapTerminalId}
               status={selectedBootstrapTerminal}
