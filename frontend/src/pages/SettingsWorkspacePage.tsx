@@ -27,7 +27,7 @@ import { SystemConnectionPanel } from "../components/settings/SystemConnectionPa
 import { TerminalBootstrapTokenPanel } from "../components/settings/TerminalBootstrapTokenPanel";
 import { TerminalDeliveryOverviewPanel } from "../components/settings/TerminalDeliveryOverviewPanel";
 import { TerminalPairingClaimPanel } from "../components/settings/TerminalPairingClaimPanel";
-import { useSettingsBackups } from "../settings/hooks/useSettingsBackups";
+import { useSettingsBackupSection } from "../settings/hooks/useSettingsBackupSection";
 import { useSettingsDraft } from "../settings/hooks/useSettingsDraft";
 import { useSettingsIntegrations } from "../settings/hooks/useSettingsIntegrations";
 import { useSettingsTerminalDeliverySection } from "../settings/hooks/useSettingsTerminalDeliverySection";
@@ -173,19 +173,25 @@ export function SettingsWorkspacePage() {
   });
   const {
     auditLoading: backupAuditLoading,
+    compactOverviewRows: backupCompactOverviewRows,
     create: handleCreateBackup,
     createBusy: backupCreateBusy,
     items: backupItems,
     loadBackups,
+    loadDetails: loadBackupDetails,
     loadRestoreAudits: loadBackupRestoreAudits,
     loading: backupLoading,
     message: backupMessage,
     note: backupNote,
+    resetDetails: resetBackupDetails,
     restore: handleRestoreBackup,
     restoreAudits: backupRestoreAudits,
     restoreBusyId: backupRestoreBusyId,
     setNote: setBackupNote,
-  } = useSettingsBackups({
+    showDetails: showBackupDetails,
+    summaryRows: backupSummaryRows,
+    toggleDetails: toggleBackupDetails,
+  } = useSettingsBackupSection({
     canEdit: pin.active,
     onBackupRestored: loadSettings,
   });
@@ -193,7 +199,6 @@ export function SettingsWorkspacePage() {
   const [showHomeContentManager, setShowHomeContentManager] = useState(false);
   const [showHomePublishPanel, setShowHomePublishPanel] = useState(false);
   const [showAdvancedEditor, setShowAdvancedEditor] = useState(false);
-  const [showBackupDetails, setShowBackupDetails] = useState(false);
 
   useEffect(() => {
     if (requestedSection && requestedSection !== normalizedRequestedSection) {
@@ -224,7 +229,7 @@ export function SettingsWorkspacePage() {
       resetDeliveryDetails();
     }
     if (activeSection !== "backup") {
-      setShowBackupDetails(false);
+      resetBackupDetails();
     }
   }, [activeSection]);
 
@@ -297,8 +302,7 @@ export function SettingsWorkspacePage() {
     if (session.status !== "success") {
       return;
     }
-    void loadBackups();
-    void loadBackupRestoreAudits();
+    void loadBackupDetails();
   }, [pin.active, session.data?.accessToken, session.status]);
 
   useEffect(() => {
@@ -397,12 +401,7 @@ export function SettingsWorkspacePage() {
       : activeSection === "delivery"
         ? deliveryCompactOverviewRows
         : activeSection === "backup"
-          ? [
-              { label: "可用备份", value: `${backupItems.length} 条` },
-              { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
-              { label: "详情列表", value: showBackupDetails ? "已展开" : "已收起" },
-              { label: "PIN", value: pin.active ? "已验证" : "待验证" },
-            ]
+          ? backupCompactOverviewRows
           : homeOverviewRows;
 
   const canSave =
@@ -682,19 +681,12 @@ export function SettingsWorkspacePage() {
     sectionPanel = (
       <section className="settings-section-stack">
         <SettingsSectionSummaryBlock
-          rows={[
-            { label: "可用备份", value: `${backupItems.length} 条` },
-            { label: "恢复审计", value: `${backupRestoreAudits.length} 条` },
-            {
-              label: "详情列表",
-              value: showBackupDetails ? "已展开" : "已收起",
-            },
-          ]}
+          rows={backupSummaryRows}
           actions={
             <>
               <button
                 className="button button--ghost"
-                onClick={() => setShowBackupDetails((current) => !current)}
+                onClick={toggleBackupDetails}
                 type="button"
               >
                 {showBackupDetails ? "收起备份详情" : "展开备份详情"}
