@@ -30,8 +30,8 @@ import { TerminalPairingClaimPanel } from "../components/settings/TerminalPairin
 import { useSettingsBackups } from "../settings/hooks/useSettingsBackups";
 import { useSettingsDraft } from "../settings/hooks/useSettingsDraft";
 import { useSettingsIntegrations } from "../settings/hooks/useSettingsIntegrations";
+import { useSettingsTerminalDeliverySection } from "../settings/hooks/useSettingsTerminalDeliverySection";
 import { useSgccLoginQrCode } from "../settings/hooks/useSgccLoginQrCode";
-import { useTerminalDelivery } from "../settings/hooks/useTerminalDelivery";
 import { appStore, useAppStore } from "../store/useAppStore";
 import {
   SettingsSectionViewModel,
@@ -60,6 +60,7 @@ export function SettingsWorkspacePage() {
     useState<SettingsTaskFlowKey>(
       normalizedRequestedSection === "backup" ? "backup-restore" : "new-terminal",
     );
+  const [showOperationsGuide, setShowOperationsGuide] = useState(false);
   const {
     addFavoriteDraft,
     addPolicyDraft,
@@ -131,6 +132,8 @@ export function SettingsWorkspacePage() {
     createOrReset: handleCreateOrResetBootstrapToken,
     directory: bootstrapTokenDirectory,
     feedback: bootstrapTokenFeedback,
+    compactOverviewRows: deliveryCompactOverviewRows,
+    loadDetails: loadDeliveryDetails,
     loadAudits: loadBootstrapTokenAudits,
     loadDirectory: loadBootstrapTokenDirectory,
     loadInitialDirectory: loadBootstrapTokenDirectoryForSettingsLoad,
@@ -140,12 +143,19 @@ export function SettingsWorkspacePage() {
     pairingCode: pairingCodeInput,
     claimPairingCode: handleClaimPairingCode,
     reveal: bootstrapTokenReveal,
+    resetDetails: resetDeliveryDetails,
+    selectedTerminal: selectedBootstrapTerminal,
     selectedTerminalId: selectedBootstrapTerminalId,
     setPairingCode: setPairingCodeInput,
     setSelectedTerminalId: setSelectedBootstrapTerminalId,
-  } = useTerminalDelivery({
+    showDetails: showDeliveryDetails,
+    summaryRows: deliverySummaryRows,
+    toggleDetails: toggleDeliveryDetails,
+    tokenState: bootstrapTokenState,
+  } = useSettingsTerminalDeliverySection({
     canEdit: pin.active,
     currentTerminalId: session.data?.terminalId,
+    operationsGuideOpen: showOperationsGuide,
   });
   const {
     bindBusy: sgccLoginQrCodeBindBusy,
@@ -183,8 +193,6 @@ export function SettingsWorkspacePage() {
   const [showHomeContentManager, setShowHomeContentManager] = useState(false);
   const [showHomePublishPanel, setShowHomePublishPanel] = useState(false);
   const [showAdvancedEditor, setShowAdvancedEditor] = useState(false);
-  const [showOperationsGuide, setShowOperationsGuide] = useState(false);
-  const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
   const [showBackupDetails, setShowBackupDetails] = useState(false);
 
   useEffect(() => {
@@ -213,7 +221,7 @@ export function SettingsWorkspacePage() {
       setShowAdvancedEditor(false);
     }
     if (activeSection !== "delivery") {
-      setShowDeliveryDetails(false);
+      resetDeliveryDetails();
     }
     if (activeSection !== "backup") {
       setShowBackupDetails(false);
@@ -261,8 +269,7 @@ export function SettingsWorkspacePage() {
     }
 
     if (activeSection === "delivery") {
-      void loadBootstrapTokenDirectory();
-      void loadBootstrapTokenAudits();
+      void loadDeliveryDetails();
     }
   }, [activeSection, pin.active, session.data?.accessToken, session.status]);
 
@@ -330,11 +337,6 @@ export function SettingsWorkspacePage() {
   }, [latestWsEvent]);
 
   const viewModel = mapSettingsViewModel(settings.data);
-  const selectedBootstrapTerminal =
-    bootstrapTokenDirectory.find(
-      (item) => item.terminal_id === selectedBootstrapTerminalId,
-    ) ?? null;
-  const bootstrapTokenState = selectedBootstrapTerminal;
   const overviewRows = [
     ...viewModel.overview,
     { label: "HA 连接", value: systemDraft.connectionStatus },
@@ -393,21 +395,7 @@ export function SettingsWorkspacePage() {
     activeSection === "system"
       ? settingsOverviewRows.slice(0, 5)
       : activeSection === "delivery"
-        ? [
-            { label: "终端目录", value: `${bootstrapTokenDirectory.length} 台` },
-            {
-              label: "目标终端",
-              value:
-                selectedBootstrapTerminal?.terminal_name ??
-                selectedBootstrapTerminal?.terminal_code ??
-                "-",
-            },
-            {
-              label: "激活凭据",
-              value: bootstrapTokenState?.token_configured ? "已就绪" : "待生成",
-            },
-            { label: "流程说明", value: showOperationsGuide ? "已展开" : "已收起" },
-          ]
+        ? deliveryCompactOverviewRows
         : activeSection === "backup"
           ? [
               { label: "可用备份", value: `${backupItems.length} 条` },
@@ -640,24 +628,11 @@ export function SettingsWorkspacePage() {
     sectionPanel = (
       <section className="settings-section-stack">
         <SettingsSectionSummaryBlock
-          rows={[
-            { label: "终端目录", value: `${bootstrapTokenDirectory.length} 台` },
-            {
-              label: "目标终端",
-              value:
-                selectedBootstrapTerminal?.terminal_name ??
-                selectedBootstrapTerminal?.terminal_code ??
-                "-",
-            },
-            {
-              label: "详情面板",
-              value: showDeliveryDetails ? "已展开" : "已收起",
-            },
-          ]}
+          rows={deliverySummaryRows}
           actions={
             <button
               className="button button--ghost"
-              onClick={() => setShowDeliveryDetails((current) => !current)}
+              onClick={toggleDeliveryDetails}
               type="button"
             >
               {showDeliveryDetails ? "收起交付详情" : "展开交付详情"}
