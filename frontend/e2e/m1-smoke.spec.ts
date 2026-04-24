@@ -935,6 +935,10 @@ async function openSettingsTaskFlow(page: Page) {
 }
 
 async function openDeliveryDetails(page: Page) {
+  await page
+    .getByRole("navigation", { name: "设置分区" })
+    .getByRole("button", { name: /终端交付/ })
+    .click();
   const expandButton = page.getByRole("button", { name: "展开交付详情" });
   if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
     await expandButton.click();
@@ -943,6 +947,10 @@ async function openDeliveryDetails(page: Page) {
 }
 
 async function openBackupDetails(page: Page) {
+  await page
+    .getByRole("navigation", { name: "设置分区" })
+    .getByRole("button", { name: /备份与恢复/ })
+    .click();
   const expandButton = page.getByRole("button", { name: "展开备份详情" });
   if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
     await expandButton.click();
@@ -1045,7 +1053,11 @@ async function ensureEditorWritable(page: Page) {
 
 test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "总览" })).toBeVisible();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Primary" })
+      .getByRole("link", { name: "总览", exact: true }),
+  ).toBeVisible();
   await expect(page.locator(".home-command-stage")).toBeVisible();
 
   await unlockManagementPin(page);
@@ -1432,7 +1444,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await expect(page.getByText("草稿已发布")).toBeVisible();
   await expect(page.getByText(/布局版本已更新为/)).toBeVisible();
 
-  await page.getByRole("link", { name: "总览" }).click();
+  await openHomeDashboard(page);
   await expect(page.getByAltText("家庭户型图")).toBeVisible();
   await expect(
     page.getByRole("button", { name: customLabel }).first(),
@@ -2094,7 +2106,7 @@ test("home overview renders built-in and custom hotspot icons", async ({ page })
   });
 
   await page.goto("/");
-  await page.getByRole("link", { name: "总览" }).click();
+  await expect(page.locator(".home-command-stage")).toBeVisible();
 
   const fridgeIcon = page.locator(
     '.home-hotspot-overlay__item[aria-label="冰箱热点"] .hotspot-icon--refrigerator',
