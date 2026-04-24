@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse

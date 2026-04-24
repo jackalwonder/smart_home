@@ -13,5 +13,13 @@ class HaControlCommand:
     payload: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class HaControlSubmitResult:
+    submitted: bool
+    status: str
+    reason: str
+    message: str | None = None
+
+
 class HaControlGateway(Protocol):
-    async def submit_control(self, command: HaControlCommand) -> None: ...
+    async def submit_control(self, command: HaControlCommand) -> HaControlSubmitResult: ...

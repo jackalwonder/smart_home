@@ -355,28 +355,22 @@ class DeviceControlCommandService:
 
         inserted = await self._unit_of_work.run_in_transaction(_transaction)
 
-        try:
-            await self._ha_control_gateway.submit_control(
-                HaControlCommand(
-                    home_id=input.home_id,
-                    device_id=input.device_id,
-                    request_id=input.request_id,
-                    action_type=input.action_type,
-                    payload=validated_payload.payload,
-                )
-            )
-        except Exception as exc:
-            completed_at = self._clock.now().isoformat()
-
-            async def _mark_failed(tx: Any):
+        async def _mark_failed(
+            *,
+            completed_at: str,
+            reason: str,
+            error_code: str,
+            error_message: str,
+        ) -> None:
+            async def _transaction_failed(tx: Any):
                 await self._device_control_request_repository.update_execution_result(
                     DeviceControlResultUpdate(
                         home_id=input.home_id,
                         request_id=input.request_id,
                         execution_status="FAILED",
                         final_runtime_state_json=None,
-                        error_code=ErrorCode.HA_UNAVAILABLE,
-                        error_message=str(exc),
+                        error_code=error_code,
+                        error_message=error_message,
                         completed_at=completed_at,
                     ),
                     ctx=RepoContext(tx=tx),
@@ -386,8 +380,8 @@ class DeviceControlCommandService:
                         control_request_id=inserted.id,
                         from_status="PENDING",
                         to_status="FAILED",
-                        reason="HA_SUBMIT_FAILED",
-                        error_code=ErrorCode.HA_UNAVAILABLE,
+                        reason=reason,
+                        error_code=error_code,
                         payload_json={"request_id": input.request_id},
                     ),
                     ctx=RepoContext(tx=tx),
@@ -405,19 +399,56 @@ class DeviceControlCommandService:
                             "confirmation_type": inserted.confirmation_type,
                             "execution_status": "FAILED",
                             "runtime_state": None,
-                            "error_code": ErrorCode.HA_UNAVAILABLE,
-                            "error_message": str(exc),
+                            "error_code": error_code,
+                            "error_message": error_message,
                         },
                         occurred_at=completed_at,
                     ),
                     ctx=RepoContext(tx=tx),
                 )
 
-            await self._unit_of_work.run_in_transaction(_mark_failed)
+            await self._unit_of_work.run_in_transaction(_transaction_failed)
+
+        try:
+            submit_result = await self._ha_control_gateway.submit_control(
+                HaControlCommand(
+                    home_id=input.home_id,
+                    device_id=input.device_id,
+                    request_id=input.request_id,
+                    action_type=input.action_type,
+                    payload=validated_payload.payload,
+                )
+            )
+        except Exception as exc:
+            completed_at = self._clock.now().isoformat()
+            await _mark_failed(
+                completed_at=completed_at,
+                reason="HA_SUBMIT_FAILED",
+                error_code=str(ErrorCode.HA_UNAVAILABLE),
+                error_message=str(exc),
+            )
             raise AppError(
                 ErrorCode.HA_UNAVAILABLE,
                 "failed to submit control to Home Assistant",
             ) from exc
+
+        if not submit_result.submitted:
+            completed_at = self._clock.now().isoformat()
+            error_message = submit_result.message or "Home Assistant control request was not submitted."
+            await _mark_failed(
+                completed_at=completed_at,
+                reason=submit_result.reason,
+                error_code=str(ErrorCode.HA_UNAVAILABLE),
+                error_message=error_message,
+            )
+            raise AppError(
+                ErrorCode.HA_UNAVAILABLE,
+                "failed to submit control to Home Assistant",
+                details={
+                    "ha_status": submit_result.status,
+                    "ha_reason": submit_result.reason,
+                },
+            )
 
         completed_at = self._clock.now().isoformat()
 

@@ -12,6 +12,8 @@ from src.infrastructure.ha.HaConnectionGateway import HaConnectionGateway, HaSta
 from src.modules.settings.services.query.SgccRuntimeControlService import (
     DockerUnixSocketContainerRestarter,
     SgccContainerRestarter,
+    SgccQrCodeImage,
+    SgccRuntimeStatus,
 )
 from src.repositories.base.energy.EnergyAccountRepository import (
     EnergyAccountRepository,
@@ -50,8 +52,9 @@ class SgccLoginQrCodeStatusView:
 
 @dataclass(frozen=True)
 class SgccLoginQrCodeFileView:
-    path: str
+    path: str | None
     mime_type: str
+    content: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,7 @@ class SgccAutoBindingResult:
     account_id: str
     entity_map: dict[str, str]
     changed: bool
+    timestamp: str = ""
 
 
 class SgccLoginQrCodeService:
@@ -73,14 +77,14 @@ class SgccLoginQrCodeService:
         settings: Settings,
         energy_account_repository: EnergyAccountRepository | None = None,
         ha_connection_gateway: HaConnectionGateway | None = None,
-        container_restarter: SgccContainerRestarter | None = None,
+        runtime_control: SgccContainerRestarter | None = None,
     ) -> None:
         self._qr_code_file = Path(settings.sgcc_qr_code_file)
         self._cache_file = Path(settings.sgcc_cache_file)
         self._qr_code_ttl_seconds = settings.sgcc_qr_code_ttl_seconds
         self._energy_account_repository = energy_account_repository
         self._ha_connection_gateway = ha_connection_gateway
-        self._container_restarter = container_restarter or DockerUnixSocketContainerRestarter(
+        self._runtime_control = runtime_control or DockerUnixSocketContainerRestarter(
             settings.sgcc_docker_socket_path,
             settings.sgcc_docker_container_name,
         )
@@ -98,11 +102,15 @@ class SgccLoginQrCodeService:
             message=message,
         )
 
-    def _build_bound_status(self, binding: SgccAutoBindingResult) -> SgccLoginQrCodeStatusView:
+    def _build_bound_status(
+        self,
+        binding: SgccAutoBindingResult,
+        runtime_status: SgccRuntimeStatus | None = None,
+    ) -> SgccLoginQrCodeStatusView:
         file_path = self._cache_file
         stat = file_path.stat() if file_path.exists() and file_path.is_file() else None
         if stat is None:
-            updated_at = None
+            updated_at = binding.timestamp or None
             age_seconds = None
             file_size_bytes = None
         else:
@@ -162,13 +170,36 @@ class SgccLoginQrCodeService:
         terminal_id: str | None = None,
         member_id: str | None = None,
     ) -> SgccLoginQrCodeStatusView:
-        binding = await self._try_auto_bind_energy_account(
-            home_id=home_id,
-            terminal_id=terminal_id,
-            member_id=member_id,
-        )
-        if binding is not None:
-            return self._build_bound_status(binding)
+        del home_id, terminal_id, member_id
+        runtime_status = await self._get_runtime_status()
+        if runtime_status is not None:
+            qrcode = runtime_status.qrcode
+            if qrcode is None:
+                return self._build_pending_status(runtime_status.message or "Waiting for SGCC sidecar status.")
+            if not qrcode.available:
+                return SgccLoginQrCodeStatusView(
+                    available=False,
+                    status=qrcode.status,
+                    image_url=None,
+                    updated_at=qrcode.updated_at,
+                    expires_at=qrcode.expires_at,
+                    age_seconds=qrcode.age_seconds,
+                    file_size_bytes=qrcode.file_size_bytes,
+                    mime_type=qrcode.mime_type,
+                    message=qrcode.message or runtime_status.message,
+                )
+            version = qrcode.updated_at or qrcode.file_size_bytes or "ready"
+            return SgccLoginQrCodeStatusView(
+                available=True,
+                status=qrcode.status,
+                image_url=f"/api/v1/settings/sgcc-login-qrcode/file?v={version}",
+                updated_at=qrcode.updated_at,
+                expires_at=qrcode.expires_at,
+                age_seconds=qrcode.age_seconds,
+                file_size_bytes=qrcode.file_size_bytes,
+                mime_type=qrcode.mime_type or "image/png",
+                message=qrcode.message or "QR code is ready. Scan it with the State Grid app to finish login.",
+            )
 
         file_path = self._qr_code_file
         if not file_path.exists() or not file_path.is_file():
@@ -215,7 +246,35 @@ class SgccLoginQrCodeService:
             message="QR code is ready. Scan it with the State Grid app to finish login.",
         )
 
+    async def bind_energy_account(
+        self,
+        *,
+        home_id: str,
+        terminal_id: str | None = None,
+        member_id: str | None = None,
+    ) -> SgccLoginQrCodeStatusView:
+        runtime_status = await self._get_runtime_status()
+        binding = await self._try_auto_bind_energy_account(
+            home_id=home_id,
+            terminal_id=terminal_id,
+            member_id=member_id,
+            accounts=_accounts_from_runtime_status(runtime_status),
+        )
+        if binding is None:
+            return self._build_pending_status(
+                "SGCC account data is not ready. Scan the QR code first and wait for Home Assistant SGCC sensors to appear."
+            )
+        return self._build_bound_status(binding, runtime_status)
+
     async def get_file(self) -> SgccLoginQrCodeFileView:
+        image = await self._get_runtime_qrcode()
+        if image is not None:
+            return SgccLoginQrCodeFileView(
+                path=None,
+                mime_type=image.mime_type,
+                content=image.content,
+            )
+
         status = await self.get_status()
         if not status.available:
             raise AppError(
@@ -233,7 +292,7 @@ class SgccLoginQrCodeService:
         file_path = self._qr_code_file
         if file_path.exists() and file_path.is_file():
             file_path.unlink()
-        await self._container_restarter.restart()
+        await self._runtime_control.restart()
         return self._build_pending_status(
             "Regenerating the SGCC login QR code. This may take a few minutes while sgcc_electricity retries password login and switches to QR mode."
         )
@@ -244,11 +303,12 @@ class SgccLoginQrCodeService:
         home_id: str | None,
         terminal_id: str | None,
         member_id: str | None,
+        accounts: list[SgccCachedAccount] | None = None,
     ) -> SgccAutoBindingResult | None:
         if not home_id or self._energy_account_repository is None:
             return None
 
-        accounts = await asyncio.to_thread(_read_cached_accounts, self._cache_file)
+        accounts = accounts if accounts is not None else await asyncio.to_thread(_read_cached_accounts, self._cache_file)
         if not accounts:
             return None
 
@@ -269,6 +329,7 @@ class SgccLoginQrCodeService:
                 account_id=account.account_id,
                 entity_map=entity_map,
                 changed=False,
+                timestamp=account.timestamp,
             )
 
         await self._energy_account_repository.upsert(
@@ -292,6 +353,7 @@ class SgccLoginQrCodeService:
             account_id=account.account_id,
             entity_map=entity_map,
             changed=True,
+            timestamp=account.timestamp,
         )
 
     async def _resolve_entity_map(self, home_id: str, account_id: str) -> dict[str, str]:
@@ -308,6 +370,18 @@ class SgccLoginQrCodeService:
         if suffix:
             return _entity_ids_for_suffix(suffix)
         return {}
+
+    async def _get_runtime_status(self) -> SgccRuntimeStatus | None:
+        try:
+            return await self._runtime_control.get_status()
+        except Exception:
+            return None
+
+    async def _get_runtime_qrcode(self) -> SgccQrCodeImage | None:
+        try:
+            return await self._runtime_control.get_qrcode()
+        except Exception:
+            return None
 
 
 def _read_cached_accounts(cache_file: Path) -> list[SgccCachedAccount]:
@@ -333,6 +407,18 @@ def _read_cached_accounts(cache_file: Path) -> list[SgccCachedAccount]:
             )
         )
     return sorted(accounts, key=lambda item: item.timestamp, reverse=True)
+
+
+def _accounts_from_runtime_status(runtime_status: SgccRuntimeStatus | None) -> list[SgccCachedAccount] | None:
+    if runtime_status is None:
+        return None
+    return [
+        SgccCachedAccount(
+            account_id=account.account_id,
+            timestamp=account.timestamp,
+        )
+        for account in runtime_status.accounts
+    ]
 
 
 def _clean_account_id(value: object) -> str | None:

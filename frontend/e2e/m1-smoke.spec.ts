@@ -896,17 +896,94 @@ async function openRealtimeProbe(page: Page, accessToken: string) {
 async function unlockManagementPin(page: Page) {
   await page.goto("/");
   await page.getByRole("link", { name: "设置" }).click();
-  await expect(page.getByRole("heading", { name: "管理 PIN" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "设置分区" }),
+  ).toBeVisible();
 
-  const pinInput = page.getByPlaceholder("输入管理 PIN");
-  if (await pinInput.isVisible()) {
+  const verifiedState = page
+    .getByText(/PIN 验证通过|当前管理会话已生效|PIN 已验证/)
+    .first();
+  if ((await verifiedState.count()) > 0 && (await verifiedState.isVisible())) {
+    return;
+  }
+
+  const pinCard = page.locator(".settings-inline-pin .pin-card").first();
+  await expect(pinCard).toBeVisible();
+
+  const pinInput = pinCard.getByPlaceholder("输入管理 PIN");
+  if ((await pinInput.count()) > 0 && (await pinInput.isVisible())) {
     await pinInput.fill(DEV_PIN);
-    await page.getByRole("button", { name: "验证 PIN" }).click();
+    await pinCard.locator("form").getByRole("button", { name: "验证 PIN" }).click();
   }
 
   await expect(
     page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
   ).toBeVisible();
+}
+
+async function openSettingsTaskFlow(page: Page) {
+  const settingsNav = page.getByRole("navigation", { name: "设置分区" });
+  await expect(settingsNav).toBeVisible();
+  await settingsNav.getByRole("button", { name: /终端交付/ }).click();
+
+  const taskFlow = page.locator("section[aria-label='现场任务流']");
+  if ((await taskFlow.count()) === 0 || !(await taskFlow.first().isVisible())) {
+    await page.getByRole("button", { name: "展开流程" }).click();
+  }
+  await expect(taskFlow).toBeVisible();
+  return taskFlow;
+}
+
+async function openDeliveryDetails(page: Page) {
+  await page
+    .getByRole("navigation", { name: "设置分区" })
+    .getByRole("button", { name: /终端交付/ })
+    .click();
+  const expandButton = page.getByRole("button", { name: "展开交付详情" });
+  if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
+    await expandButton.click();
+  }
+  await expect(page.locator("section[aria-label='终端交付现场台']")).toBeVisible();
+}
+
+async function openBackupDetails(page: Page) {
+  await page
+    .getByRole("navigation", { name: "设置分区" })
+    .getByRole("button", { name: /备份与恢复/ })
+    .click();
+  const expandButton = page.getByRole("button", { name: "展开备份详情" });
+  if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
+    await expandButton.click();
+  }
+  await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
+}
+
+async function openEditorWorkspace(page: Page) {
+  await page.goto("/settings?section=home");
+  await expect(page.getByRole("navigation", { name: "设置分区" })).toBeVisible();
+
+  const publishButton = page.getByRole("button", { name: "展开发布面板" });
+  if ((await publishButton.count()) > 0 && (await publishButton.isVisible())) {
+    await publishButton.click();
+  }
+
+  const advancedEditorButton = page.getByRole("button", { name: "展开高级编辑" });
+  if (
+    (await advancedEditorButton.count()) > 0 &&
+    (await advancedEditorButton.isVisible())
+  ) {
+    await advancedEditorButton.click();
+  }
+
+  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+}
+
+async function openHomeDashboard(page: Page) {
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("link", { name: "总览", exact: true })
+    .click();
+  await expect(page.locator(".home-command-stage")).toBeVisible();
 }
 
 async function readEditorFieldValue(page: Page, label: string) {
@@ -976,29 +1053,17 @@ async function ensureEditorWritable(page: Page) {
 
 test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "总览" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "家庭总览" })).toBeVisible();
-
-  await page.getByRole("link", { name: "设置" }).click();
-  await expect(page.getByRole("heading", { name: "管理 PIN" })).toBeVisible();
-
-  const pinInput = page.getByPlaceholder("输入管理 PIN");
-  if (await pinInput.isVisible()) {
-    await pinInput.fill(DEV_PIN);
-    await page.getByRole("button", { name: "验证 PIN" }).click();
-  }
-
   await expect(
-    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
+    page
+      .getByRole("navigation", { name: "Primary" })
+      .getByRole("link", { name: "总览", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".home-command-stage")).toBeVisible();
+
+  await unlockManagementPin(page);
   await expect(page.getByRole("button", { name: "保存全部" })).toBeEnabled();
 
-  const settingsNav = page.getByRole("navigation", { name: "设置分区" });
-  await expect(
-    settingsNav.getByRole("button", { name: /终端交付/ }),
-  ).toBeVisible();
-  await settingsNav.getByRole("button", { name: /系统连接/ }).click();
-  const taskFlow = page.locator("section[aria-label='现场任务流']");
+  const taskFlow = await openSettingsTaskFlow(page);
   await expect(
     taskFlow.getByRole("button", { name: /新装终端/ }),
   ).toBeVisible();
@@ -1008,22 +1073,18 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(
     taskFlow.getByRole("button", { name: /备份恢复/ }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "系统连接" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "激活凭据交付" }),
-  ).toHaveCount(0);
+  await openDeliveryDetails(page);
 
   await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "备份恢复" }),
-  ).toBeVisible();
+  await openBackupDetails(page);
   await expect(page.getByRole("heading", { name: "恢复历史" })).toBeVisible();
   await page
     .getByPlaceholder("例如：联调前、夜间稳定版")
     .fill("e2e smoke backup");
-  await page.getByRole("button", { name: "创建备份" }).click();
+  await page
+    .locator(".backup-panel__toolbar")
+    .getByRole("button", { name: "创建备份" })
+    .click();
   await expect(page.getByText(/备份 bk_/)).toBeVisible();
   await expect(page.getByText("e2e smoke backup").first()).toBeVisible();
   await expect(page.getByText("快照摘要").first()).toBeVisible();
@@ -1036,17 +1097,11 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
   const previousToken = issueBootstrapToken(TERMINAL_ID);
 
   await unlockManagementPin(page);
-  await page
-    .getByRole("navigation", { name: "设置分区" })
-    .getByRole("button", { name: /系统连接/ })
-    .click();
-  const taskFlow = page.locator("section[aria-label='现场任务流']");
+  const taskFlow = await openSettingsTaskFlow(page);
   await taskFlow.getByRole("button", { name: /换机恢复/ }).click();
   await expect(taskFlow.getByText("重置激活凭据")).toBeVisible();
   await expect(taskFlow.getByText("必要时复查系统连接")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "终端交付现场台" }),
-  ).toBeVisible();
+  await openDeliveryDetails(page);
   await expect(
     page.getByRole("heading", { level: 3, name: "认领绑定码" }),
   ).toBeVisible();
@@ -1260,9 +1315,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await ensureDevicesReady(request, session.access_token);
 
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   await page.getByLabel("上传背景图").setInputFiles({
@@ -1394,7 +1447,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await expect(page.getByText("草稿已发布")).toBeVisible();
   await expect(page.getByText(/布局版本已更新为/)).toBeVisible();
 
-  await page.getByRole("link", { name: "总览" }).click();
+  await openHomeDashboard(page);
   await expect(page.getByAltText("家庭户型图")).toBeVisible();
   await expect(
     page.getByRole("button", { name: customLabel }).first(),
@@ -1413,9 +1466,7 @@ test("editor downgrades to readonly after takeover and can recover", async ({
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   ensureSecondaryTerminal();
@@ -1449,8 +1500,7 @@ test("editor save surfaces version conflict and retries after refresh", async ({
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   const leaseId = await readEditorFieldValue(page, "租约 ID");
@@ -1489,8 +1539,7 @@ test("editor publish surfaces version conflict and retries after refresh", async
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   const leaseId = await readEditorFieldValue(page, "租约 ID");
@@ -1595,7 +1644,7 @@ test("realtime reconnect resumes with last_event_id and refreshes settings snaps
   ).toBeVisible();
 });
 
-test("device control request can be accepted and queried to final result", async ({
+test("device control request reports execution or HA unavailability explicitly", async ({
   request,
 }) => {
   const session = await bootstrapSession(request);
@@ -1606,23 +1655,32 @@ test("device control request can be accepted and queried to final result", async
   const requestId = `e2e-control-${Date.now()}`;
   const headers = { authorization: `Bearer ${session.access_token}` };
 
-  const accepted = await expectEnvelope<{
+  const acceptedResponse = await request.post("/api/v1/device-controls", {
+    headers,
+    data: {
+      request_id: requestId,
+      device_id: supportedRequest.device_id,
+      action_type: supportedRequest.action_type,
+      payload: supportedRequest.payload,
+      client_ts: new Date().toISOString(),
+    },
+  });
+
+  if (!acceptedResponse.ok()) {
+    expect(acceptedResponse.status()).toBe(503);
+    const envelope = (await acceptedResponse.json()) as Envelope<null>;
+    expect(envelope.success).toBe(false);
+    expect(envelope.error?.code).toBe("HA_UNAVAILABLE");
+    return;
+  }
+
+  const accepted = (await acceptedResponse.json()) as Envelope<{
     accepted: boolean;
     request_id: string;
-  }>(
-    await request.post("/api/v1/device-controls", {
-      headers,
-      data: {
-        request_id: requestId,
-        device_id: supportedRequest.device_id,
-        action_type: supportedRequest.action_type,
-        payload: supportedRequest.payload,
-        client_ts: new Date().toISOString(),
-      },
-    }),
-  );
-  expect(accepted.accepted).toBe(true);
-  expect(accepted.request_id).toBe(requestId);
+  }>;
+  expect(accepted.success, accepted.error?.message).toBe(true);
+  expect(accepted.data.accepted).toBe(true);
+  expect(accepted.data.request_id).toBe(requestId);
 
   let queried: {
     execution_status: string;
@@ -1887,7 +1945,7 @@ test("home control UI sends null payload for no-value actions and shows result",
   });
 
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "总览" }).click();
+  await openHomeDashboard(page);
   await page.getByRole("button", { name: "无值测试开关" }).click();
   await expect(page.locator(".home-hotspot-control-modal.is-detail")).toBeVisible();
   await expect(page.locator(".home-device-control-panel")).toHaveCount(0);
@@ -2051,7 +2109,7 @@ test("home overview renders built-in and custom hotspot icons", async ({ page })
   });
 
   await page.goto("/");
-  await page.getByRole("link", { name: "总览" }).click();
+  await expect(page.locator(".home-command-stage")).toBeVisible();
 
   const fridgeIcon = page.locator(
     '.home-hotspot-overlay__item[aria-label="冰箱热点"] .hotspot-icon--refrigerator',
@@ -2078,10 +2136,9 @@ test("backup restore syncs to another terminal through realtime", async ({
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("button", { name: /备份恢复/ }).click();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "备份恢复" }),
-  ).toBeVisible();
+  const taskFlow = await openSettingsTaskFlow(page);
+  await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
+  await openBackupDetails(page);
 
   ensureSecondaryTerminal();
   const secondarySession = await bootstrapSession(

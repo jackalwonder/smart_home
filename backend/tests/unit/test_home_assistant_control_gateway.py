@@ -142,7 +142,7 @@ async def test_submit_control_maps_supported_actions_to_home_assistant_services(
     _CaptureAsyncClient.requests = []
     gateway = _gateway(_connection_row())
 
-    await gateway.submit_control(
+    result = await gateway.submit_control(
         HaControlCommand(
             home_id="home-1",
             device_id="device-1",
@@ -152,6 +152,8 @@ async def test_submit_control_maps_supported_actions_to_home_assistant_services(
         )
     )
 
+    assert result.submitted is True
+    assert result.reason == "HA_ACKNOWLEDGED"
     assert len(_CaptureAsyncClient.requests) == 1
     request = _CaptureAsyncClient.requests[0]
     assert request["url"] == f"http://ha.test{expected_path}"
@@ -172,7 +174,7 @@ async def test_submit_control_uses_bootstrap_config_when_saved_connection_is_mis
         ),
     )
 
-    await gateway.submit_control(
+    result = await gateway.submit_control(
         HaControlCommand(
             home_id="home-1",
             device_id="device-1",
@@ -182,6 +184,8 @@ async def test_submit_control_uses_bootstrap_config_when_saved_connection_is_mis
         )
     )
 
+    assert result.submitted is True
+    assert result.reason == "HA_ACKNOWLEDGED"
     assert len(_CaptureAsyncClient.requests) == 1
     request = _CaptureAsyncClient.requests[0]
     assert request["url"] == "http://bootstrap-ha.test/api/services/climate/set_temperature"
@@ -193,12 +197,12 @@ async def test_submit_control_uses_bootstrap_config_when_saved_connection_is_mis
 
 
 @pytest.mark.asyncio
-async def test_submit_control_skips_unknown_targets_without_calling_home_assistant(monkeypatch):
+async def test_submit_control_reports_unsupported_targets_without_calling_home_assistant(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", _CaptureAsyncClient)
     _CaptureAsyncClient.requests = []
     gateway = _gateway(_connection_row())
 
-    await gateway.submit_control(
+    result = await gateway.submit_control(
         HaControlCommand(
             home_id="home-1",
             device_id="device-1",
@@ -208,4 +212,67 @@ async def test_submit_control_skips_unknown_targets_without_calling_home_assista
         )
     )
 
+    assert result.submitted is False
+    assert result.status == "UNSUPPORTED"
+    assert result.reason == "HA_SERVICE_UNSUPPORTED"
+    assert _CaptureAsyncClient.requests == []
+
+
+@pytest.mark.asyncio
+async def test_submit_control_reports_missing_home_assistant_configuration(monkeypatch):
+    monkeypatch.setattr(httpx, "AsyncClient", _CaptureAsyncClient)
+    _CaptureAsyncClient.requests = []
+    gateway = _gateway(None)
+
+    result = await gateway.submit_control(
+        HaControlCommand(
+            home_id="home-1",
+            device_id="device-1",
+            request_id="req-1",
+            action_type="SET_TEMPERATURE",
+            payload={"target_key": "climate.fridge", "value": 4},
+        )
+    )
+
+    assert result.submitted is False
+    assert result.status == "MISCONFIGURED"
+    assert result.reason == "HA_CONNECTION_MISSING"
+    assert _CaptureAsyncClient.requests == []
+
+
+@pytest.mark.asyncio
+async def test_submit_control_reports_missing_access_token(monkeypatch):
+    monkeypatch.setattr(httpx, "AsyncClient", _CaptureAsyncClient)
+    _CaptureAsyncClient.requests = []
+    row = _connection_row()
+    row = SystemConnectionRow(
+        id=row.id,
+        home_id=row.home_id,
+        system_type=row.system_type,
+        connection_mode=row.connection_mode,
+        base_url_encrypted=row.base_url_encrypted,
+        auth_payload_encrypted="{}",
+        auth_configured=row.auth_configured,
+        connection_status=row.connection_status,
+        last_test_at=row.last_test_at,
+        last_test_result=row.last_test_result,
+        last_sync_at=row.last_sync_at,
+        last_sync_result=row.last_sync_result,
+        updated_at=row.updated_at,
+    )
+    gateway = _gateway(row)
+
+    result = await gateway.submit_control(
+        HaControlCommand(
+            home_id="home-1",
+            device_id="device-1",
+            request_id="req-1",
+            action_type="SET_TEMPERATURE",
+            payload={"target_key": "climate.fridge", "value": 4},
+        )
+    )
+
+    assert result.submitted is False
+    assert result.status == "MISCONFIGURED"
+    assert result.reason == "HA_TOKEN_MISSING"
     assert _CaptureAsyncClient.requests == []

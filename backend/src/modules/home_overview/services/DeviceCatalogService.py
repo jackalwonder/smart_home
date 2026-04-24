@@ -8,7 +8,7 @@ from sqlalchemy import bindparam, text
 from src.infrastructure.db.connection.Database import Database
 from src.infrastructure.db.repositories._support import as_dict, as_list, session_scope
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
-from src.repositories.base.devices.DeviceRepository import DeviceListFilter, DeviceMappingPatch
+from src.repositories.base.devices.DeviceRepository import DeviceMappingPatch
 from src.repositories.base.devices.DeviceRepository import DeviceRepository
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode

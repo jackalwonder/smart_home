@@ -646,9 +646,67 @@
     "EnergyRefreshPayload": {
       "additionalProperties": false,
       "properties": {
+        "last_error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error Code"
+        },
         "refresh_status": {
           "title": "Refresh Status",
           "type": "string"
+        },
+        "refresh_status_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refresh Status Detail"
+        },
+        "source_updated": {
+          "default": false,
+          "title": "Source Updated",
+          "type": "boolean"
+        },
+        "source_updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Updated At"
+        },
+        "system_updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "System Updated At"
+        },
+        "upstream_triggered": {
+          "default": false,
+          "title": "Upstream Triggered",
+          "type": "boolean"
         }
       },
       "required": [

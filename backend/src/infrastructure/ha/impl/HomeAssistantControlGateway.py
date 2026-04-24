@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 from src.infrastructure.ha.HomeAssistantBootstrapProvider import HomeAssistantBootstrapProvider
-from src.infrastructure.ha.HaControlGateway import HaControlCommand
+from src.infrastructure.ha.HaControlGateway import HaControlCommand, HaControlSubmitResult
 from src.infrastructure.security.ConnectionSecretCipher import ConnectionSecretCipher
 from src.repositories.base.system.SystemConnectionRepository import SystemConnectionRepository
 
@@ -84,7 +84,21 @@ class HomeAssistantControlGateway:
 
         return None
 
-    async def submit_control(self, command: HaControlCommand) -> None:
+    def _not_submitted(
+        self,
+        *,
+        status: str,
+        reason: str,
+        message: str,
+    ) -> HaControlSubmitResult:
+        return HaControlSubmitResult(
+            submitted=False,
+            status=status,
+            reason=reason,
+            message=message,
+        )
+
+    async def submit_control(self, command: HaControlCommand) -> HaControlSubmitResult:
         row = await self._system_connection_repository.find_by_home_and_type(
             command.home_id,
             "HOME_ASSISTANT",
@@ -92,21 +106,44 @@ class HomeAssistantControlGateway:
         if row is None:
             bootstrap = self._home_assistant_bootstrap_provider.get_config()
             if bootstrap is None:
-                return
+                return self._not_submitted(
+                    status="MISCONFIGURED",
+                    reason="HA_CONNECTION_MISSING",
+                    message="Home Assistant connection is not configured.",
+                )
             base_url = bootstrap.base_url.rstrip("/")
             headers = self._to_headers(json.dumps(bootstrap.auth_payload, ensure_ascii=True))
         else:
             if not row.auth_configured or not row.base_url_encrypted:
-                return
+                return self._not_submitted(
+                    status="MISCONFIGURED",
+                    reason="HA_AUTH_MISSING",
+                    message="Home Assistant connection is missing base URL or authentication.",
+                )
             base_url = self._connection_secret_cipher.decrypt(row.base_url_encrypted)
             if not base_url:
-                return
+                return self._not_submitted(
+                    status="MISCONFIGURED",
+                    reason="HA_BASE_URL_MISSING",
+                    message="Home Assistant base URL could not be resolved.",
+                )
             auth_payload_raw = self._connection_secret_cipher.decrypt(row.auth_payload_encrypted)
             headers = self._to_headers(auth_payload_raw)
 
+        if not headers.get("Authorization"):
+            return self._not_submitted(
+                status="MISCONFIGURED",
+                reason="HA_TOKEN_MISSING",
+                message="Home Assistant access token is not configured.",
+            )
+
         service_call = self._build_service_call(command)
         if service_call is None:
-            return
+            return self._not_submitted(
+                status="UNSUPPORTED",
+                reason="HA_SERVICE_UNSUPPORTED",
+                message="Device control action cannot be mapped to a Home Assistant service call.",
+            )
         service_domain, service_name, service_data = service_call
 
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -116,3 +153,9 @@ class HomeAssistantControlGateway:
                 json=service_data,
             )
             response.raise_for_status()
+        return HaControlSubmitResult(
+            submitted=True,
+            status="ACKNOWLEDGED",
+            reason="HA_ACKNOWLEDGED",
+            message=None,
+        )

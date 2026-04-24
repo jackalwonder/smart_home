@@ -36,6 +36,13 @@ export async function apiRequest<T>(input: string, init?: ApiRequestOptions): Pr
   try {
     envelope = (await response.json()) as ApiEnvelope<T>;
   } catch {
+    if ([502, 503, 504].includes(response.status)) {
+      throw new ApiError({
+        code: "UPSTREAM_TIMEOUT",
+        message: "服务端网关等待超时，能耗同步可能仍在后台执行，请稍后刷新状态。",
+      });
+    }
+
     throw new ApiError({
       code: "BAD_RESPONSE",
       message: "服务端没有返回可解析的 JSON 响应。",

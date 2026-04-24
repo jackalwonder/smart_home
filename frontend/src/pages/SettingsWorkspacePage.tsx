@@ -19,6 +19,7 @@ import {
   unbindDefaultMedia,
 } from "../api/mediaApi";
 import {
+  bindSgccEnergyAccount,
   fetchSettings,
   fetchSgccLoginQrCodeImage,
   fetchSgccLoginQrCodeStatus,
@@ -692,6 +693,7 @@ export function SettingsWorkspacePage() {
   const [sgccLoginQrCodeLoading, setSgccLoginQrCodeLoading] = useState(false);
   const [sgccLoginQrCodeRegenerateBusy, setSgccLoginQrCodeRegenerateBusy] =
     useState(false);
+  const [sgccLoginQrCodeBindBusy, setSgccLoginQrCodeBindBusy] = useState(false);
   const [sgccLoginQrCodeMessage, setSgccLoginQrCodeMessage] = useState<
     string | null
   >(null);
@@ -829,6 +831,25 @@ export function SettingsWorkspacePage() {
       setSgccLoginQrCodeMessage(normalizeApiError(error).message);
     } finally {
       setSgccLoginQrCodeRegenerateBusy(false);
+    }
+  }
+
+  async function handleBindSgccEnergyAccount() {
+    if (!pin.active) {
+      setSgccLoginQrCodeMessage("绑定国网账号前，请先验证管理 PIN。");
+      return;
+    }
+
+    setSgccLoginQrCodeBindBusy(true);
+    setSgccLoginQrCodeMessage(null);
+    try {
+      const response = await bindSgccEnergyAccount();
+      setSgccLoginQrCode(response);
+      await loadEnergyState();
+    } catch (error) {
+      setSgccLoginQrCodeMessage(normalizeApiError(error).message);
+    } finally {
+      setSgccLoginQrCodeBindBusy(false);
     }
   }
 
@@ -2026,10 +2047,13 @@ export function SettingsWorkspacePage() {
           saveBusy={energySaveBusy}
         />
         <SgccLoginQrCodePanel
+          bindBusy={sgccLoginQrCodeBindBusy}
+          canBind={pin.active}
           canRegenerate={pin.active}
           imageUrl={sgccLoginQrCodeImageUrl}
           loading={sgccLoginQrCodeLoading}
           message={sgccLoginQrCodeMessage}
+          onBindEnergyAccount={() => void handleBindSgccEnergyAccount()}
           onRegenerate={() => void handleRegenerateSgccLoginQrCode()}
           onRefreshStatus={() => void loadSgccLoginQrCode()}
           regenerateBusy={sgccLoginQrCodeRegenerateBusy}

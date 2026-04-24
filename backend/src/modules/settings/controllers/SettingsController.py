@@ -4,7 +4,7 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import Field
 
 from src.app.container import (
@@ -217,6 +217,30 @@ async def regenerate_sgcc_login_qr_code(
     return success_response(request, SgccLoginQrCodeStatusResponse.model_validate(asdict(view)))
 
 
+@router.post(
+    "/api/v1/settings/sgcc-login-qrcode/bind-energy-account",
+    response_model=SuccessEnvelope[SgccLoginQrCodeStatusResponse],
+)
+async def bind_sgcc_energy_account(
+    request: Request,
+    service: SgccLoginQrCodeService = Depends(get_sgcc_login_qr_code_service),
+    management_pin_guard: ManagementPinGuard = Depends(get_management_pin_guard),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=True,
+    )
+    await management_pin_guard.require_active_session(context.home_id, context.terminal_id)
+    view = await service.bind_energy_account(
+        home_id=context.home_id,
+        terminal_id=context.terminal_id,
+        member_id=context.operator_id,
+    )
+    return success_response(request, SgccLoginQrCodeStatusResponse.model_validate(asdict(view)))
+
+
 @router.get(
     "/api/v1/settings/sgcc-login-qrcode/file",
     response_class=FileResponse,
@@ -235,10 +259,14 @@ async def get_sgcc_login_qr_code_file(
     v: str | None = Query(default=None, description="Cache-busting token."),
     service: SgccLoginQrCodeService = Depends(get_sgcc_login_qr_code_service),
     request_context_service: RequestContextService = Depends(get_request_context_service),
-) -> FileResponse:
+) -> Response:
     del v
     await request_context_service.resolve_http_request(request, require_home=True)
     view = await service.get_file()
+    if view.content is not None:
+        return Response(content=view.content, media_type=view.mime_type)
+    if view.path is None:
+        raise RuntimeError("SGCC QR code file path is missing")
     return FileResponse(view.path, media_type=view.mime_type)
 
 

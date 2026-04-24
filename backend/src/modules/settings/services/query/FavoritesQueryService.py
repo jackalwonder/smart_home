@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import text
 
 from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import as_dict, session_scope
+from src.infrastructure.db.repositories._support import session_scope
 
 
 @dataclass(frozen=True)

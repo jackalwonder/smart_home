@@ -17,7 +17,7 @@ interface ConnectOptions {
     reconnectAttempt: number;
     recovered: boolean;
   }) => void;
-  onEvent?: (event: WsEvent) => void;
+  onEvent?: (event: WsEvent) => void | Promise<void>;
   onRecovered?: () => void;
 }
 
@@ -80,6 +80,31 @@ class WsClient {
     this.reconnectTimer = null;
   }
 
+  private async handleMessage(
+    socket: WebSocket,
+    options: ConnectOptions,
+    rawData: string,
+  ) {
+    if (this.socket !== socket) {
+      return;
+    }
+    try {
+      const event = JSON.parse(rawData) as WsEvent;
+      if (!this.rememberEvent(event.event_id)) {
+        this.lastEventId = event.event_id;
+        this.send({ type: "ack", event_id: event.event_id });
+        return;
+      }
+
+      appStore.pushWsEvent(event);
+      await options.onEvent?.(event);
+      this.lastEventId = event.event_id;
+      this.send({ type: "ack", event_id: event.event_id });
+    } catch {
+      // Malformed or unprocessed events stay unacked so the server can resend them.
+    }
+  }
+
   private openSocket(options: ConnectOptions, status: RealtimeConnectionStatus) {
     this.emitConnectionChange(status, options);
 
@@ -87,14 +112,14 @@ class WsClient {
     const url = new URL(wsBaseUrl);
     const accessToken = options.session.accessToken || getAccessToken();
     url.pathname = "/ws";
-    if (accessToken) {
-      url.searchParams.set("access_token", accessToken);
-    }
     if (this.lastEventId) {
       url.searchParams.set("last_event_id", this.lastEventId);
     }
 
-    const socket = new WebSocket(url.toString());
+    const protocols = accessToken ? ["bearer", accessToken] : undefined;
+    const socket = protocols
+      ? new WebSocket(url.toString(), protocols)
+      : new WebSocket(url.toString());
     this.socket = socket;
     if (typeof window !== "undefined") {
       window.__smartHomeRealtime = {
@@ -116,21 +141,7 @@ class WsClient {
     });
 
     socket.addEventListener("message", (message) => {
-      if (this.socket !== socket) {
-        return;
-      }
-      try {
-        const event = JSON.parse(message.data) as WsEvent;
-        this.lastEventId = event.event_id;
-        this.send({ type: "ack", event_id: event.event_id });
-        if (!this.rememberEvent(event.event_id)) {
-          return;
-        }
-        appStore.pushWsEvent(event);
-        options.onEvent?.(event);
-      } catch {
-        // Malformed events are ignored because the server will resend unacked rows.
-      }
+      void this.handleMessage(socket, options, String(message.data));
     });
 
     socket.addEventListener("close", () => {

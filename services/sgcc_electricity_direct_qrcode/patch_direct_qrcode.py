@@ -9,11 +9,30 @@ DIRECT_QR_METHOD_MARKER = "def _direct_qr_login"
 def main() -> None:
     source = DATA_FETCHER.read_text(encoding="utf-8")
 
+    if "SGCC_CHROME_PROFILE_DIR" not in source:
+        source = source.replace(
+            '            chrome_options.add_argument("--start-maximized")\n',
+            """            chrome_options.add_argument("--start-maximized")
+            chrome_profile_dir = os.getenv("SGCC_CHROME_PROFILE_DIR", "/data/chrome-profile")
+            if chrome_profile_dir:
+                chrome_options.add_argument(f"--user-data-dir={chrome_profile_dir}")
+""",
+        )
+
     if DIRECT_QR_METHOD_MARKER not in source:
         source = source.replace(
             "    def fetch(self):\n",
             """    def _direct_qr_login(self, driver) -> bool:
         logging.info("direct qrcode login start")
+        if os.getenv("SGCC_SESSION_FIRST", "false").lower() == "true":
+            try:
+                driver.get(BALANCE_URL)
+                time.sleep(self.RETRY_WAIT_TIME_OFFSET_UNIT)
+                if driver.current_url != LOGIN_URL and "login" not in driver.current_url.lower():
+                    logging.info("reuse existing SGCC browser session")
+                    return True
+            except Exception as exc:
+                logging.debug(f"Direct QR login failed to reuse session, reason: {exc}.")
         try:
             driver.get(LOGIN_URL)
             WebDriverWait(driver, self.DRIVER_IMPLICITY_WAIT_TIME * 3).until(
