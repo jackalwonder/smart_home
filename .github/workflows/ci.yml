@@ -48,6 +48,10 @@ jobs:
       - backend
       - frontend
       - contracts
+    env:
+      CONNECTION_ENCRYPTION_SECRET: ci-connection-secret-value-000001
+      ACCESS_TOKEN_SECRET: ci-access-token-secret-value-000001
+      BOOTSTRAP_TOKEN_SECRET: ci-bootstrap-token-secret-value-0001
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,10 +64,6 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
       - run: docker compose up -d --build postgres redis backend frontend
-        env:
-          CONNECTION_ENCRYPTION_SECRET: ci-connection-secret-value-000001
-          ACCESS_TOKEN_SECRET: ci-access-token-secret-value-000001
-          BOOTSTRAP_TOKEN_SECRET: ci-bootstrap-token-secret-value-0001
       - run: |
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:25173/ >/dev/null; then
