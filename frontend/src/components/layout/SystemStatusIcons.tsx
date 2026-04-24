@@ -5,6 +5,7 @@ interface SystemStatusIconsProps {
   pinVerified: boolean;
   featureFlags: Array<{ label: string; active: boolean }>;
   inlineAction?: ReactNode;
+  showConnection?: boolean;
 }
 
 export function SystemStatusIcons({
@@ -12,10 +13,13 @@ export function SystemStatusIcons({
   pinVerified,
   featureFlags,
   inlineAction,
+  showConnection = true,
 }: SystemStatusIconsProps) {
   return (
     <div className="system-status-icons">
-      <span className={connected ? "signal-pill is-active" : "signal-pill"}>HA</span>
+      {showConnection ? (
+        <span className={connected ? "signal-pill is-active" : "signal-pill"}>HA</span>
+      ) : null}
       {inlineAction}
       <span className={pinVerified ? "signal-pill is-active" : "signal-pill"}>PIN</span>
       {featureFlags.map((flag) => (

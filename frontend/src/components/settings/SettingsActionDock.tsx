@@ -33,9 +33,9 @@ export function SettingsActionDock({
     >
       <div className="settings-action-dock__copy">
         <span className="card-eyebrow">操作区</span>
-        <h3>{isCompact ? "保存当前分区设置" : "保存中控设置"}</h3>
+        <h3>{isCompact ? "发布首页更改" : "保存首页设置"}</h3>
         <p className="muted-copy">
-          当前版本 {version}。
+          首页草稿版本 {version}。
           {pinRequired ? "保存前需要管理 PIN。" : "当前允许直接保存。"}
         </p>
       </div>
@@ -55,7 +55,7 @@ export function SettingsActionDock({
           onClick={onSave}
           type="button"
         >
-          {saving ? "保存中..." : "保存全部"}
+          {saving ? "保存中..." : "保存首页设置"}
         </button>
       </div>
     </section>

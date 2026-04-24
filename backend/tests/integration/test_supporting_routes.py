@@ -34,6 +34,7 @@ from src.modules.auth.services.command.TerminalPairingCodeService import (
     TerminalPairingIssueView,
     TerminalPairingPollView,
 )
+from src.shared.config.Settings import Settings, get_settings
 from src.modules.energy.services.EnergyService import (
     EnergyBindingView,
     EnergyRefreshView,
@@ -368,8 +369,32 @@ def test_auth_system_energy_and_media_routes(app, client):
     app.dependency_overrides[get_energy_service] = lambda: FakeEnergyService()
     app.dependency_overrides[get_media_service] = lambda: FakeMediaService()
     app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        _env_file=None,
+        app_env="docker",
+        connection_encryption_secret="c" * 32,
+        access_token_secret="a" * 32,
+        bootstrap_token_secret="b" * 32,
+        dev_bypass_terminal_activation=False,
+    )
 
     auth_response = client.get("/api/v1/auth/session")
+    dev_session_disabled_response = client.post(
+        "/api/v1/auth/session/dev",
+        headers={"x-home-id": "home-1", "x-terminal-id": "terminal-1"},
+    )
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        _env_file=None,
+        app_env="docker",
+        connection_encryption_secret="c" * 32,
+        access_token_secret="a" * 32,
+        bootstrap_token_secret="b" * 32,
+        dev_bypass_terminal_activation=True,
+    )
+    dev_session_response = client.post(
+        "/api/v1/auth/session/dev",
+        headers={"x-home-id": "home-1", "x-terminal-id": "terminal-1"},
+    )
     bootstrap_session_response = client.post(
         "/api/v1/auth/session/bootstrap",
         headers={"authorization": "Bootstrap bootstrap-token-1"},
@@ -440,6 +465,9 @@ def test_auth_system_energy_and_media_routes(app, client):
     assert auth_response.json()["data"]["token_type"] == "Bearer"
     assert set(auth_response.json()["data"]["scope"]) == {"api", "ws"}
     assert access_token
+    assert dev_session_disabled_response.status_code == 401
+    assert dev_session_response.json()["data"]["access_token"]
+    assert dev_session_response.json()["data"]["terminal_id"] == "terminal-1"
     assert bootstrap_session_response.json()["data"]["access_token"]
     assert bootstrap_session_response.json()["data"]["token_type"] == "Bearer"
     assert bootstrap_token_response.json()["data"]["token_type"] == "Bootstrap"

@@ -100,6 +100,8 @@ def _status_code_for_error(code: ErrorCode) -> int:
 def _observability_scope(request: Request) -> str:
     if request.method == "GET" and request.url.path == "/api/v1/auth/session":
         return "auth_session_bootstrap"
+    if request.method == "POST" and request.url.path == "/api/v1/auth/session/dev":
+        return "auth_session_bootstrap"
     if request.method == "POST" and request.url.path == "/api/v1/auth/session/bootstrap":
         return "auth_session_bootstrap"
     if (
@@ -188,6 +190,8 @@ def _attach_openapi_contract(app: FastAPI) -> None:
                     operation.setdefault("security", [{"BearerAuth": []}])
                 if path == "/api/v1/auth/session/bootstrap":
                     operation["security"] = [{"BootstrapAuth": []}]
+                if path == "/api/v1/auth/session/dev":
+                    operation["security"] = []
                 if path.startswith("/api/v1/terminals/") and "/pairing-code-sessions" in path:
                     operation["security"] = []
                 responses = operation.setdefault("responses", {})

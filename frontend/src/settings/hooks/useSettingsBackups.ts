@@ -93,19 +93,6 @@ export function useSettingsBackups({
         setMessage("恢复备份前，请先验证管理 PIN。");
         return;
       }
-      const summary = backup.summary;
-      const comparison = backup.comparison;
-      const confirmCopy = [
-        `恢复备份 ${backup.backup_id} 会生成新的设置和布局版本。`,
-        `快照设置版本 ${summary.settings_version ?? "-"}，当前 ${comparison.current_settings_version ?? "-"}。`,
-        `快照布局版本 ${summary.layout_version ?? "-"}，当前 ${comparison.current_layout_version ?? "-"}。`,
-        `包含首页常用 ${summary.favorite_count} 个，热点 ${summary.hotspot_count} 个。`,
-        "是否继续？",
-      ].join("\n");
-      if (!window.confirm(confirmCopy)) {
-        return;
-      }
-
       setMessage(null);
       setRestoreBusyId(backup.backup_id);
       try {

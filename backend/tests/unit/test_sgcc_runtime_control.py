@@ -53,7 +53,12 @@ class _CaptureAsyncClient:
                     "message": "ready",
                 },
                 "accounts": [{"account_id": "1503525238170", "timestamp": "2026-04-20"}],
-                "job": None,
+                "job": {
+                    "state": "RUNNING",
+                    "kind": "LOGIN",
+                    "phase": "FETCHING_DATA",
+                    "last_error": None,
+                },
                 "message": "idle",
             },
             request=httpx.Request("GET", url),
@@ -84,5 +89,8 @@ def test_http_sgcc_runtime_client_calls_sidecar(monkeypatch):
     assert status.qrcode is not None
     assert status.qrcode.available is True
     assert status.accounts[0].account_id == "1503525238170"
+    assert status.job_state == "RUNNING"
+    assert status.job_kind == "LOGIN"
+    assert status.job_phase == "FETCHING_DATA"
     assert image is not None
     assert image.content.startswith(b"\x89PNG")

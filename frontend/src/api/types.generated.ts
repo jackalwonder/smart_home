@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/session/dev": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get Dev Auth Session */
+        post: operations["post_api_v1_auth_session_dev"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/device-controls": {
         parameters: {
             query?: never;
@@ -2561,6 +2578,11 @@ export interface components {
         };
         /** SgccLoginQrCodeStatusResponse */
         SgccLoginQrCodeStatusResponse: {
+            /**
+             * Account Count
+             * @default 0
+             */
+            account_count: number;
             /** Age Seconds */
             age_seconds?: number | null;
             /** Available */
@@ -2571,10 +2593,27 @@ export interface components {
             file_size_bytes?: number | null;
             /** Image Url */
             image_url?: string | null;
+            /** Job Kind */
+            job_kind?: string | null;
+            /** Job Phase */
+            job_phase?: string | null;
+            /** Job State */
+            job_state?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Latest Account Timestamp */
+            latest_account_timestamp?: string | null;
             /** Message */
             message: string;
             /** Mime Type */
             mime_type?: string | null;
+            /**
+             * Phase
+             * @default WAITING_FOR_QR_CODE
+             */
+            phase: string;
+            /** Qr Code Status */
+            qr_code_status?: string | null;
             /** Status */
             status: string;
             /** Updated At */
@@ -3984,6 +4023,187 @@ export interface operations {
         };
     };
     post_api_v1_auth_session_bootstrap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope_AuthSessionResponse_"];
+                };
+            };
+            /** @description Invalid request parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description PIN required or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Method not allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Business conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
+                        error: {
+                            code: string;
+                            details?: {
+                                [key: string]: unknown;
+                            };
+                            message: string;
+                        };
+                        meta: {
+                            server_time: string;
+                            trace_id: string;
+                        };
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    post_api_v1_auth_session_dev: {
         parameters: {
             query?: never;
             header?: never;

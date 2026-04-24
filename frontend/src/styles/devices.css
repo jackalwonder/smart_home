@@ -104,6 +104,115 @@
   align-items: center;
 }
 
+.devices-catalog-list {
+  display: grid;
+  gap: 10px;
+}
+
+.devices-catalog-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(118, 180, 255, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(15, 24, 39, 0.86), rgba(7, 12, 22, 0.88)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.devices-catalog-card:hover {
+  border-color: rgba(101, 214, 165, 0.2);
+  background:
+    linear-gradient(180deg, rgba(18, 30, 46, 0.88), rgba(8, 14, 24, 0.9)),
+    rgba(101, 214, 165, 0.03);
+}
+
+.devices-catalog-card__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid rgba(101, 214, 165, 0.18);
+  background: rgba(101, 214, 165, 0.08);
+  color: #d7ffe7;
+  font-weight: 900;
+}
+
+.devices-catalog-card__main,
+.devices-catalog-card__title,
+.devices-catalog-card__status,
+.devices-catalog-card__technical {
+  min-width: 0;
+}
+
+.devices-catalog-card__title {
+  display: grid;
+  gap: 3px;
+}
+
+.devices-catalog-card__title strong,
+.devices-catalog-card__meta span,
+.devices-catalog-card__status small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devices-catalog-card__title strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.devices-catalog-card__title span,
+.devices-catalog-card__meta,
+.devices-catalog-card__status small,
+.devices-catalog-card__technical {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.devices-catalog-card__meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 7px;
+  min-width: 0;
+}
+
+.devices-catalog-card__meta span {
+  max-width: 50%;
+}
+
+.devices-catalog-card__status {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.devices-catalog-card__actions {
+  justify-content: flex-end;
+}
+
+.devices-catalog-card__technical {
+  grid-column: 2 / -1;
+}
+
+.devices-catalog-card__technical summary {
+  width: max-content;
+  cursor: pointer;
+  color: rgba(202, 214, 237, 0.68);
+  font-size: 12px;
+}
+
+.devices-catalog-card__technical span {
+  display: block;
+  margin-top: 6px;
+  color: rgba(202, 214, 237, 0.66);
+  word-break: break-all;
+}
+
 .devices-status-chip {
   display: inline-flex;
   align-items: center;
@@ -236,6 +345,25 @@
 }
 
 @media (max-width: 720px) {
+  .devices-catalog-card {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .devices-catalog-card__status,
+  .devices-catalog-card__actions,
+  .devices-catalog-card__technical {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
+
+  .devices-catalog-card__meta {
+    display: grid;
+  }
+
+  .devices-catalog-card__meta span {
+    max-width: 100%;
+  }
+
   .devices-detail-drawer {
     inset: 72px 12px 12px;
     width: auto;

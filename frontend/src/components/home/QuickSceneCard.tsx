@@ -94,10 +94,10 @@ export function QuickSceneCard({
               </div>
             ) : (
               <div className="quick-scene-card__empty">
-                <strong>还没有首页常用设备</strong>
-                <p>把高频控制加入首页后，这里会自动变成最快入口。</p>
+                <strong>暂无常用设备</strong>
+                <p>从设备页添加后会显示在这里。</p>
                 <Link className="button button--ghost" to="/devices">
-                  去设备页添加
+                  添加设备
                 </Link>
               </div>
             )}

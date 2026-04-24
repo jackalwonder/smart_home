@@ -23,9 +23,16 @@ function RouteSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <div className="page-shell">
-          <div className="utility-card" role="status">
-            页面加载中...
+        <div className="page-shell route-skeleton" role="status" aria-label="页面加载中">
+          <div className="route-skeleton__header">
+            <span />
+            <strong />
+            <i />
+          </div>
+          <div className="route-skeleton__grid">
+            <span />
+            <span />
+            <span />
           </div>
         </div>
       }

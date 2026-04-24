@@ -20,6 +20,7 @@ from src.modules.auth.services.query.SessionQueryService import (
 )
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
+from src.shared.config.Settings import Settings, get_settings
 from src.shared.http.ApiSchema import ApiSchema
 from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
@@ -95,6 +96,41 @@ async def get_auth_session(
         require_terminal=True,
         require_bearer=True,
     )
+    view: AuthSessionView = await service.get_session(
+        SessionQueryInput(
+            home_id=context.home_id,
+            terminal_id=context.terminal_id,
+        )
+    )
+    return success_response(
+        request,
+        _build_auth_session_response(view, access_token_resolver=access_token_resolver),
+    )
+
+
+@router.post(
+    "/session/dev",
+    response_model=SuccessEnvelope[AuthSessionResponse],
+)
+async def get_dev_auth_session(
+    request: Request,
+    service: SessionQueryService = Depends(get_session_query_service),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+    access_token_resolver: AccessTokenResolver = Depends(get_access_token_resolver),
+    settings: Settings = Depends(get_settings),
+) -> object:
+    if not settings.dev_bypass_terminal_activation:
+        raise AppError(ErrorCode.UNAUTHORIZED, "development terminal activation bypass is disabled")
+
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=True,
+        require_bearer=False,
+    )
+    request.state.auth_mode = "dev_activation_bypass"
+    request.state.home_id = context.home_id
+    request.state.terminal_id = context.terminal_id
     view: AuthSessionView = await service.get_session(
         SessionQueryInput(
             home_id=context.home_id,

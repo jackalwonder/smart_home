@@ -147,12 +147,28 @@ class HomeAssistantControlGateway:
         service_domain, service_name, service_data = service_call
 
         async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.post(
-                f"{base_url.rstrip('/')}/api/services/{service_domain}/{service_name}",
-                headers=headers,
-                json=service_data,
-            )
-            response.raise_for_status()
+            try:
+                response = await client.post(
+                    f"{base_url.rstrip('/')}/api/services/{service_domain}/{service_name}",
+                    headers=headers,
+                    json=service_data,
+                )
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                return self._not_submitted(
+                    status="FAILED",
+                    reason="HA_HTTP_STATUS",
+                    message=(
+                        "Home Assistant rejected the service call "
+                        f"with HTTP {exc.response.status_code}."
+                    ),
+                )
+            except httpx.RequestError as exc:
+                return self._not_submitted(
+                    status="FAILED",
+                    reason="HA_REQUEST_FAILED",
+                    message=f"Home Assistant service call failed: {exc}",
+                )
         return HaControlSubmitResult(
             submitted=True,
             status="ACKNOWLEDGED",

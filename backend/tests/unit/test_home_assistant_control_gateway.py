@@ -26,6 +26,18 @@ class _CaptureAsyncClient:
         return httpx.Response(200, request=httpx.Request("POST", url))
 
 
+class _HttpStatusAsyncClient(_CaptureAsyncClient):
+    async def post(self, url, *, headers=None, json=None):
+        self.requests.append({"url": url, "headers": headers or {}, "json": json})
+        return httpx.Response(401, request=httpx.Request("POST", url))
+
+
+class _RequestErrorAsyncClient(_CaptureAsyncClient):
+    async def post(self, url, *, headers=None, json=None):
+        self.requests.append({"url": url, "headers": headers or {}, "json": json})
+        raise httpx.ConnectError("connection refused", request=httpx.Request("POST", url))
+
+
 class _SystemConnectionRepository:
     def __init__(self, row: SystemConnectionRow | None) -> None:
         self._row = row
@@ -276,3 +288,50 @@ async def test_submit_control_reports_missing_access_token(monkeypatch):
     assert result.status == "MISCONFIGURED"
     assert result.reason == "HA_TOKEN_MISSING"
     assert _CaptureAsyncClient.requests == []
+
+
+@pytest.mark.asyncio
+async def test_submit_control_reports_home_assistant_http_rejection(monkeypatch):
+    monkeypatch.setattr(httpx, "AsyncClient", _HttpStatusAsyncClient)
+    _HttpStatusAsyncClient.requests = []
+    gateway = _gateway(_connection_row())
+
+    result = await gateway.submit_control(
+        HaControlCommand(
+            home_id="home-1",
+            device_id="device-1",
+            request_id="req-1",
+            action_type="SET_TEMPERATURE",
+            payload={"target_key": "climate.fridge", "value": 4},
+        )
+    )
+
+    assert result.submitted is False
+    assert result.status == "FAILED"
+    assert result.reason == "HA_HTTP_STATUS"
+    assert result.message == "Home Assistant rejected the service call with HTTP 401."
+    assert len(_HttpStatusAsyncClient.requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_submit_control_reports_home_assistant_request_failure(monkeypatch):
+    monkeypatch.setattr(httpx, "AsyncClient", _RequestErrorAsyncClient)
+    _RequestErrorAsyncClient.requests = []
+    gateway = _gateway(_connection_row())
+
+    result = await gateway.submit_control(
+        HaControlCommand(
+            home_id="home-1",
+            device_id="device-1",
+            request_id="req-1",
+            action_type="SET_TEMPERATURE",
+            payload={"target_key": "climate.fridge", "value": 4},
+        )
+    )
+
+    assert result.submitted is False
+    assert result.status == "FAILED"
+    assert result.reason == "HA_REQUEST_FAILED"
+    assert result.message is not None
+    assert "connection refused" in result.message
+    assert len(_RequestErrorAsyncClient.requests) == 1

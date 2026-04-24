@@ -666,8 +666,11 @@ function makeRailCards(
     {
       key: "energy",
       eyebrow: "能耗摘要",
-      title: energy.monthlyUsage,
-      subtitle: "昨日、本月和年度累计会在这里滚动展示，后续也能替换成你想要的栏目。",
+      title: energy.bindingStatus === "已绑定" ? energy.monthlyUsage : "等待绑定",
+      subtitle:
+        energy.bindingStatus === "已绑定"
+          ? `来源更新时间 ${energy.sourceUpdateLabel}，刷新状态 ${energy.refreshStatus}。`
+          : "到设置页的接入配置绑定国网能耗账号后，这里会展示用电和余额。",
       metrics: [
         { label: "昨日", value: energy.yesterdayUsage },
         { label: "余额", value: energy.balance },
@@ -824,15 +827,18 @@ export function mapHomeOverviewViewModel(
     favoriteDevices,
     showFavoriteDevices,
     mediaFields: [
-      { label: "播放源", value: media.displayName },
       { label: "状态", value: media.playState },
+      { label: "播放源", value: media.displayName },
       { label: "曲目", value: media.trackTitle },
       { label: "歌手", value: media.artist },
     ],
     energyFields: [
-      { label: "昨日用电", value: energy.yesterdayUsage },
+      { label: "状态", value: energy.bindingStatus },
       { label: "本月累计", value: energy.monthlyUsage },
       { label: "账户余额", value: energy.balance },
+      { label: "HA 源更新", value: energy.sourceUpdateLabel },
+      { label: "刷新状态", value: energy.refreshStatus },
+      { label: "昨日用电", value: energy.yesterdayUsage },
       { label: "年度累计", value: energy.yearlyUsage },
     ],
     bottomStats: [
@@ -840,8 +846,6 @@ export function mapHomeOverviewViewModel(
       { label: "本月累计", value: energy.monthlyUsage },
       { label: "账户余额", value: energy.balance },
       { label: "年度累计", value: energy.yearlyUsage },
-      { label: "系统刷新", value: energy.systemUpdateLabel },
-      { label: "HA 源更新", value: energy.sourceUpdateLabel },
     ],
     weatherTrend: makeWeatherTrend(weatherTemperature, weatherCondition, weather?.forecast),
     railCards: makeRailCards(summary, favoriteDevices, energy),

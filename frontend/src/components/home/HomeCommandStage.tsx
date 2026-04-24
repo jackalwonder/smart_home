@@ -7,7 +7,6 @@ import {
 import { useResolvedAssetImageUrl } from "../../hooks/useResolvedAssetImageUrl";
 import { hasImageSize, type ImageSize } from "../../types/image";
 import { HomeHotspotViewModel } from "../../view-models/home";
-import { HomeDeviceControlPanel } from "./HomeDeviceControlPanel";
 import { HomeHotspotOverlay } from "./HomeHotspotOverlay";
 
 interface StageFeedItem {
@@ -25,8 +24,6 @@ interface HomeCommandStageProps {
   onActivateHotspot: (hotspot: HomeHotspotViewModel) => void;
   onLongPressHotspot: (hotspot: HomeHotspotViewModel) => void;
   onSelectHotspot: (hotspotId: string | null) => void;
-  selectedExternalHotspot?: HomeHotspotViewModel | null;
-  onClearSelectedExternalHotspot?: () => void;
   cacheMode: boolean;
   connectionStatus: string;
   events: StageFeedItem[];
@@ -75,8 +72,6 @@ export function HomeCommandStage({
   selectedHotspotId,
   onActivateHotspot,
   onLongPressHotspot,
-  selectedExternalHotspot = null,
-  onClearSelectedExternalHotspot,
   cacheMode,
   connectionStatus,
   events,
@@ -262,14 +257,6 @@ export function HomeCommandStage({
             </section>
           ) : null}
 
-          {selectedExternalHotspot ? (
-            <HomeDeviceControlPanel
-              hotspot={selectedExternalHotspot}
-              onClose={() => {
-                onClearSelectedExternalHotspot?.();
-              }}
-            />
-          ) : null}
         </div>
       </div>
     </section>

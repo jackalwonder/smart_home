@@ -9,6 +9,8 @@ function friendlyValue(value: string) {
   switch (value) {
     case "MEDIA_UNSET":
     case "UNBOUND":
+    case "-":
+    case "--":
       return "待绑定";
     case "BOUND":
       return "已绑定";
@@ -29,14 +31,13 @@ function FieldList({
   title: string;
 }) {
   const displayFields = fields.slice(0, 3);
+  const primaryValue = friendlyValue(displayFields[0]?.value ?? "-");
 
   return (
     <div className="module-field-list">
       <div className="module-field-list__header">
         <h4>{title}</h4>
-        <span className="state-chip">
-          {friendlyValue(displayFields[0]?.value ?? "-")}
-        </span>
+        <span className="state-chip">{primaryValue}</span>
       </div>
       <dl>
         {displayFields.map((field) => (

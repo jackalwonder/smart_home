@@ -1,5 +1,7 @@
 import { setAccessToken } from "../auth/accessToken";
 import { getBootstrapToken } from "../auth/bootstrapToken";
+import { isDevActivationBypassEnabled } from "../config/devActivationBypass";
+import { getRequestContext } from "../config/requestContext";
 import { apiRequest } from "./httpClient";
 import {
   ApiError,
@@ -40,6 +42,11 @@ export function isBootstrapTokenActivationError(error: unknown) {
 }
 
 export async function fetchCurrentSession(): Promise<SessionModel> {
+  if (isDevActivationBypassEnabled()) {
+    const dto = await fetchDevSession();
+    return mapSession(dto);
+  }
+
   const bootstrapToken = getBootstrapToken();
   if (!bootstrapToken) {
     throw new BootstrapTokenActivationError("请先完成终端激活。", "missing");
@@ -53,6 +60,18 @@ export async function activateSessionWithBootstrapToken(
 ): Promise<SessionModel> {
   const dto = await exchangeBootstrapToken(bootstrapToken);
   return mapSession(dto);
+}
+
+async function fetchDevSession() {
+  const context = getRequestContext();
+  return apiRequest<SessionDto>("/api/v1/auth/session/dev", {
+    headers: {
+      "x-home-id": context.homeId,
+      "x-terminal-id": context.terminalId,
+    },
+    method: "POST",
+    useAccessToken: false,
+  });
 }
 
 async function exchangeBootstrapToken(bootstrapToken: string) {

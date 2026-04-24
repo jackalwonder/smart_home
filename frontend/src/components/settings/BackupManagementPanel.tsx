@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BackupListItemDto, BackupRestoreAuditItemDto } from "../../api/types";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
@@ -104,6 +105,11 @@ export function BackupManagementPanel({
   onRefreshAudits,
   onRestoreBackup,
 }: BackupManagementPanelProps) {
+  const [pendingRestoreId, setPendingRestoreId] = useState<string | null>(null);
+  const pendingRestore = backups.find(
+    (backup) => backup.backup_id === pendingRestoreId,
+  );
+
   return (
     <SettingsModuleCard
       description="保存当前设置和布局快照，必要时恢复到新的正式版本。"
@@ -221,21 +227,60 @@ export function BackupManagementPanel({
                   <dd>{backup.created_by ?? "-"}</dd>
                 </div>
               </dl>
-              <button
-                className="button button--ghost"
-                disabled={
-                  !canEdit ||
-                  restoreBusyId !== null ||
-                  backup.status !== "READY" ||
-                  backup.summary.snapshot_status !== "READY"
-                }
-                onClick={() => onRestoreBackup(backup)}
-                type="button"
-              >
-                {restoreBusyId === backup.backup_id
-                  ? "恢复中..."
-                  : "恢复此备份"}
-              </button>
+              {pendingRestoreId === backup.backup_id && pendingRestore ? (
+                <div className="backup-restore-confirm" role="alert">
+                  <div>
+                    <strong>确认恢复 {pendingRestore.backup_id}</strong>
+                    <p className="muted-copy">
+                      恢复会生成新的设置和布局版本。快照设置版本{" "}
+                      {pendingRestore.summary.settings_version ?? "-"}，当前{" "}
+                      {pendingRestore.comparison.current_settings_version ?? "-"}；
+                      快照布局版本{" "}
+                      {pendingRestore.summary.layout_version ?? "-"}，当前{" "}
+                      {pendingRestore.comparison.current_layout_version ?? "-"}。
+                    </p>
+                  </div>
+                  <div className="settings-module-card__actions">
+                    <button
+                      className="button button--ghost"
+                      disabled={restoreBusyId !== null}
+                      onClick={() => setPendingRestoreId(null)}
+                      type="button"
+                    >
+                      取消
+                    </button>
+                    <button
+                      className="button button--primary"
+                      disabled={restoreBusyId !== null}
+                      onClick={() => {
+                        onRestoreBackup(pendingRestore);
+                        setPendingRestoreId(null);
+                      }}
+                      type="button"
+                    >
+                      {restoreBusyId === pendingRestore.backup_id
+                        ? "恢复中..."
+                        : "确认恢复"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="button button--ghost"
+                  disabled={
+                    !canEdit ||
+                    restoreBusyId !== null ||
+                    backup.status !== "READY" ||
+                    backup.summary.snapshot_status !== "READY"
+                  }
+                  onClick={() => setPendingRestoreId(backup.backup_id)}
+                  type="button"
+                >
+                  {restoreBusyId === backup.backup_id
+                    ? "恢复中..."
+                    : "准备恢复"}
+                </button>
+              )}
             </div>
           ))
         ) : (

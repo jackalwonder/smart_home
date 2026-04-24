@@ -57,6 +57,15 @@ const EMPTY_ENERGY_ENTITY_MAP: Record<EnergyEntityMapKey, string> = {
   yearly_usage: `sensor.yearly_electricity_usage_${DEFAULT_SGCC_SUFFIX}`,
 };
 
+function inferEnergyAccountIdFromEntities(
+  entityMap: Partial<Record<EnergyEntityMapKey, string>>,
+) {
+  const suffix = Object.values(entityMap)
+    .map((entity) => entity?.match(/_(\d+)$/)?.[1] ?? "")
+    .find(Boolean);
+  return suffix || null;
+}
+
 function isMediaCandidateDevice(device: DeviceListItemDto) {
   const source =
     `${device.device_type} ${device.display_name} ${device.raw_name ?? ""}`.toLowerCase();
@@ -74,8 +83,9 @@ function createEnergyBindingDraft(
 ): EnergyBindingDraft {
   const responseEntityMap = energy?.entity_map ?? {};
   const currentEntityMap = current?.entityMap ?? EMPTY_ENERGY_ENTITY_MAP;
+  const inferredAccountId = inferEnergyAccountIdFromEntities(responseEntityMap);
   return {
-    accountId: current?.accountId ?? DEFAULT_ENERGY_ACCOUNT_ID,
+    accountId: current?.accountId ?? inferredAccountId ?? DEFAULT_ENERGY_ACCOUNT_ID,
     entityMap: {
       yesterday_usage:
         responseEntityMap.yesterday_usage ??

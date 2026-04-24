@@ -22,7 +22,7 @@ function getStatusLabel(device: DeviceListItemDto): string {
   if (device.is_offline) {
     return "离线";
   }
-  return device.status || "UNKNOWN";
+  return formatDeviceStatus(device.status);
 }
 
 function getStatusTone(device: DeviceListItemDto): "online" | "offline" {
@@ -37,6 +37,51 @@ function getHomeEntryLabel(device: DeviceListItemDto): string {
     return "可加入首页";
   }
   return device.favorite_exclude_reason || "不可加入首页";
+}
+
+function formatDeviceStatus(value: string | null | undefined): string {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized || normalized === "unknown") {
+    return "状态未知";
+  }
+  if (normalized === "online" || normalized === "active") {
+    return "在线";
+  }
+  if (normalized === "offline" || normalized === "unavailable") {
+    return "离线";
+  }
+  if (normalized === "smart") {
+    return "智能";
+  }
+  return value ?? "状态未知";
+}
+
+function formatDeviceType(value: string | null | undefined): string {
+  const normalized = (value ?? "").trim().toUpperCase();
+  const labels: Record<string, string> = {
+    CLIMATE: "温控",
+    FRIDGE: "冰箱",
+    LIGHT: "灯光",
+    MEDIA: "媒体",
+    POWER: "电源",
+    SCALE: "体脂秤",
+    SENSOR: "传感器",
+    SWITCH: "开关",
+  };
+  return labels[normalized] ?? (value ? value : "未分类");
+}
+
+function formatDeviceTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  const hour = String(parsed.getHours()).padStart(2, "0");
+  const minute = String(parsed.getMinutes()).padStart(2, "0");
+  return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${hour}:${minute}`;
 }
 
 function compactJson(value: unknown): string {
@@ -489,57 +534,44 @@ export function DevicesCatalogPage() {
         {loading ? (
           <p className="muted-copy">正在从后端读取设备目录...</p>
         ) : visibleDevices.length ? (
-          <div className="devices-table-wrapper">
-            <table className="devices-table">
-              <thead>
-                <tr>
-                  <th>设备</th>
-                  <th>设备 ID</th>
-                  <th>房间</th>
-                  <th>类型</th>
-                  <th>状态</th>
-                  <th>首页展示</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleDevices.map((device) => (
-                  <tr key={device.device_id}>
-                    <td>
-                      <div className="devices-table__device-cell">
-                        <strong>{device.display_name}</strong>
-                        <small>{device.raw_name || "-"}</small>
-                      </div>
-                    </td>
-                    <td className="devices-table__mono">{device.device_id}</td>
-                    <td>{device.room_name || "-"}</td>
-                    <td>{device.device_type}</td>
-                    <td>
-                      <span
-                        className={`devices-status-chip is-${getStatusTone(device)}`}
-                      >
-                        {getStatusLabel(device)}
-                      </span>
-                    </td>
-                    <td>{getHomeEntryLabel(device)}</td>
-                    <td>
-                      <div className="devices-table__action-group">
-                        {renderHomeEntryAction(device)}
-                        <button
-                          className="button button--ghost devices-table__action"
-                          onClick={() =>
-                            void openDeviceDetail(device.device_id)
-                          }
-                          type="button"
-                        >
-                          详情
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="devices-catalog-list">
+            {visibleDevices.map((device) => (
+              <article className="devices-catalog-card" key={device.device_id}>
+                <div className="devices-catalog-card__icon" aria-hidden="true">
+                  {formatDeviceType(device.device_type).slice(0, 1)}
+                </div>
+                <div className="devices-catalog-card__main">
+                  <div className="devices-catalog-card__title">
+                    <strong>{device.display_name}</strong>
+                    <span>{device.room_name || "未分配房间"}</span>
+                  </div>
+                  <div className="devices-catalog-card__meta">
+                    <span>{formatDeviceType(device.device_type)}</span>
+                    <span>{device.raw_name || "无原始名称"}</span>
+                  </div>
+                </div>
+                <div className="devices-catalog-card__status">
+                  <span className={`devices-status-chip is-${getStatusTone(device)}`}>
+                    {getStatusLabel(device)}
+                  </span>
+                  <small>{getHomeEntryLabel(device)}</small>
+                </div>
+                <div className="devices-table__action-group devices-catalog-card__actions">
+                  {renderHomeEntryAction(device)}
+                  <button
+                    className="button button--ghost devices-table__action"
+                    onClick={() => void openDeviceDetail(device.device_id)}
+                    type="button"
+                  >
+                    详情
+                  </button>
+                </div>
+                <details className="devices-catalog-card__technical">
+                  <summary>技术信息</summary>
+                  <span className="devices-table__mono">{device.device_id}</span>
+                </details>
+              </article>
+            ))}
           </div>
         ) : (
           <p className="muted-copy">当前筛选条件下没有设备。</p>
@@ -592,11 +624,11 @@ export function DevicesCatalogPage() {
                 </div>
                 <div>
                   <dt>类型</dt>
-                  <dd>{selectedDevice.device_type}</dd>
+                  <dd>{formatDeviceType(selectedDevice.device_type)}</dd>
                 </div>
                 <div>
                   <dt>运行状态</dt>
-                  <dd>{selectedDevice.status}</dd>
+                  <dd>{formatDeviceStatus(selectedDevice.status)}</dd>
                 </div>
                 <div>
                   <dt>聚合状态</dt>
@@ -606,9 +638,7 @@ export function DevicesCatalogPage() {
                 </div>
                 <div>
                   <dt>最近更新</dt>
-                  <dd>
-                    {selectedDevice.runtime_state?.last_state_update_at ?? "-"}
-                  </dd>
+                  <dd>{formatDeviceTimestamp(selectedDevice.runtime_state?.last_state_update_at)}</dd>
                 </div>
                 <div>
                   <dt>户型图热点</dt>

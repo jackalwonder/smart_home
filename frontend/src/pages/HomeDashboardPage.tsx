@@ -42,7 +42,6 @@ export function HomeDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [devices, setDevices] = useState<DeviceListItemDto[]>([]);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
-  const [selectedFavoriteDeviceId, setSelectedFavoriteDeviceId] = useState<string | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<HomeClusterKey | null>(null);
   const [selectedHotspotModal, setSelectedHotspotModal] =
     useState<HotspotModalState | null>(null);
@@ -87,16 +86,6 @@ export function HomeDashboardPage() {
   }, [dashboardReloadToken, session.data?.accessToken, session.status]);
 
   const viewModel = mapHomeOverviewViewModel(home.data);
-  const selectedFavoriteDeviceIndex = viewModel.favoriteDevices.findIndex(
-    (device) => device.deviceId === selectedFavoriteDeviceId,
-  );
-  const selectedFavoriteHotspot =
-    selectedFavoriteDeviceIndex >= 0
-      ? homeFavoriteDeviceToHotspot(
-          viewModel.favoriteDevices[selectedFavoriteDeviceIndex],
-          selectedFavoriteDeviceIndex,
-        )
-      : null;
 
   const formattedEvents = useMemo(
     () =>
@@ -142,7 +131,6 @@ export function HomeDashboardPage() {
     }
 
     setSelectedCluster(null);
-    setSelectedFavoriteDeviceId(null);
     setSelectedHotspotModal(null);
 
     const openDetailModal = () => {
@@ -196,9 +184,26 @@ export function HomeDashboardPage() {
 
   function handleOpenHotspotGroup(hotspot: HomeHotspotViewModel) {
     setSelectedCluster(null);
-    setSelectedFavoriteDeviceId(null);
     setSelectedHotspotId(null);
     setSelectedHotspotModal({ hotspot, mode: "group" });
+  }
+
+  function handleOpenFavoriteDevice(deviceId: string) {
+    const favoriteDeviceIndex = viewModel.favoriteDevices.findIndex(
+      (device) => device.deviceId === deviceId,
+    );
+    if (favoriteDeviceIndex < 0) {
+      return;
+    }
+    setSelectedCluster(null);
+    setSelectedHotspotId(null);
+    setSelectedHotspotModal({
+      hotspot: homeFavoriteDeviceToHotspot(
+        viewModel.favoriteDevices[favoriteDeviceIndex],
+        favoriteDeviceIndex,
+      ),
+      mode: "detail",
+    });
   }
 
   if (isHomeEditing) {
@@ -247,14 +252,9 @@ export function HomeDashboardPage() {
             devices={devices}
             onOpenCluster={(clusterKey) => {
               setSelectedHotspotId(null);
-              setSelectedFavoriteDeviceId(null);
               setSelectedCluster(clusterKey);
             }}
-            onOpenFavoriteDevice={(deviceId) => {
-              setSelectedCluster(null);
-              setSelectedHotspotId(null);
-              setSelectedFavoriteDeviceId(deviceId);
-            }}
+            onOpenFavoriteDevice={handleOpenFavoriteDevice}
             viewModel={viewModel}
           />
         }
@@ -271,16 +271,13 @@ export function HomeDashboardPage() {
           onActivateHotspot={(hotspot) => {
             void handleActivateHotspot(hotspot);
           }}
-          onClearSelectedExternalHotspot={() => setSelectedFavoriteDeviceId(null)}
           onLongPressHotspot={handleOpenHotspotGroup}
           onSelectHotspot={(hotspotId) => {
             setSelectedCluster(null);
-            setSelectedFavoriteDeviceId(null);
             setSelectedHotspotModal(null);
             setSelectedHotspotId(hotspotId);
           }}
           pendingHotspotIds={pendingHotspotIds}
-          selectedExternalHotspot={selectedFavoriteHotspot}
           selectedHotspotId={selectedHotspotId}
         />
       </PageFrame>

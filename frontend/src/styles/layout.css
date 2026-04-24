@@ -459,7 +459,7 @@
 
 .control-top-bar {
   display: grid;
-  grid-template-columns: minmax(430px, auto) minmax(340px, 1fr) auto;
+  grid-template-columns: minmax(320px, auto) minmax(340px, 1fr) auto;
   align-items: center;
   gap: 20px;
   min-height: 72px;
@@ -483,26 +483,6 @@
 
 .control-top-bar__brand {
   gap: 12px;
-}
-
-.control-top-bar__mini-clock {
-  display: grid;
-  gap: 2px;
-  min-width: 126px;
-  padding-right: 12px;
-  border-right: 1px solid rgba(120, 180, 255, 0.18);
-}
-
-.control-top-bar__mini-clock strong {
-  font-size: 24px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.control-top-bar__mini-clock span {
-  color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
 }
 
 .control-top-bar__logo {
@@ -773,6 +753,70 @@ button.signal-pill:disabled {
     linear-gradient(180deg, rgba(20, 29, 43, 0.82), rgba(10, 15, 24, 0.86)),
     var(--surface);
   box-shadow: var(--shadow-soft);
+}
+
+.route-skeleton {
+  display: grid;
+  gap: 14px;
+}
+
+.route-skeleton__header,
+.route-skeleton__grid span {
+  border: 1px solid rgba(118, 180, 255, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(20, 31, 48, 0.62), rgba(42, 61, 87, 0.46), rgba(20, 31, 48, 0.62)),
+    rgba(255, 255, 255, 0.025);
+  background-size: 220% 100%;
+  animation: route-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.route-skeleton__header {
+  display: grid;
+  gap: 12px;
+  min-height: 156px;
+  padding: 18px;
+}
+
+.route-skeleton__header span,
+.route-skeleton__header strong,
+.route-skeleton__header i {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(220, 230, 250, 0.14);
+}
+
+.route-skeleton__header span {
+  width: 120px;
+}
+
+.route-skeleton__header strong {
+  width: min(360px, 70%);
+  height: 26px;
+}
+
+.route-skeleton__header i {
+  width: min(620px, 88%);
+}
+
+.route-skeleton__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.route-skeleton__grid span {
+  min-height: 220px;
+}
+
+@keyframes route-skeleton-pulse {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .panel__header,
@@ -1115,10 +1159,7 @@ button.signal-pill:focus-visible {
     justify-content: flex-start;
   }
 
-  .control-top-bar__mini-clock {
-    min-width: 0;
-    width: 100%;
-    padding-right: 0;
-    border-right: 0;
+  .route-skeleton__grid {
+    grid-template-columns: 1fr;
   }
 }

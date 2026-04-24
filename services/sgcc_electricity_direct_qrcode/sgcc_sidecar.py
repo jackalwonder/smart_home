@@ -82,6 +82,8 @@ def _start_job(kind: str, *, session_first: bool) -> TaskStartResponse:
             "kind": kind,
             "state": "RUNNING",
             "started_at": now,
+            "phase": "STARTING",
+            "session_first": session_first,
             "finished_at": None,
             "last_error": None,
         }
@@ -107,12 +109,16 @@ def _run_job(job_id: object, kind: str, session_first: bool) -> None:
     cache_mtime_before = _mtime(CACHE_FILE)
     qrcode_mtime_before = _mtime(QR_CODE_FILE)
     try:
+        _set_job_phase(job_id, "LOGIN_RUNNING" if not session_first else "FETCHING_DATA")
         _run_sgcc_fetch(session_first=session_first)
         if (
             _mtime(QR_CODE_FILE) > qrcode_mtime_before
             and _mtime(CACHE_FILE) <= cache_mtime_before
         ):
             error = "LOGIN_REQUIRED"
+            _set_job_phase(job_id, "WAITING_FOR_SCAN")
+        else:
+            _set_job_phase(job_id, "DATA_READY")
     except Exception as exc:  # pragma: no cover - defensive sidecar boundary
         error = str(exc)
         logging.exception("SGCC %s task failed", kind)
@@ -125,6 +131,7 @@ def _run_job(job_id: object, kind: str, session_first: bool) -> None:
             {
                 "state": "FAILED" if error else "COMPLETED",
                 "finished_at": finished_at,
+                "phase": "FAILED" if error else "DATA_READY",
                 "last_error": error,
             }
         )
@@ -158,6 +165,13 @@ def _build_status() -> dict[str, object]:
         "job": current_job or last_job,
         "message": "SGCC task is running." if current_job is not None else "SGCC sidecar is idle.",
     }
+
+
+def _set_job_phase(job_id: object, phase: str) -> None:
+    with _job_lock:
+        if _current_job is None or _current_job.get("job_id") != job_id:
+            return
+        _current_job["phase"] = phase
 
 
 def _qrcode_status() -> dict[str, object]:

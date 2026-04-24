@@ -126,6 +126,14 @@ class FavoritesResponse(ApiSchema):
 class SgccLoginQrCodeStatusResponse(ApiSchema):
     available: bool
     status: str
+    phase: str = "WAITING_FOR_QR_CODE"
+    qr_code_status: str | None = None
+    job_state: str | None = None
+    job_kind: str | None = None
+    job_phase: str | None = None
+    last_error: str | None = None
+    account_count: int = 0
+    latest_account_timestamp: str | None = None
     image_url: str | None = None
     updated_at: str | None = None
     expires_at: str | None = None

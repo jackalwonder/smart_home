@@ -10,6 +10,11 @@ from src.modules.settings.services.query.SgccLoginQrCodeService import (
     PNG_SIGNATURE,
     SgccLoginQrCodeService,
 )
+from src.modules.settings.services.query.SgccRuntimeControlService import (
+    SgccRuntimeAccount,
+    SgccRuntimeQrCodeStatus,
+    SgccRuntimeStatus,
+)
 from src.repositories.base.energy.EnergyAccountRepository import EnergyAccountRow
 from src.shared.errors.AppError import AppError
 
@@ -17,6 +22,7 @@ from src.shared.errors.AppError import AppError
 class FakeRestarter:
     def __init__(self) -> None:
         self.restart_count = 0
+        self.runtime_status = None
 
     async def restart(self) -> None:
         self.restart_count += 1
@@ -25,7 +31,7 @@ class FakeRestarter:
         return None
 
     async def get_status(self):
-        return None
+        return self.runtime_status
 
     async def get_qrcode(self):
         return None
@@ -84,6 +90,8 @@ async def test_get_status_reports_ready_png(tmp_path):
 
     assert status.available is True
     assert status.status == "READY"
+    assert status.phase == "QR_READY"
+    assert status.qr_code_status == "READY"
     assert status.image_url is not None
     assert status.file_size_bytes == len(PNG_SIGNATURE + b"test-payload")
     assert status.mime_type == "image/png"
@@ -120,7 +128,104 @@ async def test_get_status_hides_expired_png(tmp_path):
 
     assert status.available is False
     assert status.status == "EXPIRED"
+    assert status.phase == "QR_EXPIRED"
     assert status.image_url is None
+
+
+@pytest.mark.asyncio
+async def test_get_status_reports_fetching_data_when_runtime_job_running_after_qr_expired(tmp_path):
+    restarter = FakeRestarter()
+    restarter.runtime_status = SgccRuntimeStatus(
+        state="RUNNING",
+        qrcode=SgccRuntimeQrCodeStatus(
+            available=False,
+            status="EXPIRED",
+            image_url=None,
+            updated_at="2026-04-24T15:43:44+00:00",
+            expires_at="2026-04-24T15:44:44+00:00",
+            age_seconds=120,
+            file_size_bytes=9190,
+            mime_type="image/png",
+            message="The current SGCC QR code has expired.",
+        ),
+        accounts=[
+            SgccRuntimeAccount(
+                account_id="1503525238170",
+                timestamp="2026-04-24T15:44:20+00:00",
+            )
+        ],
+        job={
+            "state": "RUNNING",
+            "kind": "LOGIN",
+            "phase": "FETCHING_DATA",
+        },
+        job_state="RUNNING",
+        job_kind="LOGIN",
+        job_phase="FETCHING_DATA",
+        last_error=None,
+        message="SGCC task is running.",
+    )
+    service = SgccLoginQrCodeService(
+        build_settings(tmp_path / "login_qr_code.png"),
+        runtime_control=restarter,
+    )
+
+    status = await service.get_status()
+
+    assert status.status == "FETCHING_DATA"
+    assert status.phase == "FETCHING_DATA"
+    assert status.qr_code_status == "EXPIRED"
+    assert status.job_state == "RUNNING"
+    assert status.job_phase == "FETCHING_DATA"
+    assert status.account_count == 1
+    assert "Fetching account" in status.message
+
+
+@pytest.mark.asyncio
+async def test_get_status_reports_data_ready_from_runtime_accounts_even_when_qr_expired(tmp_path):
+    restarter = FakeRestarter()
+    restarter.runtime_status = SgccRuntimeStatus(
+        state="IDLE",
+        qrcode=SgccRuntimeQrCodeStatus(
+            available=False,
+            status="EXPIRED",
+            image_url=None,
+            updated_at="2026-04-24T15:43:44+00:00",
+            expires_at="2026-04-24T15:44:44+00:00",
+            age_seconds=120,
+            file_size_bytes=9190,
+            mime_type="image/png",
+            message="The current SGCC QR code has expired.",
+        ),
+        accounts=[
+            SgccRuntimeAccount(
+                account_id="1503525238170",
+                timestamp="2026-04-24T15:44:20+00:00",
+            )
+        ],
+        job={
+            "state": "COMPLETED",
+            "kind": "LOGIN",
+            "phase": "DATA_READY",
+        },
+        job_state="COMPLETED",
+        job_kind="LOGIN",
+        job_phase="DATA_READY",
+        last_error=None,
+        message="SGCC sidecar is idle.",
+    )
+    service = SgccLoginQrCodeService(
+        build_settings(tmp_path / "login_qr_code.png"),
+        runtime_control=restarter,
+    )
+
+    status = await service.get_status()
+
+    assert status.status == "DATA_READY"
+    assert status.phase == "DATA_READY"
+    assert status.qr_code_status == "EXPIRED"
+    assert status.account_count == 1
+    assert status.latest_account_timestamp == "2026-04-24T15:44:20+00:00"
 
 
 @pytest.mark.asyncio

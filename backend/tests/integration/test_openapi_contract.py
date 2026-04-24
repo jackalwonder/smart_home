@@ -42,6 +42,7 @@ def test_openapi_contains_bearer_scheme_and_key_paths(client):
 
     expected_paths = {
         "/api/v1/auth/session",
+        "/api/v1/auth/session/dev",
         "/api/v1/auth/session/bootstrap",
         "/api/v1/terminals/bootstrap-tokens",
         "/api/v1/terminals/bootstrap-token-audits",
@@ -69,6 +70,8 @@ def test_openapi_contains_bearer_scheme_and_key_paths(client):
     )
     bootstrap_operation = openapi["paths"]["/api/v1/auth/session/bootstrap"]["post"]
     assert bootstrap_operation["security"] == [{"BootstrapAuth": []}]
+    dev_session_operation = openapi["paths"]["/api/v1/auth/session/dev"]["post"]
+    assert dev_session_operation["security"] == []
     pairing_issue_operation = openapi["paths"]["/api/v1/terminals/{terminal_id}/pairing-code-sessions"]["post"]
     pairing_poll_operation = openapi["paths"]["/api/v1/terminals/{terminal_id}/pairing-code-sessions/{pairing_id}"]["get"]
     assert pairing_issue_operation["security"] == []

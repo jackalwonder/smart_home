@@ -1,4 +1,5 @@
 import { DefaultMediaDto, DeviceListItemDto } from "../../api/types";
+import { formatSettingsStatus } from "../../settings/statusFormat";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface DefaultMediaPanelProps {
@@ -39,9 +40,15 @@ export function DefaultMediaPanel({
       description="指定首页默认媒体设备，并在设置页里查看当前播放态。"
       eyebrow="媒体"
       rows={[
-        { label: "绑定状态", value: formatValue(media?.binding_status) },
+        {
+          label: "绑定状态",
+          value: formatSettingsStatus(media?.binding_status ?? "MEDIA_UNSET", "media"),
+        },
         { label: "当前设备", value: formatValue(media?.display_name) },
-        { label: "可用性", value: formatValue(media?.availability_status) },
+        {
+          label: "可用性",
+          value: formatSettingsStatus(media?.availability_status, "media"),
+        },
         { label: "播放状态", value: formatValue(media?.play_state) },
         { label: "当前曲目", value: formatValue(media?.track_title) },
         { label: "歌手", value: formatValue(media?.artist) },

@@ -46,6 +46,10 @@ class _RuntimeControl:
                 )
             ],
             job=None,
+            job_state=None,
+            job_kind=None,
+            job_phase=None,
+            last_error=None,
             message="idle",
         )
 

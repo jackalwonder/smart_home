@@ -38,6 +38,10 @@ class SgccRuntimeStatus:
     qrcode: SgccRuntimeQrCodeStatus | None
     accounts: list[SgccRuntimeAccount]
     job: dict | None
+    job_state: str | None
+    job_kind: str | None
+    job_phase: str | None
+    last_error: str | None
     message: str
 
 
@@ -355,6 +359,10 @@ def _parse_runtime_status(payload: object) -> SgccRuntimeStatus:
         qrcode=qrcode,
         accounts=accounts,
         job=job,
+        job_state=_job_value(job, "state"),
+        job_kind=_job_value(job, "kind"),
+        job_phase=_job_value(job, "phase"),
+        last_error=_job_value(job, "last_error"),
         message=str(message).strip() if message else "",
     )
 
@@ -383,3 +391,13 @@ def _as_optional_int(value: object) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _job_value(job: dict | None, key: str) -> str | None:
+    if not isinstance(job, dict):
+        return None
+    value = job.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None

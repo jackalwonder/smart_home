@@ -12,6 +12,8 @@ from src.infrastructure.ha.HaConnectionGateway import HaConnectionGateway, HaSta
 from src.modules.settings.services.query.SgccRuntimeControlService import (
     DockerUnixSocketContainerRestarter,
     SgccContainerRestarter,
+    SgccRuntimeAccount,
+    SgccRuntimeQrCodeStatus,
     SgccQrCodeImage,
     SgccRuntimeStatus,
 )
@@ -41,6 +43,14 @@ ENERGY_ENTITY_PATTERN = re.compile(
 class SgccLoginQrCodeStatusView:
     available: bool
     status: str
+    phase: str
+    qr_code_status: str | None
+    job_state: str | None
+    job_kind: str | None
+    job_phase: str | None
+    last_error: str | None
+    account_count: int
+    latest_account_timestamp: str | None
     image_url: str | None
     updated_at: str | None
     expires_at: str | None
@@ -93,6 +103,14 @@ class SgccLoginQrCodeService:
         return SgccLoginQrCodeStatusView(
             available=False,
             status="PENDING",
+            phase="WAITING_FOR_QR_CODE",
+            qr_code_status=None,
+            job_state=None,
+            job_kind=None,
+            job_phase=None,
+            last_error=None,
+            account_count=0,
+            latest_account_timestamp=None,
             image_url=None,
             updated_at=None,
             expires_at=None,
@@ -122,6 +140,14 @@ class SgccLoginQrCodeService:
         return SgccLoginQrCodeStatusView(
             available=False,
             status="BOUND",
+            phase="BOUND",
+            qr_code_status=None,
+            job_state=runtime_status.job_state if runtime_status else None,
+            job_kind=runtime_status.job_kind if runtime_status else None,
+            job_phase=runtime_status.job_phase if runtime_status else None,
+            last_error=runtime_status.last_error if runtime_status else None,
+            account_count=1,
+            latest_account_timestamp=binding.timestamp or None,
             image_url=None,
             updated_at=updated_at,
             expires_at=None,
@@ -152,6 +178,14 @@ class SgccLoginQrCodeService:
         return SgccLoginQrCodeStatusView(
             available=available,
             status=status,
+            phase=_phase_from_qrcode_status(status),
+            qr_code_status=status,
+            job_state=None,
+            job_kind=None,
+            job_phase=None,
+            last_error=None,
+            account_count=0,
+            latest_account_timestamp=None,
             image_url=image_url,
             updated_at=updated_at_datetime.isoformat(),
             expires_at=datetime.fromtimestamp(
@@ -175,30 +209,63 @@ class SgccLoginQrCodeService:
         if runtime_status is not None:
             qrcode = runtime_status.qrcode
             if qrcode is None:
-                return self._build_pending_status(runtime_status.message or "Waiting for SGCC sidecar status.")
+                return _runtime_status_view(
+                    runtime_status,
+                    available=False,
+                    status="PENDING",
+                    phase=_phase_from_runtime_status(runtime_status, None),
+                    image_url=None,
+                    message=runtime_status.message or "Waiting for SGCC sidecar status.",
+                )
+            phase = _phase_from_runtime_status(runtime_status, qrcode)
             if not qrcode.available:
                 return SgccLoginQrCodeStatusView(
                     available=False,
-                    status=qrcode.status,
+                    status=phase,
+                    phase=phase,
+                    qr_code_status=qrcode.status,
+                    job_state=runtime_status.job_state,
+                    job_kind=runtime_status.job_kind,
+                    job_phase=runtime_status.job_phase,
+                    last_error=runtime_status.last_error,
+                    account_count=len(runtime_status.accounts),
+                    latest_account_timestamp=_latest_account_timestamp(runtime_status.accounts),
                     image_url=None,
                     updated_at=qrcode.updated_at,
                     expires_at=qrcode.expires_at,
                     age_seconds=qrcode.age_seconds,
                     file_size_bytes=qrcode.file_size_bytes,
                     mime_type=qrcode.mime_type,
-                    message=qrcode.message or runtime_status.message,
+                    message=_runtime_phase_message(
+                        phase,
+                        runtime_status,
+                        qrcode.message or runtime_status.message,
+                    ),
                 )
             version = qrcode.updated_at or qrcode.file_size_bytes or "ready"
             return SgccLoginQrCodeStatusView(
                 available=True,
-                status=qrcode.status,
+                status=phase,
+                phase=phase,
+                qr_code_status=qrcode.status,
+                job_state=runtime_status.job_state,
+                job_kind=runtime_status.job_kind,
+                job_phase=runtime_status.job_phase,
+                last_error=runtime_status.last_error,
+                account_count=len(runtime_status.accounts),
+                latest_account_timestamp=_latest_account_timestamp(runtime_status.accounts),
                 image_url=f"/api/v1/settings/sgcc-login-qrcode/file?v={version}",
                 updated_at=qrcode.updated_at,
                 expires_at=qrcode.expires_at,
                 age_seconds=qrcode.age_seconds,
                 file_size_bytes=qrcode.file_size_bytes,
                 mime_type=qrcode.mime_type or "image/png",
-                message=qrcode.message or "QR code is ready. Scan it with the State Grid app to finish login.",
+                message=_runtime_phase_message(
+                    phase,
+                    runtime_status,
+                    qrcode.message
+                    or "QR code is ready. Scan it with the State Grid app to finish login.",
+                ),
             )
 
         file_path = self._qr_code_file
@@ -494,3 +561,92 @@ def _mask_account_id(account_id: str) -> str:
     if len(account_id) <= 4:
         return "*" * len(account_id)
     return f"{account_id[:2]}{'*' * max(2, len(account_id) - 4)}{account_id[-2:]}"
+
+
+def _phase_from_qrcode_status(status: str | None) -> str:
+    normalized = (status or "").upper()
+    if normalized == "READY":
+        return "QR_READY"
+    if normalized == "EXPIRED":
+        return "QR_EXPIRED"
+    return "WAITING_FOR_QR_CODE"
+
+
+def _phase_from_runtime_status(
+    runtime_status: SgccRuntimeStatus,
+    qrcode: SgccRuntimeQrCodeStatus | None,
+) -> str:
+    job_state = (runtime_status.job_state or runtime_status.state or "").upper()
+    job_phase = (runtime_status.job_phase or "").upper()
+    job_kind = (runtime_status.job_kind or "").upper()
+    if job_state == "RUNNING":
+        if job_phase in {"FETCHING_DATA", "DATA_READY"}:
+            return job_phase
+        if job_phase == "WAITING_FOR_SCAN":
+            return "WAITING_FOR_SCAN"
+        if job_kind == "FETCH":
+            return "FETCHING_DATA"
+        return "LOGIN_RUNNING"
+    if job_state == "FAILED":
+        if runtime_status.last_error == "LOGIN_REQUIRED":
+            return "WAITING_FOR_SCAN"
+        return "FAILED"
+    if runtime_status.accounts:
+        return "DATA_READY"
+    return _phase_from_qrcode_status(qrcode.status if qrcode else None)
+
+
+def _latest_account_timestamp(accounts: list[SgccRuntimeAccount]) -> str | None:
+    timestamps = [account.timestamp for account in accounts if account.timestamp]
+    return max(timestamps) if timestamps else None
+
+
+def _runtime_phase_message(
+    phase: str,
+    runtime_status: SgccRuntimeStatus,
+    fallback: str,
+) -> str:
+    if phase == "LOGIN_RUNNING":
+        return "SGCC login is running. Scan the QR code if one is available."
+    if phase == "WAITING_FOR_SCAN":
+        return "SGCC is waiting for QR code scan confirmation."
+    if phase == "FETCHING_DATA":
+        return "SGCC login succeeded. Fetching account and electricity data."
+    if phase == "DATA_READY":
+        account_count = len(runtime_status.accounts)
+        if account_count:
+            return f"SGCC data is ready for {account_count} account(s)."
+        return "SGCC data fetch completed."
+    if phase == "QR_EXPIRED":
+        return "The current QR code has expired. This does not necessarily mean the SGCC session has expired."
+    return fallback
+
+
+def _runtime_status_view(
+    runtime_status: SgccRuntimeStatus,
+    *,
+    available: bool,
+    status: str,
+    phase: str,
+    image_url: str | None,
+    message: str,
+) -> SgccLoginQrCodeStatusView:
+    return SgccLoginQrCodeStatusView(
+        available=available,
+        status=status,
+        phase=phase,
+        qr_code_status=None,
+        job_state=runtime_status.job_state,
+        job_kind=runtime_status.job_kind,
+        job_phase=runtime_status.job_phase,
+        last_error=runtime_status.last_error,
+        account_count=len(runtime_status.accounts),
+        latest_account_timestamp=_latest_account_timestamp(runtime_status.accounts),
+        image_url=image_url,
+        updated_at=None,
+        expires_at=None,
+        age_seconds=None,
+        file_size_bytes=None,
+        mime_type=None,
+        message=message,
+    )

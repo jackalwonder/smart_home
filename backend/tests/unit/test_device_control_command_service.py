@@ -392,3 +392,11 @@ async def test_accept_marks_failed_when_ha_gateway_does_not_submit():
         "value": True,
         "unit": None,
     }
+    request_repository = service._device_control_request_repository
+    assert request_repository.updated_result is not None
+    assert request_repository.updated_result.execution_status == "FAILED"
+    assert request_repository.updated_result.error_code == "HA_UNAVAILABLE"
+    assert (
+        request_repository.updated_result.error_message
+        == "Home Assistant connection is not configured."
+    )

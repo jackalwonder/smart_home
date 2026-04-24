@@ -22,6 +22,7 @@ DEFAULT_SGCC_CACHE_FILE = (
 )
 
 LOCAL_APP_ENVS = {"local", "test", "dev", "development"}
+DEV_BYPASS_ALLOWED_ENVS = LOCAL_APP_ENVS | {"docker"}
 DEFAULT_CONNECTION_ENCRYPTION_SECRET = "smart-home-local-secret"
 DEFAULT_ACCESS_TOKEN_SECRET = "smart-home-local-access-token-secret"
 DEFAULT_BOOTSTRAP_TOKEN_SECRET = "smart-home-local-bootstrap-token-secret"
@@ -34,6 +35,11 @@ UNSAFE_SECRET_VALUES = {
     DEFAULT_BOOTSTRAP_TOKEN_SECRET,
 }
 MIN_NON_LOCAL_SECRET_LENGTH = 32
+SECRET_ENV_VARS = {
+    "connection_encryption_secret": "CONNECTION_ENCRYPTION_SECRET",
+    "access_token_secret": "ACCESS_TOKEN_SECRET",
+    "bootstrap_token_secret": "BOOTSTRAP_TOKEN_SECRET",
+}
 
 
 class Settings(BaseSettings):
@@ -64,6 +70,7 @@ class Settings(BaseSettings):
     bootstrap_token_secret: str = DEFAULT_BOOTSTRAP_TOKEN_SECRET
     bootstrap_token_ttl_seconds: int = 2592000
     bootstrap_token_leeway_seconds: int = 0
+    dev_bypass_terminal_activation: bool = False
     pairing_code_ttl_seconds: int = 600
     pairing_code_issue_cooldown_seconds: int = 30
     readiness_check_timeout_seconds: float = 3.0
@@ -93,11 +100,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_non_local_secrets(self) -> "Settings":
-        if self.app_env.strip().lower() in LOCAL_APP_ENVS:
+        normalized_env = self.app_env.strip().lower()
+        if self.dev_bypass_terminal_activation and normalized_env not in DEV_BYPASS_ALLOWED_ENVS:
+            raise ValueError(
+                "DEV_BYPASS_TERMINAL_ACTIVATION is only allowed in local, dev, test, or docker environments"
+            )
+
+        if normalized_env in LOCAL_APP_ENVS:
             return self
 
         weak_fields = [
-            field_name
+            SECRET_ENV_VARS[field_name]
             for field_name in (
                 "connection_encryption_secret",
                 "access_token_secret",

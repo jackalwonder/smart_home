@@ -85,10 +85,6 @@ export function ControlTopBar() {
   return (
     <header className="control-top-bar">
       <div className="control-top-bar__brand">
-        <div className="control-top-bar__mini-clock">
-          <strong>{now.time.slice(0, 5)}</strong>
-          <span>{now.date}</span>
-        </div>
         <div className="control-top-bar__logo">S</div>
         <div className="control-top-bar__brand-copy">
           <strong>Shadow</strong>
@@ -115,8 +111,8 @@ export function ControlTopBar() {
           featureFlags={[
             { label: "音乐", active: features.music_enabled },
             { label: "能耗", active: features.energy_enabled },
-            { label: "编辑", active: features.editor_enabled },
           ]}
+          showConnection={false}
           inlineAction={
             isHomeRoute ? (
               <button
@@ -147,8 +143,6 @@ export function ControlTopBar() {
               天气 {weatherDataStatus}
             </span>
           ) : null}
-          <span>Wi-Fi</span>
-          <span>98%</span>
         </div>
         <div className="control-top-bar__clock">
           <strong>{now.time}</strong>

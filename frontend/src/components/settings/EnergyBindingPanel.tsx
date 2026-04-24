@@ -1,4 +1,8 @@
 import { EnergyDto } from "../../api/types";
+import {
+  formatSettingsStatus,
+  getSettingsStatusTone,
+} from "../../settings/statusFormat";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 export type EnergyEntityMapKey =
@@ -20,6 +24,9 @@ interface EnergyBindingPanelProps {
   message: string | null;
   refreshBusy: boolean;
   saveBusy: boolean;
+  sgccAccountCount: number;
+  sgccLatestAccountTimestamp: string | null;
+  sgccPhase: string;
   onChangeAccountId: (value: string) => void;
   onChangeEntity: (key: EnergyEntityMapKey, value: string) => void;
   onClear: () => void;
@@ -81,6 +88,11 @@ function formatTimestamp(value: string | null | undefined) {
   return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${hour}:${minute}`;
 }
 
+function formatTaskTimestamp(value: string | null | undefined) {
+  const formatted = formatTimestamp(value);
+  return formatted === "-" ? "暂无记录" : formatted;
+}
+
 function formatStatus(energy: EnergyDto | null) {
   const detail = energy?.refresh_status_detail;
   if (detail === "SUCCESS_UPDATED") {
@@ -96,9 +108,11 @@ function formatStatus(energy: EnergyDto | null) {
     return "等待 HA 源更新超时";
   }
   if (!energy?.last_error_code) {
-    return formatValue(energy?.refresh_status);
+    return formatSettingsStatus(energy?.refresh_status, "connection");
   }
-  return `${formatValue(energy.refresh_status)} / ${energy.last_error_code}`;
+  return `${formatSettingsStatus(energy.refresh_status, "connection")} / ${
+    energy.last_error_code
+  }`;
 }
 
 function extractEntitySuffix(entityId: string | null | undefined) {
@@ -128,19 +142,61 @@ function formatSgccRuntimeStatus(energy: EnergyDto | null) {
   }
   if (energy?.refresh_status === "SUCCESS" && energy.cache_mode) {
     return energy.refresh_status_detail === "SUCCESS_STALE_SOURCE"
-      ? "sgcc_electricity_new 已从缓存同步，源数据未更新"
-      : "sgcc_electricity_new 已从缓存同步";
+      ? "已读取缓存，源数据暂未更新"
+      : "已从缓存同步";
   }
   if (energy?.refresh_status_detail === "SUCCESS_STALE_SOURCE") {
-    return "sgcc_electricity_new 已触发，但源数据尚未更新";
+    return "已触发同步，源数据暂未更新";
   }
   if (energy?.refresh_status === "SUCCESS") {
-    return "sgcc_electricity_new 运行中";
+    return "同步正常";
   }
   if (energy?.refresh_status === "FAILED") {
-    return "sgcc_electricity_new 同步失败";
+    return "同步失败";
   }
   return "已绑定，等待首次同步";
+}
+
+function resolveEnergyTaskSteps(
+  energy: EnergyDto | null,
+  draft: EnergyBindingDraft,
+  sgccPhase: string,
+  sgccAccountCount: number,
+  sgccLatestAccountTimestamp: string | null,
+) {
+  const bindingStatus = energy?.binding_status ?? "UNBOUND";
+  const latestSourceAt = energy?.source_updated_at ?? energy?.system_updated_at ?? energy?.updated_at;
+  return [
+    {
+      label: "国网数据",
+      tone: getSettingsStatusTone(sgccPhase, "sgcc"),
+      value:
+        sgccPhase === "DATA_READY"
+          ? `已就绪${sgccLatestAccountTimestamp ? `，${formatTaskTimestamp(sgccLatestAccountTimestamp)}` : ""}`
+          : formatSettingsStatus(sgccPhase, "sgcc"),
+    },
+    {
+      label: "账号缓存",
+      tone: sgccAccountCount > 0 ? "success" : "warning",
+      value: sgccAccountCount > 0 ? `已发现 ${sgccAccountCount} 个账号` : "未发现账号",
+    },
+    {
+      label: "能耗绑定",
+      tone: getSettingsStatusTone(bindingStatus, "connection"),
+      value:
+        bindingStatus === "BOUND"
+          ? `已绑定${resolveEntitySuffix(energy, draft) !== "-" ? ` ${resolveEntitySuffix(energy, draft)}` : ""}`
+          : formatSettingsStatus(bindingStatus, "connection"),
+    },
+    {
+      label: "最近刷新",
+      tone: energy?.refresh_status === "FAILED" ? "danger" : latestSourceAt ? "success" : "neutral",
+      value:
+        energy?.refresh_status === "FAILED"
+          ? formatStatus(energy)
+          : formatTaskTimestamp(latestSourceAt),
+    },
+  ];
 }
 
 export function EnergyBindingPanel({
@@ -151,18 +207,31 @@ export function EnergyBindingPanel({
   message,
   refreshBusy,
   saveBusy,
+  sgccAccountCount,
+  sgccLatestAccountTimestamp,
+  sgccPhase,
   onChangeAccountId,
   onChangeEntity,
   onClear,
   onRefresh,
   onSave,
 }: EnergyBindingPanelProps) {
+  const taskSteps = resolveEnergyTaskSteps(
+    energy,
+    draft,
+    sgccPhase,
+    sgccAccountCount,
+    sgccLatestAccountTimestamp,
+  );
   return (
     <SettingsModuleCard
-      description="从 Home Assistant 的国家电网传感器同步电量与余额。"
+      description="按国网数据、账号缓存、能耗绑定、最近刷新四步检查首页能耗是否可用。"
       eyebrow="能耗"
       rows={[
-        { label: "绑定状态", value: formatValue(energy?.binding_status) },
+        {
+          label: "绑定状态",
+          value: formatSettingsStatus(energy?.binding_status, "connection"),
+        },
         { label: "刷新状态", value: formatStatus(energy) },
         { label: "数据源状态", value: formatSgccRuntimeStatus(energy) },
         { label: "绑定后缀", value: resolveEntitySuffix(energy, draft) },
@@ -191,14 +260,26 @@ export function EnergyBindingPanel({
       ]}
       title="国家电网能耗"
     >
+      <div className="settings-task-checklist" aria-label="能耗接入进度">
+        {taskSteps.map((step) => (
+          <div className="settings-task-checklist__item" key={step.label}>
+            <span className={`settings-status-dot is-${step.tone}`} aria-hidden />
+            <div>
+              <span>{step.label}</span>
+              <strong>{step.value}</strong>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="settings-form-grid settings-form-grid--two">
         <label className="form-field">
           <span>国网用户 ID / HA 实体后缀</span>
           <input
             className="control-input"
             disabled={!canEdit || saveBusy || clearBusy}
-            onChange={(event) => onChangeAccountId(event.target.value)}
-            placeholder="例如 sgcc_electricity_new 日志里的 xxxxxxx"
+          onChange={(event) => onChangeAccountId(event.target.value)}
+            placeholder="填写国网户号或实体后缀"
             value={draft.accountId}
           />
         </label>
@@ -207,15 +288,13 @@ export function EnergyBindingPanel({
           <input
             className="control-input"
             disabled
-            value={energy?.provider ?? "SGCC_SIDECAR"}
+            value={energy?.provider ? "国网缓存服务" : "待读取"}
           />
         </label>
       </div>
       <p className="settings-module-card__note">
-        ARC-MX 的 sgcc_electricity_new 默认会上报
-        sensor.last_electricity_usage_xxxx、sensor.month_electricity_usage_xxxx、
-        sensor.electricity_charge_balance_xxxx、sensor.yearly_electricity_usage_xxxx。
-        当前默认已经预填 _8170 这一组实体。
+        常规情况下只需要绑定国网账号并刷新能耗；实体映射保留给需要手动对齐
+        Home Assistant 传感器的场景。
       </p>
 
       <details className="settings-advanced-fields">

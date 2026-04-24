@@ -26,6 +26,7 @@ interface HomeMediaSource {
   subtitle: string;
   state: string;
   glyph: string;
+  isPlaceholder?: boolean;
 }
 
 function normalizeKeyword(value: string | null | undefined) {
@@ -233,10 +234,10 @@ function WeatherTrendsSlide({ viewModel }: { viewModel: HomeViewModel }) {
     <article className="home-trends-slide">
       <header className="home-status-panel__header">
         <div>
-          <span className="card-eyebrow">气象站 / TRENDS</span>
-          <strong>6-Day Forecast</strong>
+          <span className="card-eyebrow">气象趋势</span>
+          <strong>6 日预报</strong>
         </div>
-        <em>{viewModel.timeline.weatherLocation || "LOCAL"}</em>
+        <em>{viewModel.timeline.weatherLocation || "本地"}</em>
       </header>
       <div className="home-trends-slide__list">
         {viewModel.weatherTrend.map((point) => (
@@ -265,10 +266,10 @@ function NoticeControlsSlide() {
     <article className="home-notice-slide">
       <header className="home-status-panel__header">
         <div>
-          <span className="card-eyebrow">通知 + 功能键</span>
+          <span className="card-eyebrow">通知开关</span>
           <strong>快捷状态</strong>
         </div>
-        <em>v2.0 STABLE</em>
+        <em>本地</em>
       </header>
 
       <div className="home-notice-slide__controls">
@@ -303,7 +304,7 @@ function FavoriteDevicesSlide({
           <span className="card-eyebrow">首页入口</span>
           <strong>常用设备</strong>
         </div>
-        <em>{viewModel.favoriteDevices.length ? "READY" : "EMPTY"}</em>
+        <em>{viewModel.favoriteDevices.length ? "就绪" : "空"}</em>
       </header>
 
       {viewModel.favoriteDevices.length ? (
@@ -336,10 +337,10 @@ function FavoriteDevicesSlide({
         </div>
       ) : (
         <div className="quick-scene-card__empty">
-          <strong>还没有首页常用设备</strong>
-          <p>从设备页加入首页后，这里会变成现场最快入口。</p>
+          <strong>暂无常用设备</strong>
+          <p>从设备页添加后会显示在这里。</p>
           <Link className="button button--ghost" to="/devices">
-            去设备页添加
+            添加设备
           </Link>
         </div>
       )}
@@ -385,21 +386,27 @@ function HomeMediaPlayerSlide({
         <strong>{source.title}</strong>
         <small>{source.subtitle}</small>
       </div>
-      <div className="home-media-player__controls">
-        <button aria-label="上一源" type="button">
-          ‹
-        </button>
-        <button
-          aria-label={source.state === "播放中" ? "暂停" : "播放"}
-          className="is-primary"
-          type="button"
-        >
-          {source.state === "播放中" ? "Ⅱ" : "▶"}
-        </button>
-        <button aria-label="下一源" type="button">
-          ›
-        </button>
-      </div>
+      {source.isPlaceholder ? (
+        <Link className="home-media-player__settings-link" to="/settings?section=integrations">
+          配置媒体
+        </Link>
+      ) : (
+        <div className="home-media-player__controls">
+          <button aria-label="上一源" type="button">
+            ‹
+          </button>
+          <button
+            aria-label={source.state === "播放中" ? "暂停" : "播放"}
+            className="is-primary"
+            type="button"
+          >
+            {source.state === "播放中" ? "Ⅱ" : "▶"}
+          </button>
+          <button aria-label="下一源" type="button">
+            ›
+          </button>
+        </div>
+      )}
     </article>
   );
 }
@@ -453,11 +460,12 @@ export function HomeInsightRail({
     if (!sources.length) {
       sources.push({
         key: "empty-media",
-        source: "HA 未发现媒体源",
-        title: "暂无播放设备",
-        subtitle: "接入 media_player 后会展示真实播放状态",
+        source: "默认媒体",
+        title: "未配置播放设备",
+        subtitle: "到设置页选择默认播放器",
         state: "待机",
         glyph: "♪",
+        isPlaceholder: true,
       });
     }
 

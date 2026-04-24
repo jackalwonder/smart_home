@@ -1,3 +1,4 @@
+import { formatSettingsStatus } from "../../settings/statusFormat";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface SystemConnectionPanelProps {
@@ -23,6 +24,40 @@ interface SystemConnectionPanelProps {
   onTestCandidate: () => void;
   onTestSaved: () => void;
   onSyncDevices: () => void;
+}
+
+function formatPanelTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  const hour = String(parsed.getHours()).padStart(2, "0");
+  const minute = String(parsed.getMinutes()).padStart(2, "0");
+  return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${hour}:${minute}`;
+}
+
+function formatSyncResult(value: string | null | undefined) {
+  if (!value) {
+    return "未获取";
+  }
+  try {
+    const parsed = JSON.parse(value) as {
+      room_count?: unknown;
+      entity_count?: unknown;
+      device_count?: unknown;
+      linked_entity_count?: unknown;
+    };
+    const roomCount = Number(parsed.room_count ?? 0);
+    const deviceCount = Number(parsed.device_count ?? 0);
+    const entityCount = Number(parsed.entity_count ?? 0);
+    const linkedEntityCount = Number(parsed.linked_entity_count ?? 0);
+    return `房间 ${roomCount} · 设备 ${deviceCount} · 实体 ${entityCount} · 已绑定 ${linkedEntityCount}`;
+  } catch {
+    return formatSettingsStatus(value, "connection");
+  }
 }
 
 export function SystemConnectionPanel({
@@ -60,7 +95,9 @@ export function SystemConnectionPanel({
           <input
             className="control-input"
             readOnly
-            value={`${draft.connectionStatus} · 认证${draft.authConfigured ? "已配置" : "待配置"}`}
+            value={`${formatSettingsStatus(draft.connectionStatus, "connection")} · 认证${
+              draft.authConfigured ? "已配置" : "待配置"
+            }`}
           />
         </label>
         <label className="form-field form-field--full">
@@ -86,19 +123,19 @@ export function SystemConnectionPanel({
       <dl className="field-grid">
         <div>
           <dt>最近测试</dt>
-          <dd>{draft.lastTestAt ?? "-"}</dd>
+          <dd>{formatPanelTimestamp(draft.lastTestAt)}</dd>
         </div>
         <div>
           <dt>测试结果</dt>
-          <dd>{draft.lastTestResult ?? "-"}</dd>
+          <dd>{formatSettingsStatus(draft.lastTestResult, "connection")}</dd>
         </div>
         <div>
           <dt>最近同步</dt>
-          <dd>{draft.lastSyncAt ?? "-"}</dd>
+          <dd>{formatPanelTimestamp(draft.lastSyncAt)}</dd>
         </div>
         <div>
           <dt>同步结果</dt>
-          <dd>{draft.lastSyncResult ?? "-"}</dd>
+          <dd>{formatSyncResult(draft.lastSyncResult)}</dd>
         </div>
       </dl>
       <div className="settings-module-card__actions">
