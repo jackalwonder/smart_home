@@ -2,6 +2,7 @@
 
 export type ClientMessage = RealtimeAckMessage | RealtimeResumeMessage | RealtimePollMessage;
 export type EventId = string;
+export type Status = "ok" | "duplicate" | "failed";
 export type Type = "ack";
 export type LastEventId = string | null;
 export type Type1 = "resume";
@@ -58,7 +59,7 @@ export type RelatedRequestId = string | null;
 export type RuntimeState = {
   [k: string]: unknown;
 } | null;
-export type Status = string | null;
+export type Status1 = string | null;
 export type Sequence2 = number;
 export type SnapshotRequired2 = false;
 export type ChangeDomain3 = "DEVICE_STATE";
@@ -177,6 +178,7 @@ export interface RealtimeContractBundle {
 }
 export interface RealtimeAckMessage {
   event_id: EventId;
+  status?: Status;
   type: Type;
 }
 export interface RealtimeResumeMessage {
@@ -237,7 +239,7 @@ export interface DeviceStateChangedPayload {
   home_id?: HomeId3;
   related_request_id?: RelatedRequestId;
   runtime_state?: RuntimeState;
-  status?: Status;
+  status?: Status1;
 }
 export interface MediaStateChangedEvent {
   change_domain: ChangeDomain3;
