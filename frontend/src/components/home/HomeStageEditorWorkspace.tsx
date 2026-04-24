@@ -9,9 +9,19 @@ import {
 import { normalizeApiError } from "../../api/httpClient";
 import { DeviceListItemDto } from "../../api/types";
 import { BottomStatsStrip } from "../../components/home/BottomStatsStrip";
+import {
+  areEditorDraftStatesEqual,
+  buildDraftHotspotInputs,
+  buildLayoutMetaWithHotspotLabels,
+  cloneEditorDraftState,
+  parseLayoutMetaText,
+  resequenceHotspots,
+  sortHotspots,
+  stringifyLayoutMeta,
+  type EditorDraftState,
+} from "../../editor/editorDraftState";
 import { PageFrame } from "../../components/layout/PageFrame";
 import { appStore, useAppStore } from "../../store/useAppStore";
-import { type ImageSize } from "../../types/image";
 import { HOTSPOT_ICON_OPTIONS } from "../../utils/hotspotIcons";
 import { EditorHotspotViewModel, mapEditorViewModel } from "../../view-models/editor";
 import { HomeMetricViewModel } from "../../view-models/home";
@@ -24,14 +34,6 @@ interface HomeStageEditorWorkspaceProps {
   onApplied: () => Promise<void> | void;
   onExit: () => void;
   onOpenAdvancedSettings: () => void;
-}
-
-interface EditorDraftState {
-  backgroundAssetId: string | null;
-  backgroundImageUrl: string | null;
-  backgroundImageSize: ImageSize | null;
-  layoutMetaText: string;
-  hotspots: EditorHotspotViewModel[];
 }
 
 interface EditorHistoryEntry {
@@ -52,92 +54,6 @@ interface EditorNoticeState {
   tone: "success" | "warning" | "error";
   title: string;
   detail: string;
-}
-
-function stringifyLayoutMeta(value: Record<string, unknown>) {
-  return JSON.stringify(value ?? {}, null, 2);
-}
-
-function sortHotspots(hotspots: EditorHotspotViewModel[]) {
-  return [...hotspots].sort((left, right) => left.structureOrder - right.structureOrder);
-}
-
-function resequenceHotspots(hotspots: EditorHotspotViewModel[]) {
-  return sortHotspots(hotspots).map((hotspot, index) => ({
-    ...hotspot,
-    structureOrder: index,
-  }));
-}
-
-function buildLayoutMetaWithHotspotLabels(
-  layoutMeta: Record<string, unknown>,
-  hotspots: EditorHotspotViewModel[],
-) {
-  return {
-    ...layoutMeta,
-    hotspot_labels: Object.fromEntries(
-      hotspots.map((hotspot) => [
-        hotspot.id,
-        hotspot.label.trim() || hotspot.deviceId.trim() || hotspot.id,
-      ]),
-    ),
-  };
-}
-
-function parseLayoutMetaText(value: string) {
-  const parsed = JSON.parse(value || "{}");
-  return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-    ? (parsed as Record<string, unknown>)
-    : {};
-}
-
-function buildDraftHotspotInputs(hotspots: EditorHotspotViewModel[]) {
-  return hotspots.map((hotspot, index) => ({
-    hotspot_id: hotspot.id,
-    device_id: hotspot.deviceId.trim(),
-    x: hotspot.x,
-    y: hotspot.y,
-    icon_type: hotspot.iconType,
-    icon_asset_id: hotspot.iconAssetId,
-    label_mode: hotspot.labelMode,
-    is_visible: hotspot.isVisible,
-    structure_order: hotspot.structureOrder ?? index,
-  }));
-}
-
-function cloneEditorDraftState(state: EditorDraftState): EditorDraftState {
-  return {
-    ...state,
-    hotspots: state.hotspots.map((hotspot) => ({ ...hotspot })),
-  };
-}
-
-function areEditorDraftStatesEqual(left: EditorDraftState, right: EditorDraftState) {
-  if (
-    left.backgroundAssetId !== right.backgroundAssetId ||
-    left.backgroundImageUrl !== right.backgroundImageUrl ||
-    left.layoutMetaText !== right.layoutMetaText ||
-    left.hotspots.length !== right.hotspots.length
-  ) {
-    return false;
-  }
-
-  return left.hotspots.every((leftHotspot, index) => {
-    const rightHotspot = right.hotspots[index];
-    return (
-      leftHotspot.id === rightHotspot.id &&
-      leftHotspot.label === rightHotspot.label &&
-      leftHotspot.deviceId === rightHotspot.deviceId &&
-      leftHotspot.x === rightHotspot.x &&
-      leftHotspot.y === rightHotspot.y &&
-      leftHotspot.iconType === rightHotspot.iconType &&
-      leftHotspot.iconAssetId === rightHotspot.iconAssetId &&
-      leftHotspot.iconAssetUrl === rightHotspot.iconAssetUrl &&
-      leftHotspot.labelMode === rightHotspot.labelMode &&
-      leftHotspot.isVisible === rightHotspot.isVisible &&
-      leftHotspot.structureOrder === rightHotspot.structureOrder
-    );
-  });
 }
 
 function clampPosition(value: number) {
