@@ -34,6 +34,10 @@ export function HomeHotspotOverlay({
       {hotspots.map((hotspot) => {
         const selected = hotspot.id === selectedHotspotId;
         const pending = pendingHotspotIds.includes(hotspot.id);
+        const statusLabel = pending
+          ? "执行中"
+          : hotspot.statusSummary ?? hotspot.statusLabel;
+        const actionLabel = hotspot.isOffline ? "查看详情" : hotspot.entryBehaviorLabel;
         return (
           <button
             key={hotspot.id}
@@ -81,6 +85,7 @@ export function HomeHotspotOverlay({
             onPointerLeave={clearLongPressTimer}
             onPointerUp={clearLongPressTimer}
             style={{ left: `${hotspot.x * 100}%`, top: `${hotspot.y * 100}%` }}
+            title={`${hotspot.label}，${statusLabel}，${actionLabel}`}
             type="button"
           >
             <span className="home-hotspot-overlay__dot">
@@ -92,6 +97,11 @@ export function HomeHotspotOverlay({
                 status={hotspot.status}
                 variant="home"
               />
+            </span>
+            <span className="home-hotspot-overlay__info" aria-hidden="true">
+              <strong>{hotspot.label}</strong>
+              <small>{statusLabel}</small>
+              <em>{actionLabel}</em>
             </span>
           </button>
         );

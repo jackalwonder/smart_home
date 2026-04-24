@@ -207,8 +207,8 @@ export function HomeCommandStage({
                 <span className="floorplan-fallback__wall floorplan-fallback__wall--three" />
                 <div className="home-command-stage__empty">
                   <span className="card-eyebrow">户型图待发布</span>
-                  <strong>上传并发布背景图后，这里会成为首页主舞台。</strong>
-                  <p>先去设置里的首页高级设置上传户型图，再回到总览轻编辑布点和调舞台。</p>
+                  <strong>发布首页舞台前，先完成户型图和热点布点。</strong>
+                  <p>在设置里的首页高级设置上传户型图，再回到总览轻编辑放置常用设备热点。发布后，这里会展示可直接操作的家庭现场。</p>
                 </div>
               </div>
             )}
