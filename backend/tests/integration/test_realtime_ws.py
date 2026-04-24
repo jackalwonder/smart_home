@@ -117,7 +117,7 @@ def test_websocket_pushes_sequence_and_ack_dispatches(app, client):
         first = websocket.receive_json()
         second = websocket.receive_json()
         websocket.send_json({"type": "ack", "event_id": "evt-1"})
-        websocket.send_json({"type": "ack", "event_id": "evt-2"})
+        websocket.send_json({"type": "ack", "event_id": "evt-2", "status": "ok"})
 
     assert first["event_id"] == "evt-1"
     assert first["sequence"] == 1
@@ -132,6 +132,47 @@ def test_websocket_pushes_sequence_and_ack_dispatches(app, client):
     assert snapshot["websocket"]["auth_mode_counts"]["bearer"] == 1
     assert snapshot["websocket"]["events_sent_total"] == 2
     assert snapshot["websocket"]["snapshot_required_events_total"] == 1
+    assert snapshot["websocket"]["ack_counts"]["ok"] == 2
+
+
+def test_websocket_failed_ack_is_observable_and_does_not_dispatch(app, client):
+    repo = _FakeOutboxRepo()
+    app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)
+    app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
+
+    with client.websocket_connect(
+        "/ws",
+        subprotocols=["bearer", "test-access-token"],
+    ) as websocket:
+        first = websocket.receive_json()
+        websocket.receive_json()
+        websocket.send_json(
+            {"type": "ack", "event_id": first["event_id"], "status": "failed"}
+        )
+
+    assert repo.dispatched == []
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["ack_counts"]["failed"] == 1
+
+
+def test_websocket_duplicate_ack_is_observable_and_dispatches(app, client):
+    repo = _FakeOutboxRepo()
+    app.dependency_overrides[get_realtime_service] = lambda: RealtimeService(repo)
+    app.dependency_overrides[get_request_context_service] = lambda: _StrictFakeRequestContextService()
+
+    with client.websocket_connect(
+        "/ws",
+        subprotocols=["bearer", "test-access-token"],
+    ) as websocket:
+        first = websocket.receive_json()
+        websocket.receive_json()
+        websocket.send_json(
+            {"type": "ack", "event_id": first["event_id"], "status": "duplicate"}
+        )
+
+    assert repo.dispatched == ["1"]
+    snapshot = get_observability_metrics().snapshot()
+    assert snapshot["websocket"]["ack_counts"]["duplicate"] == 1
 
 
 def test_websocket_resume_gap_requests_snapshot(app, client):

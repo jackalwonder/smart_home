@@ -12,6 +12,7 @@ os.environ["CONNECTION_ENCRYPTION_SECRET"] = "test-connection-secret-value-00000
 os.environ["ACCESS_TOKEN_SECRET"] = "test-access-token-secret-value-000001"
 os.environ["BOOTSTRAP_TOKEN_SECRET"] = "test-bootstrap-token-secret-value-0001"
 import src.main as main_module
+from src.shared.observability import get_observability_metrics
 
 
 class _NoopDatabase:
@@ -24,11 +25,13 @@ class _NoopDatabase:
 
 @pytest.fixture
 def app(monkeypatch):
+    get_observability_metrics().reset()
     monkeypatch.setattr(main_module, "get_database", lambda: _NoopDatabase())
     app = main_module.create_app()
     app.dependency_overrides = {}
     yield app
     app.dependency_overrides = {}
+    get_observability_metrics().reset()
 
 
 @pytest.fixture

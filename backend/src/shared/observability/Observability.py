@@ -159,6 +159,7 @@ class ObservabilityMetrics:
             self._ws_resume_counts: Counter[str] = Counter()
             self._ws_events_sent = 0
             self._ws_snapshot_required_events = 0
+            self._ws_ack_counts: Counter[str] = Counter()
 
     def record_http_request(
         self,
@@ -236,6 +237,10 @@ class ObservabilityMetrics:
             if snapshot_required:
                 self._ws_snapshot_required_events += 1
 
+    def record_ws_ack(self, status: str) -> None:
+        with self._lock:
+            self._ws_ack_counts[status] += 1
+
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             return {
@@ -279,6 +284,7 @@ class ObservabilityMetrics:
                     "resume_counts": dict(self._ws_resume_counts),
                     "events_sent_total": self._ws_events_sent,
                     "snapshot_required_events_total": self._ws_snapshot_required_events,
+                    "ack_counts": dict(self._ws_ack_counts),
                 },
             }
 

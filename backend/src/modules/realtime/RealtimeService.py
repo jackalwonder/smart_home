@@ -212,11 +212,24 @@ class RealtimeService:
                 message_type = client_message.type
                 if message_type == "ack":
                     event_id = client_message.event_id
+                    ack_status = client_message.status
                     if event_id in state.sent_event_ids:
+                        get_observability_metrics().record_ws_ack(ack_status)
                         row_id = state.pending_ack_ids.get(event_id)
-                        if row_id is not None:
+                        if row_id is not None and ack_status in {"ok", "duplicate"}:
                             await self._ws_event_outbox_repository.mark_dispatched(row_id)
-                        state.pending_ack_ids.pop(event_id, None)
+                            state.pending_ack_ids.pop(event_id, None)
+                        if ack_status == "failed":
+                            log_structured_event(
+                                "websocket_event_processing_failed",
+                                {
+                                    "home_id": state.home_id,
+                                    "terminal_id": state.terminal_id,
+                                    "event_id": event_id,
+                                },
+                            )
+                    else:
+                        get_observability_metrics().record_ws_ack("unknown")
                 elif message_type == "resume":
                     await self._push_resume_backlog(websocket, state, client_message.last_event_id)
                 elif message_type == "poll":

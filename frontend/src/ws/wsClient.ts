@@ -18,6 +18,7 @@ interface ConnectOptions {
     recovered: boolean;
   }) => void;
   onEvent?: (event: WsEvent) => void | Promise<void>;
+  onEventProcessingError?: (event: WsEvent, error: unknown) => void;
   onRecovered?: () => void;
 }
 
@@ -39,12 +40,12 @@ class WsClient {
   private lastEventId: string | null = null;
   private seenEventIds: string[] = [];
 
-  private rememberEvent(eventId: string) {
-    if (this.seenEventIds.includes(eventId)) {
-      return false;
-    }
+  private hasProcessedEvent(eventId: string) {
+    return this.seenEventIds.includes(eventId);
+  }
+
+  private rememberProcessedEvent(eventId: string) {
     this.seenEventIds = [eventId, ...this.seenEventIds].slice(0, 200);
-    return true;
   }
 
   private send(message: WsClientMessage) {
@@ -90,16 +91,29 @@ class WsClient {
     }
     try {
       const event = JSON.parse(rawData) as WsEvent;
-      if (!this.rememberEvent(event.event_id)) {
-        this.lastEventId = event.event_id;
-        this.send({ type: "ack", event_id: event.event_id });
+      if (this.hasProcessedEvent(event.event_id)) {
+        this.send({
+          type: "ack",
+          event_id: event.event_id,
+          status: "duplicate",
+        });
         return;
       }
 
       appStore.pushWsEvent(event);
-      await options.onEvent?.(event);
-      this.lastEventId = event.event_id;
-      this.send({ type: "ack", event_id: event.event_id });
+      try {
+        await options.onEvent?.(event);
+        this.rememberProcessedEvent(event.event_id);
+        this.lastEventId = event.event_id;
+        this.send({ type: "ack", event_id: event.event_id, status: "ok" });
+      } catch (error) {
+        this.send({
+          type: "ack",
+          event_id: event.event_id,
+          status: "failed",
+        });
+        options.onEventProcessingError?.(event, error);
+      }
     } catch {
       // Malformed or unprocessed events stay unacked so the server can resend them.
     }

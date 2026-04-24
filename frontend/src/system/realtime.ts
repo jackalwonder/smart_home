@@ -12,7 +12,10 @@ type SnapshotTarget = "editor" | "home" | "settings";
 let pendingSnapshotTargets = new Set<SnapshotTarget>();
 let snapshotRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let snapshotRefreshChain: Promise<void> = Promise.resolve();
-let snapshotRefreshResolvers: Array<() => void> = [];
+let snapshotRefreshWaiters: Array<{
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}> = [];
 
 function targetsForEvent(event: WsEvent): SnapshotTarget[] {
   switch (event.event_type) {
@@ -47,6 +50,7 @@ async function refreshHomeSnapshot() {
     appStore.setHomeData(data as unknown as Record<string, unknown>);
   } catch (error) {
     appStore.setHomeError(normalizeApiError(error).message);
+    throw error;
   }
 }
 
@@ -56,6 +60,7 @@ async function refreshSettingsSnapshot() {
     appStore.setSettingsData(data as unknown as Record<string, unknown>);
   } catch (error) {
     appStore.setSettingsError(normalizeApiError(error).message);
+    throw error;
   }
 }
 
@@ -87,6 +92,7 @@ async function refreshEditorSnapshot() {
     });
   } catch (error) {
     appStore.setEditorError(normalizeApiError(error).message);
+    throw error;
   }
 }
 
@@ -99,21 +105,27 @@ async function refreshSnapshots(targets: SnapshotTarget[]) {
 }
 
 function refreshAllSnapshots() {
-  scheduleSnapshotRefresh(["home", "settings", "editor"]);
+  void scheduleSnapshotRefresh(["home", "settings", "editor"]).catch(() => undefined);
 }
 
 function flushSnapshotRefreshes() {
   const targets = [...pendingSnapshotTargets];
+  const waiters = snapshotRefreshWaiters;
   pendingSnapshotTargets = new Set();
+  snapshotRefreshWaiters = [];
   snapshotRefreshTimer = null;
-  snapshotRefreshChain = snapshotRefreshChain
+  const refreshRun = snapshotRefreshChain
     .catch(() => undefined)
-    .then(() => refreshSnapshots(targets))
-    .finally(() => {
-      const resolvers = snapshotRefreshResolvers;
-      snapshotRefreshResolvers = [];
-      resolvers.forEach((resolve) => resolve());
-    });
+    .then(() => refreshSnapshots(targets));
+  snapshotRefreshChain = refreshRun.then(
+    () => {
+      waiters.forEach(({ resolve }) => resolve());
+    },
+    (error) => {
+      waiters.forEach(({ reject }) => reject(error));
+      throw error;
+    },
+  ).catch(() => undefined);
 }
 
 function scheduleSnapshotRefresh(targets: SnapshotTarget[]): Promise<void> {
@@ -125,7 +137,9 @@ function scheduleSnapshotRefresh(targets: SnapshotTarget[]): Promise<void> {
   if (snapshotRefreshTimer === null) {
     snapshotRefreshTimer = setTimeout(flushSnapshotRefreshes, 250);
   }
-  return new Promise((resolve) => snapshotRefreshResolvers.push(resolve));
+  return new Promise((resolve, reject) =>
+    snapshotRefreshWaiters.push({ resolve, reject }),
+  );
 }
 
 function clearSnapshotRefreshQueue() {
@@ -134,9 +148,9 @@ function clearSnapshotRefreshQueue() {
   }
   pendingSnapshotTargets = new Set();
   snapshotRefreshTimer = null;
-  const resolvers = snapshotRefreshResolvers;
-  snapshotRefreshResolvers = [];
-  resolvers.forEach((resolve) => resolve());
+  const waiters = snapshotRefreshWaiters;
+  snapshotRefreshWaiters = [];
+  waiters.forEach(({ resolve }) => resolve());
 }
 
 export function syncRealtimeSession(session: SessionModel) {
@@ -177,6 +191,13 @@ export function syncRealtimeSession(session: SessionModel) {
         notice: null,
       });
       await scheduleSnapshotRefresh(targetsForEvent(event));
+    },
+    onEventProcessingError: () => {
+      appStore.setRealtimeState({
+        connectionStatus: "connected",
+        notice: "实时事件处理失败，正在执行全量状态恢复。",
+      });
+      refreshAllSnapshots();
     },
     onRecovered: () => {
       refreshAllSnapshots();

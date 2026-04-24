@@ -950,6 +950,16 @@
           "title": "Event Id",
           "type": "string"
         },
+        "status": {
+          "default": "ok",
+          "enum": [
+            "ok",
+            "duplicate",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
         "type": {
           "const": "ack",
           "title": "Type",

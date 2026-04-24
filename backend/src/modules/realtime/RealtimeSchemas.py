@@ -10,6 +10,7 @@ from src.shared.http.ApiSchema import ApiSchema
 class RealtimeAckMessage(ApiSchema):
     type: Literal["ack"]
     event_id: str
+    status: Literal["ok", "duplicate", "failed"] = "ok"
 
 
 class RealtimeResumeMessage(ApiSchema):
