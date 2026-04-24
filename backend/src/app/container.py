@@ -720,6 +720,7 @@ def get_energy_service() -> EnergyService:
         upstream_ha_entity_id=settings.energy_upstream_ha_entity_id,
         upstream_wait_timeout_seconds=settings.energy_upstream_wait_timeout_seconds,
         upstream_poll_interval_seconds=settings.energy_upstream_poll_interval_seconds,
+        sgcc_cache_file=settings.sgcc_cache_file,
     )
 
 

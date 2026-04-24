@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timezone
 
 from src.infrastructure.ha.HaConnectionGateway import HaStateEntry
@@ -135,7 +136,15 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-def _service(*, accounts=None, snapshots=None, gateway=None, restarter=None, mode="none"):
+def _service(
+    *,
+    accounts=None,
+    snapshots=None,
+    gateway=None,
+    restarter=None,
+    mode="none",
+    sgcc_cache_file=None,
+):
     account_repository = accounts or _EnergyAccountRepository()
     snapshot_repository = snapshots or _EnergySnapshotRepository()
     outbox_repository = _OutboxRepository()
@@ -151,11 +160,12 @@ def _service(*, accounts=None, snapshots=None, gateway=None, restarter=None, mod
         upstream_refresh_mode=mode,
         upstream_wait_timeout_seconds=1,
         upstream_poll_interval_seconds=0.01,
+        sgcc_cache_file=str(sgcc_cache_file) if sgcc_cache_file else None,
     )
     return service, account_repository, snapshot_repository, outbox_repository
 
 
-def test_energy_binding_is_normalized_for_home_assistant_sgcc():
+def test_energy_binding_is_normalized_for_sgcc_sidecar():
     service, accounts, _, _ = _service()
 
     result = _run(
@@ -163,7 +173,7 @@ def test_energy_binding_is_normalized_for_home_assistant_sgcc():
             "home-1",
             "terminal-1",
             {
-                "provider": "HOME_ASSISTANT_SGCC",
+                "provider": "SGCC_SIDECAR",
                 "account_id": " 1234567890 ",
                 "entity_map": {"balance": " sensor.custom_balance "},
                 "ignored": "value",
@@ -176,9 +186,29 @@ def test_energy_binding_is_normalized_for_home_assistant_sgcc():
     assert accounts.upserts[0].account_payload_encrypted
     assert "sensor.custom_balance" in accounts.upserts[0].account_payload_encrypted
     view = _run(service.get_energy("home-1"))
-    assert view.provider == "HOME_ASSISTANT_SGCC"
+    assert view.provider == "SGCC_SIDECAR"
     assert view.account_id_masked == "12******90"
     assert view.entity_map == {"balance": "sensor.custom_balance"}
+
+
+def test_energy_binding_accepts_legacy_home_assistant_sgcc_provider():
+    service, accounts, _, _ = _service()
+
+    result = _run(
+        service.update_binding(
+            "home-1",
+            "terminal-1",
+            {
+                "provider": "HOME_ASSISTANT_SGCC",
+                "account_id": "1234567890",
+            },
+        )
+    )
+
+    assert result.binding_status == "BOUND"
+    assert '"provider": "SGCC_SIDECAR"' in accounts.upserts[0].account_payload_encrypted
+    view = _run(service.get_energy("home-1"))
+    assert view.provider == "SGCC_SIDECAR"
 
 
 def test_energy_refresh_reads_default_state_grid_entities_from_ha():
@@ -250,6 +280,60 @@ def test_energy_refresh_auto_discovers_single_sgcc_suffix_from_states():
     assert snapshots.inserts[-1].monthly_usage == 42.0
     assert snapshots.inserts[-1].balance == 66.5
     assert snapshots.inserts[-1].yearly_usage == 388.0
+
+
+def test_energy_refresh_falls_back_to_sgcc_cache_when_ha_entities_are_missing(tmp_path):
+    cache_file = tmp_path / "sgcc_cache.json"
+    cache_file.write_text(
+        json.dumps(
+            {
+                "1503525238170": {
+                    "balance": 176.67,
+                    "last_daily_usage": 4.46,
+                    "yearly_usage": "523",
+                    "month_usage": "194",
+                    "timestamp": "2026-04-23T11:41:57.719419",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    restarter = _Restarter()
+    service, _, snapshots, outbox = _service(
+        gateway=_HaGateway([[], []]),
+        restarter=restarter,
+        mode="sgcc_sidecar",
+        sgcc_cache_file=cache_file,
+    )
+    _run(
+        service.update_binding(
+            "home-1",
+            "terminal-1",
+            {
+                "account_id": "1503525238170",
+                "entity_map": {
+                    "yesterday_usage": "sensor.last_electricity_usage_8170",
+                    "monthly_usage": "sensor.month_electricity_usage_8170",
+                    "balance": "sensor.electricity_charge_balance_8170",
+                    "yearly_usage": "sensor.yearly_electricity_usage_8170",
+                },
+            },
+        )
+    )
+
+    result = _run(service.refresh("home-1", "terminal-1"))
+
+    assert restarter.fetch_count == 1
+    assert result.refresh_status == "SUCCESS"
+    assert result.refresh_status_detail == "SUCCESS_UPDATED"
+    assert result.source_updated is True
+    assert snapshots.inserts[-1].cache_mode is True
+    assert snapshots.inserts[-1].yesterday_usage == 4.46
+    assert snapshots.inserts[-1].monthly_usage == 194.0
+    assert snapshots.inserts[-1].yearly_usage == 523.0
+    assert snapshots.inserts[-1].balance == 176.67
+    assert snapshots.inserts[-1].source_updated_at == "2026-04-23T11:41:57.719419"
+    assert outbox.events[-1].event_type == "energy_refresh_completed"
 
 
 def test_energy_refresh_failure_keeps_previous_values_as_cache():

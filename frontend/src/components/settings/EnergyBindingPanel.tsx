@@ -126,13 +126,16 @@ function formatSgccRuntimeStatus(energy: EnergyDto | null) {
   if (energy?.binding_status !== "BOUND") {
     return "待绑定";
   }
+  if (energy?.refresh_status === "SUCCESS" && energy.cache_mode) {
+    return energy.refresh_status_detail === "SUCCESS_STALE_SOURCE"
+      ? "sgcc_electricity_new 已从缓存同步，源数据未更新"
+      : "sgcc_electricity_new 已从缓存同步";
+  }
   if (energy?.refresh_status_detail === "SUCCESS_STALE_SOURCE") {
-    return "sgcc_electricity_new 已触发，但 HA 源尚未更新";
+    return "sgcc_electricity_new 已触发，但源数据尚未更新";
   }
   if (energy?.refresh_status === "SUCCESS") {
-    return energy.cache_mode
-      ? "sgcc_electricity_new 已同步（缓存中）"
-      : "sgcc_electricity_new 运行中";
+    return "sgcc_electricity_new 运行中";
   }
   if (energy?.refresh_status === "FAILED") {
     return "sgcc_electricity_new 同步失败";
@@ -204,7 +207,7 @@ export function EnergyBindingPanel({
           <input
             className="control-input"
             disabled
-            value={energy?.provider ?? "HOME_ASSISTANT_SGCC"}
+            value={energy?.provider ?? "SGCC_SIDECAR"}
           />
         </label>
       </div>
