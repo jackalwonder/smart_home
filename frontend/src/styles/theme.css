@@ -3,28 +3,41 @@
   font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  --bg: #050813;
-  --bg-elevated: #0a1020;
-  --surface: rgba(10, 17, 34, 0.88);
-  --surface-strong: rgba(13, 22, 42, 0.96);
-  --surface-soft: rgba(26, 42, 72, 0.42);
-  --border: rgba(105, 156, 255, 0.18);
-  --border-strong: rgba(110, 174, 255, 0.34);
-  --text: #eff7ff;
-  --muted: #91a5c7;
-  --accent: #2f8cff;
-  --accent-strong: #68dbff;
-  --accent-soft: rgba(47, 140, 255, 0.16);
-  --accent-warm: #ffc66a;
-  --success: #58e0aa;
-  --danger: #ff6f86;
-  --shadow: 0 22px 64px rgba(0, 0, 0, 0.48);
+  --bg: #05070d;
+  --bg-elevated: #0b111d;
+  --bg-subtle: #101725;
+  --surface: rgba(13, 20, 32, 0.9);
+  --surface-strong: rgba(18, 27, 42, 0.96);
+  --surface-raised: rgba(23, 34, 51, 0.92);
+  --surface-soft: rgba(34, 48, 70, 0.46);
+  --surface-hover: rgba(48, 68, 96, 0.52);
+  --border: rgba(136, 162, 196, 0.18);
+  --border-muted: rgba(226, 234, 246, 0.08);
+  --border-strong: rgba(142, 185, 225, 0.34);
+  --text: #f3f7fb;
+  --muted: #9aa9bc;
+  --muted-strong: #bdc8d8;
+  --accent: #4aa3ff;
+  --accent-strong: #7de3d0;
+  --accent-soft: rgba(74, 163, 255, 0.15);
+  --accent-warm: #f1ba67;
+  --accent-warm-soft: rgba(241, 186, 103, 0.14);
+  --success: #65d6a5;
+  --success-soft: rgba(101, 214, 165, 0.13);
+  --warning: #f4c56f;
+  --warning-soft: rgba(244, 197, 111, 0.14);
+  --danger: #ff7a8d;
+  --danger-soft: rgba(255, 122, 141, 0.13);
+  --focus-ring: rgba(125, 227, 208, 0.62);
+  --shadow: 0 22px 56px rgba(0, 0, 0, 0.42);
+  --shadow-soft: 0 12px 28px rgba(0, 0, 0, 0.26);
+  --shadow-strong: 0 28px 72px rgba(0, 0, 0, 0.52);
   --radius-xl: 8px;
   --radius-lg: 8px;
   --radius-md: 8px;
   background:
-    linear-gradient(120deg, rgba(12, 33, 66, 0.92) 0%, rgba(6, 10, 23, 0.98) 42%, #030610 100%),
-    #050813;
+    linear-gradient(120deg, rgba(12, 30, 48, 0.9) 0%, rgba(7, 11, 20, 0.98) 48%, #04060b 100%),
+    var(--bg);
   color: var(--text);
 }
 
@@ -43,7 +56,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    linear-gradient(90deg, rgba(7, 20, 42, 0.94), rgba(3, 6, 14, 0.98)),
+    linear-gradient(90deg, rgba(7, 18, 30, 0.94), rgba(4, 6, 12, 0.98)),
     var(--bg);
   color: var(--text);
 }
@@ -54,10 +67,10 @@ body::before {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(rgba(125, 188, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125, 188, 255, 0.028) 1px, transparent 1px);
+    linear-gradient(rgba(188, 211, 235, 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(188, 211, 235, 0.024) 1px, transparent 1px);
   background-size: 48px 48px;
-  opacity: 0.52;
+  opacity: 0.46;
 }
 
 button,
@@ -69,6 +82,11 @@ select {
 
 button {
   border: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
 }
 
 a {

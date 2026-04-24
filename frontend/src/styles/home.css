@@ -3657,6 +3657,7 @@
   background: transparent;
   color: rgba(239, 245, 255, 0.68);
   font-size: 18px;
+  line-height: 1;
 }
 
 .home-media-player__controls button.is-primary {

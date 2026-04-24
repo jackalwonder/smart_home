@@ -431,8 +431,8 @@
   gap: 10px;
   min-height: 42px;
   padding: 0 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border-muted);
+  background: rgba(14, 22, 35, 0.76);
   color: var(--text);
 }
 
@@ -446,15 +446,15 @@
 }
 
 .realtime-notice-bar.is-warning {
-  background: rgba(255, 190, 92, 0.12);
+  background: var(--warning-soft);
 }
 
 .realtime-notice-bar.is-success {
-  background: rgba(88, 224, 170, 0.12);
+  background: var(--success-soft);
 }
 
 .realtime-notice-bar.is-info {
-  background: rgba(47, 140, 255, 0.12);
+  background: var(--accent-soft);
 }
 
 .control-top-bar {
@@ -464,9 +464,9 @@
   gap: 20px;
   min-height: 72px;
   padding: 12px 18px;
-  border-bottom: 1px solid rgba(89, 160, 255, 0.2);
-  background: rgba(3, 8, 19, 0.9);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--border);
+  background: rgba(6, 10, 17, 0.9);
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(18px);
   position: sticky;
   top: 0;
@@ -512,8 +512,8 @@
   height: 38px;
   border-radius: 8px;
   border: 1px solid rgba(114, 223, 255, 0.4);
-  background: linear-gradient(135deg, rgba(24, 125, 255, 0.88), rgba(75, 224, 202, 0.48));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 18px rgba(47, 140, 255, 0.28);
+  background: linear-gradient(135deg, rgba(53, 129, 226, 0.88), rgba(86, 205, 185, 0.5));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 18px rgba(74, 163, 255, 0.22);
   font-weight: 700;
   letter-spacing: 0.06em;
 }
@@ -540,23 +540,23 @@
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 198, 106, 0.28);
-  background: rgba(255, 198, 106, 0.1);
-  color: #ffe0a0;
+  border: 1px solid rgba(244, 197, 111, 0.3);
+  background: var(--warning-soft);
+  color: #ffe1aa;
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .control-top-bar__ha-pill.is-online {
-  border-color: rgba(88, 224, 170, 0.32);
-  background: rgba(88, 224, 170, 0.12);
+  border-color: rgba(101, 214, 165, 0.34);
+  background: var(--success-soft);
   color: #b9ffe6;
 }
 
 .control-top-bar__ha-pill.is-warning {
-  border-color: rgba(255, 198, 106, 0.34);
-  background: rgba(255, 198, 106, 0.14);
+  border-color: rgba(244, 197, 111, 0.36);
+  background: var(--warning-soft);
   color: #ffe6b8;
 }
 
@@ -594,8 +594,8 @@
   min-height: 28px;
   padding: 0 9px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-muted);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
@@ -603,20 +603,20 @@
 }
 
 .control-top-bar__quick-status span.control-top-bar__weather-pill {
-  border-color: rgba(65, 127, 255, 0.36);
-  background: rgba(65, 127, 255, 0.14);
+  border-color: rgba(74, 163, 255, 0.34);
+  background: var(--accent-soft);
   color: #dce8ff;
 }
 
 .control-top-bar__quick-status span.control-top-bar__weather-pill.is-live {
-  border-color: rgba(88, 224, 170, 0.3);
-  background: rgba(88, 224, 170, 0.11);
+  border-color: rgba(101, 214, 165, 0.32);
+  background: var(--success-soft);
   color: #c8f8df;
 }
 
 .control-top-bar__quick-status span.control-top-bar__weather-pill.is-stale {
-  border-color: rgba(255, 198, 106, 0.36);
-  background: rgba(255, 198, 106, 0.13);
+  border-color: rgba(244, 197, 111, 0.36);
+  background: var(--warning-soft);
   color: #ffe0a8;
 }
 
@@ -636,11 +636,17 @@
   transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
 }
 
-.top-nav-tabs__link.is-active {
-  border-color: rgba(101, 214, 255, 0.32);
-  background: linear-gradient(180deg, rgba(28, 108, 255, 0.34), rgba(21, 64, 142, 0.28));
+.top-nav-tabs__link:hover {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.045);
   color: var(--text);
-  box-shadow: 0 0 20px rgba(47, 140, 255, 0.18);
+}
+
+.top-nav-tabs__link.is-active {
+  border-color: rgba(125, 227, 208, 0.34);
+  background: linear-gradient(180deg, rgba(74, 163, 255, 0.28), rgba(33, 104, 164, 0.24));
+  color: var(--text);
+  box-shadow: 0 0 20px rgba(74, 163, 255, 0.16);
 }
 
 .system-status-icons {
@@ -662,7 +668,7 @@
   padding: 0 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-muted);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -672,8 +678,8 @@
 .signal-pill.is-accent,
 .state-chip {
   color: var(--text);
-  background: rgba(93, 124, 255, 0.14);
-  border-color: rgba(122, 167, 255, 0.24);
+  background: var(--accent-soft);
+  border-color: rgba(125, 179, 230, 0.28);
 }
 
 .signal-pill.is-muted {
@@ -693,23 +699,26 @@ button.signal-pill {
 
 button.signal-pill:hover:not(:disabled) {
   transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
 }
 
 button.signal-pill:disabled {
   cursor: not-allowed;
+  opacity: 0.54;
 }
 
 .signal-pill--action {
-  border-color: rgba(101, 214, 255, 0.26);
-  background: linear-gradient(180deg, rgba(34, 104, 255, 0.2), rgba(32, 178, 255, 0.14));
+  border-color: rgba(125, 227, 208, 0.28);
+  background: linear-gradient(180deg, rgba(74, 163, 255, 0.2), rgba(125, 227, 208, 0.12));
   color: #f1f6ff;
-  box-shadow: 0 0 16px rgba(47, 140, 255, 0.16);
+  box-shadow: 0 0 16px rgba(74, 163, 255, 0.14);
 }
 
 .signal-pill--action.is-active {
-  border-color: rgba(118, 214, 255, 0.42);
-  background: linear-gradient(180deg, rgba(30, 110, 255, 0.28), rgba(53, 198, 255, 0.22));
-  box-shadow: 0 0 20px rgba(47, 140, 255, 0.22);
+  border-color: rgba(125, 227, 208, 0.44);
+  background: linear-gradient(180deg, rgba(74, 163, 255, 0.28), rgba(125, 227, 208, 0.2));
+  box-shadow: 0 0 20px rgba(74, 163, 255, 0.2);
 }
 
 .page {
@@ -743,17 +752,27 @@ button.signal-pill:disabled {
 .panel,
 .utility-card {
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(12, 22, 42, 0.9), rgba(7, 12, 25, 0.88));
+  background:
+    linear-gradient(180deg, rgba(22, 32, 48, 0.88), rgba(10, 15, 25, 0.9)),
+    var(--surface);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow);
 }
 
 .panel {
   padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(24, 35, 52, 0.92), rgba(11, 16, 27, 0.9)),
+    var(--surface-strong);
 }
 
 .utility-card {
   padding: 16px;
+  border-color: var(--border-muted);
+  background:
+    linear-gradient(180deg, rgba(20, 29, 43, 0.82), rgba(10, 15, 24, 0.86)),
+    var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .panel__header,
@@ -792,9 +811,17 @@ button.signal-pill:disabled {
   min-height: 44px;
   padding: 0 18px;
   border-radius: 8px;
+  border: 1px solid transparent;
   cursor: pointer;
   text-align: center;
-  transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+  font-weight: 700;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .button:hover:not(:disabled) {
@@ -804,23 +831,46 @@ button.signal-pill:disabled {
 .button:disabled {
   opacity: 0.56;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.button:focus-visible,
+.top-nav-tabs__link:focus-visible,
+button.signal-pill:focus-visible {
+  box-shadow: 0 0 0 4px rgba(125, 227, 208, 0.14);
 }
 
 .button--primary {
-  background: linear-gradient(135deg, #167cff, #55d8ff);
-  color: white;
-  box-shadow: 0 14px 30px rgba(47, 140, 255, 0.24);
+  border-color: rgba(125, 227, 208, 0.34);
+  background: linear-gradient(135deg, #2f7fd6, #4bb9c9);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(74, 163, 255, 0.22);
+}
+
+.button--primary:hover:not(:disabled) {
+  border-color: rgba(183, 242, 231, 0.52);
+  background: linear-gradient(135deg, #378fe8, #56cbbb);
 }
 
 .button--ghost {
   border: 1px solid var(--border-strong);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--text);
 }
 
+.button--ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
 .button--danger {
-  border-color: rgba(255, 123, 141, 0.26);
+  border-color: rgba(255, 122, 141, 0.3);
+  background: var(--danger-soft);
   color: #ffd1d8;
+}
+
+.button--danger:hover:not(:disabled) {
+  border-color: rgba(255, 160, 174, 0.46);
+  background: rgba(255, 122, 141, 0.2);
 }
 
 .field-grid {
@@ -836,8 +886,8 @@ button.signal-pill:disabled {
   margin: 0;
   padding: 12px 14px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border-muted);
 }
 
 .field-grid dt,
@@ -866,18 +916,18 @@ button.signal-pill:disabled {
 }
 
 .inline-error {
-  background: rgba(255, 123, 141, 0.12);
-  border: 1px solid rgba(255, 123, 141, 0.22);
+  background: var(--danger-soft);
+  border: 1px solid rgba(255, 122, 141, 0.26);
   color: #ffc6d1;
 }
 
 .inline-success,
 .pin-card__success {
-  background: rgba(94, 209, 166, 0.12);
-  border: 1px solid rgba(94, 209, 166, 0.18);
+  background: var(--success-soft);
+  border: 1px solid rgba(101, 214, 165, 0.24);
   color: #b6f4de;
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .pin-card {
@@ -915,9 +965,35 @@ button.signal-pill:disabled {
   min-height: 46px;
   border-radius: 8px;
   border: 1px solid var(--border-strong);
-  background: rgba(0, 0, 0, 0.24);
+  background: rgba(4, 8, 14, 0.72);
   color: var(--text);
   padding: 0 14px;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.pin-card input:hover,
+.editor-toolbox input:hover,
+.control-input:hover {
+  border-color: rgba(160, 197, 232, 0.46);
+  background: rgba(7, 13, 23, 0.82);
+}
+
+.pin-card input:focus,
+.editor-toolbox input:focus,
+.control-input:focus {
+  border-color: var(--focus-ring);
+  background: rgba(8, 15, 26, 0.92);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(125, 227, 208, 0.12);
+}
+
+.control-input::placeholder,
+.pin-card input::placeholder,
+.editor-toolbox input::placeholder {
+  color: rgba(154, 169, 188, 0.72);
 }
 
 .control-input--textarea {
@@ -947,8 +1023,8 @@ button.signal-pill:disabled {
   min-height: 46px;
   padding: 0 14px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border-muted);
 }
 
 .toggle-field--panel {
