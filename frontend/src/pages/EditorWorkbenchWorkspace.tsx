@@ -29,20 +29,23 @@ import {
   type EditorNoticeAction,
   type EditorNoticeState,
 } from "../editor/editorWorkbenchNotices";
+import {
+  areEditorDraftStatesEqual,
+  buildDraftDiffInput,
+  buildDraftHotspotInputs,
+  buildLayoutMetaWithHotspotLabels,
+  parseLayoutMetaText,
+  resequenceHotspots,
+  sortHotspots,
+  type EditorDraftState,
+} from "../editor/editorDraftState";
+import { useEditorDraftState } from "../editor/hooks/useEditorDraftState";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { mapEditorViewModel } from "../view-models/editor";
 import { EditorHotspotViewModel } from "../view-models/editor";
 import { deriveHotspotIconKey } from "../utils/hotspotIcons";
 import { WsEvent } from "../ws/types";
 import { hasImageSize, type ImageSize } from "../types/image";
-
-interface EditorDraftState {
-  backgroundAssetId: string | null;
-  backgroundImageUrl: string | null;
-  backgroundImageSize: ImageSize | null;
-  layoutMetaText: string;
-  hotspots: EditorHotspotViewModel[];
-}
 
 type EditorHotspotField =
   | "label"
@@ -62,27 +65,6 @@ interface EditorPublishSummaryItem {
   count?: number;
 }
 
-interface EditorHistoryEntry {
-  draft: EditorDraftState;
-  selectedHotspotId: string | null;
-  batchSelectedHotspotIds: string[];
-  label: string;
-}
-
-interface EditorHistoryGroup {
-  key: string;
-  timer: number | null;
-}
-
-interface EditorSnapshotKey {
-  leaseId: string | null;
-  draftVersion: string | null;
-  baseLayoutVersion: string | null;
-  lockStatus: string | null;
-}
-
-type EditorDraftStateUpdater = (current: EditorDraftState) => EditorDraftState;
-
 type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
 type DraftTakenOverEvent = Extract<WsEvent, { event_type: "draft_taken_over" }>;
 type VersionConflictDetectedEvent = Extract<WsEvent, { event_type: "version_conflict_detected" }>;
@@ -99,21 +81,6 @@ function isVersionConflictDetectedEvent(event: WsEvent): event is VersionConflic
   return event.event_type === "version_conflict_detected";
 }
 
-function stringifyLayoutMeta(value: Record<string, unknown>) {
-  return JSON.stringify(value ?? {}, null, 2);
-}
-
-function sortHotspots(hotspots: EditorHotspotViewModel[]) {
-  return [...hotspots].sort((left, right) => left.structureOrder - right.structureOrder);
-}
-
-function resequenceHotspots(hotspots: EditorHotspotViewModel[]) {
-  return sortHotspots(hotspots).map((hotspot, index) => ({
-    ...hotspot,
-    structureOrder: index,
-  }));
-}
-
 function buildDeviceHotspotId(deviceId: string) {
   const normalized = deviceId.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 48);
   return `draft-device-${normalized}-${Date.now()}`;
@@ -125,21 +92,6 @@ function getNextHotspotPosition(index: number) {
   return {
     x: Math.min(0.2 + column * 0.2, 0.8),
     y: Math.min(0.25 + row * 0.16, 0.85),
-  };
-}
-
-function buildLayoutMetaWithHotspotLabels(
-  layoutMeta: Record<string, unknown>,
-  hotspots: EditorHotspotViewModel[],
-) {
-  return {
-    ...layoutMeta,
-    hotspot_labels: Object.fromEntries(
-      hotspots.map((hotspot) => [
-        hotspot.id,
-        hotspot.label.trim() || hotspot.deviceId.trim() || hotspot.id,
-      ]),
-    ),
   };
 }
 
@@ -167,75 +119,6 @@ function isTextEditingTarget(target: EventTarget | null) {
     return false;
   }
   return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
-}
-
-function cloneEditorDraftState(state: EditorDraftState): EditorDraftState {
-  return {
-    ...state,
-    hotspots: state.hotspots.map((hotspot) => ({ ...hotspot })),
-  };
-}
-
-function areEditorDraftStatesEqual(left: EditorDraftState, right: EditorDraftState) {
-  if (
-    left.backgroundAssetId !== right.backgroundAssetId ||
-    left.backgroundImageUrl !== right.backgroundImageUrl ||
-    left.layoutMetaText !== right.layoutMetaText ||
-    left.hotspots.length !== right.hotspots.length
-  ) {
-    return false;
-  }
-
-  return left.hotspots.every((leftHotspot, index) => {
-    const rightHotspot = right.hotspots[index];
-    return (
-      leftHotspot.id === rightHotspot.id &&
-      leftHotspot.label === rightHotspot.label &&
-      leftHotspot.deviceId === rightHotspot.deviceId &&
-      leftHotspot.x === rightHotspot.x &&
-      leftHotspot.y === rightHotspot.y &&
-      leftHotspot.iconType === rightHotspot.iconType &&
-      leftHotspot.iconAssetId === rightHotspot.iconAssetId &&
-      leftHotspot.iconAssetUrl === rightHotspot.iconAssetUrl &&
-      leftHotspot.labelMode === rightHotspot.labelMode &&
-      leftHotspot.isVisible === rightHotspot.isVisible &&
-      leftHotspot.structureOrder === rightHotspot.structureOrder
-    );
-  });
-}
-
-function parseLayoutMetaText(value: string) {
-  const parsed = JSON.parse(value || "{}");
-  return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-    ? (parsed as Record<string, unknown>)
-    : {};
-}
-
-function buildDraftHotspotInputs(hotspots: EditorHotspotViewModel[]) {
-  return hotspots.map((hotspot, index) => ({
-    hotspot_id: hotspot.id,
-    device_id: hotspot.deviceId.trim(),
-    x: hotspot.x,
-    y: hotspot.y,
-    icon_type: hotspot.iconType,
-    icon_asset_id: hotspot.iconAssetId,
-    label_mode: hotspot.labelMode,
-    is_visible: hotspot.isVisible,
-    structure_order: hotspot.structureOrder ?? index,
-  }));
-}
-
-function buildDraftDiffInput(
-  draftState: EditorDraftState,
-  baseLayoutVersion: string | null,
-) {
-  const parsedLayoutMeta = parseLayoutMetaText(draftState.layoutMetaText);
-  return {
-    base_layout_version: baseLayoutVersion,
-    background_asset_id: draftState.backgroundAssetId,
-    layout_meta: buildLayoutMetaWithHotspotLabels(parsedLayoutMeta, draftState.hotspots),
-    hotspots: buildDraftHotspotInputs(draftState.hotspots),
-  };
 }
 
 function mapPublishSummary(diff: EditorDraftDiffDto): {
@@ -385,18 +268,52 @@ export function EditorWorkbenchWorkspace({
   const events = useAppStore((state) => state.wsEvents);
   const terminalId = session.data?.terminalId;
   const pinSessionActive = session.data?.pinSessionActive ?? false;
-  const [searchValue, setSearchValue] = useState("");
-  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
-  const [batchSelectedHotspotIds, setBatchSelectedHotspotIds] = useState<string[]>([]);
-  const [canvasMode, setCanvasMode] = useState<"edit" | "preview">("edit");
-  const [draftState, setDraftState] = useState<EditorDraftState>({
-    backgroundAssetId: null,
-    backgroundImageUrl: null,
-    backgroundImageSize: null,
-    layoutMetaText: "{}",
-    hotspots: [],
+  const viewModel = mapEditorViewModel({
+    lockStatus: editor.lockStatus,
+    leaseId: editor.leaseId,
+    leaseExpiresAt: editor.leaseExpiresAt,
+    heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds,
+    lockedByTerminalId: editor.lockedByTerminalId,
+    draft: editor.draft,
+    draftVersion: editor.draftVersion,
+    baseLayoutVersion: editor.baseLayoutVersion,
+    readonly: editor.readonly,
+    pinActive: pin.active,
+    events,
   });
-  const [publishBaseline, setPublishBaseline] = useState<EditorDraftState | null>(null);
+  const canEdit = !editor.readonly && editor.lockStatus === "GRANTED";
+  const [searchValue, setSearchValue] = useState("");
+  const [canvasMode, setCanvasMode] = useState<"edit" | "preview">("edit");
+  const {
+    batchSelectedHotspotIds,
+    canRedo,
+    canUndo,
+    clearBatchSelection,
+    draftState,
+    historyState,
+    publishBaseline,
+    redoDraftChange,
+    replaceBatchSelection,
+    resetSelection,
+    selectedHotspotId,
+    selectSingleHotspot,
+    setBatchSelectedHotspotIds,
+    setDraftState,
+    setSelectedHotspotId,
+    toggleBatchHotspot,
+    undoDraftChange,
+    updateDraftStateWithHistory,
+  } = useEditorDraftState({
+    canEdit,
+    draftSource: editor.draft,
+    snapshot: {
+      baseLayoutVersion: editor.baseLayoutVersion,
+      draftVersion: editor.draftVersion,
+      leaseId: editor.leaseId,
+      lockStatus: editor.lockStatus,
+    },
+    viewModel,
+  });
   const [publishSummary, setPublishSummary] = useState<{
     items: EditorPublishSummaryItem[];
     totalChanges: number;
@@ -407,22 +324,6 @@ export function EditorWorkbenchWorkspace({
   const [deviceCatalogLoading, setDeviceCatalogLoading] = useState(false);
   const [editorNotice, setEditorNotice] = useState<EditorNoticeState | null>(null);
   const handledRealtimeEventIdRef = useRef<string | null>(null);
-  const publishBaselineLeaseIdRef = useRef<string | null>(null);
-  const draftStateRef = useRef(draftState);
-  const publishBaselineRef = useRef(publishBaseline);
-  const appliedEditorSnapshotRef = useRef<EditorSnapshotKey | null>(null);
-  const undoStackRef = useRef<EditorHistoryEntry[]>([]);
-  const redoStackRef = useRef<EditorHistoryEntry[]>([]);
-  const historyGroupRef = useRef<EditorHistoryGroup | null>(null);
-  const [historyState, setHistoryState] = useState<{
-    undoCount: number;
-    redoCount: number;
-    lastAction: string | null;
-  }>({
-    undoCount: 0,
-    redoCount: 0,
-    lastAction: null,
-  });
   const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishingDraft, setIsPublishingDraft] = useState(false);
@@ -667,106 +568,6 @@ export function EditorWorkbenchWorkspace({
   }, []);
 
   useEffect(() => {
-    return () => {
-      clearHistoryGroup();
-    };
-  }, []);
-
-  useEffect(() => {
-    draftStateRef.current = draftState;
-  }, [draftState]);
-
-  useEffect(() => {
-    publishBaselineRef.current = publishBaseline;
-  }, [publishBaseline]);
-
-  const viewModel = mapEditorViewModel({
-    lockStatus: editor.lockStatus,
-    leaseId: editor.leaseId,
-    leaseExpiresAt: editor.leaseExpiresAt,
-    heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds,
-    lockedByTerminalId: editor.lockedByTerminalId,
-    draft: editor.draft,
-    draftVersion: editor.draftVersion,
-    baseLayoutVersion: editor.baseLayoutVersion,
-    readonly: editor.readonly,
-    pinActive: pin.active,
-    events,
-  });
-
-  useEffect(() => {
-    const nextDraftState = {
-      backgroundAssetId: viewModel.backgroundAssetId,
-      backgroundImageUrl: viewModel.backgroundImageUrl,
-      backgroundImageSize: viewModel.backgroundImageSize,
-      layoutMetaText: stringifyLayoutMeta(viewModel.layoutMeta),
-      hotspots: resequenceHotspots(viewModel.hotspots),
-    };
-    const snapshotKey: EditorSnapshotKey = {
-      leaseId: editor.leaseId,
-      draftVersion: editor.draftVersion,
-      baseLayoutVersion: editor.baseLayoutVersion,
-      lockStatus: editor.lockStatus,
-    };
-    const lastSnapshotKey = appliedEditorSnapshotRef.current;
-    const isSameSnapshot =
-      lastSnapshotKey?.leaseId === snapshotKey.leaseId &&
-      lastSnapshotKey?.draftVersion === snapshotKey.draftVersion &&
-      lastSnapshotKey?.baseLayoutVersion === snapshotKey.baseLayoutVersion &&
-      lastSnapshotKey?.lockStatus === snapshotKey.lockStatus;
-    const localBaseline = publishBaselineRef.current;
-    const hasUnsavedLocalDraft =
-      localBaseline !== null &&
-      !areEditorDraftStatesEqual(draftStateRef.current, localBaseline);
-
-    if (
-      isSameSnapshot &&
-      editor.lockStatus === "GRANTED" &&
-      editor.leaseId &&
-      hasUnsavedLocalDraft
-    ) {
-      return;
-    }
-
-    const nextHotspotIds = new Set(nextDraftState.hotspots.map((hotspot) => hotspot.id));
-    setDraftState(nextDraftState);
-    draftStateRef.current = nextDraftState;
-    appliedEditorSnapshotRef.current = snapshotKey;
-    clearHistoryGroup();
-    undoStackRef.current = [];
-    redoStackRef.current = [];
-    syncHistoryState(null);
-    setSelectedHotspotId((current) =>
-      current && nextHotspotIds.has(current) ? current : viewModel.hotspots[0]?.id ?? null,
-    );
-    setBatchSelectedHotspotIds((current) =>
-      current.filter((hotspotId) => nextHotspotIds.has(hotspotId)),
-    );
-
-    if (editor.lockStatus !== "GRANTED" || !editor.leaseId) {
-      publishBaselineLeaseIdRef.current = editor.leaseId ?? null;
-      publishBaselineRef.current = nextDraftState;
-      setPublishBaseline(nextDraftState);
-      return;
-    }
-
-    if (publishBaselineLeaseIdRef.current !== editor.leaseId) {
-      publishBaselineLeaseIdRef.current = editor.leaseId;
-      publishBaselineRef.current = nextDraftState;
-      setPublishBaseline(nextDraftState);
-      return;
-    }
-
-    setPublishBaseline((current) => current ?? nextDraftState);
-  }, [
-    editor.baseLayoutVersion,
-    editor.draft,
-    editor.draftVersion,
-    editor.leaseId,
-    editor.lockStatus,
-  ]);
-
-  useEffect(() => {
     let active = true;
     let timer = 0;
 
@@ -833,166 +634,10 @@ export function EditorWorkbenchWorkspace({
     effectivePublishSummary.totalChanges > 0 ? null : publishSummaryError;
   const effectivePublishSummaryLoading =
     publishSummaryLoading && effectivePublishSummary.totalChanges === 0;
-  const canEdit = !editor.readonly && editor.lockStatus === "GRANTED";
   const canAcquire =
     pin.active && editor.lockStatus !== "GRANTED" && editor.lockStatus !== "LOCKED_BY_OTHER";
   const canTakeover = pin.active && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
   const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
-  const canUndo = canEdit && historyState.undoCount > 0;
-  const canRedo = canEdit && historyState.redoCount > 0;
-
-  function syncHistoryState(lastAction: string | null = historyState.lastAction) {
-    setHistoryState({
-      undoCount: undoStackRef.current.length,
-      redoCount: redoStackRef.current.length,
-      lastAction,
-    });
-  }
-
-  function clearHistoryGroup() {
-    if (historyGroupRef.current?.timer) {
-      window.clearTimeout(historyGroupRef.current.timer);
-    }
-    historyGroupRef.current = null;
-  }
-
-  function markHistoryGroup(key: string) {
-    if (historyGroupRef.current?.timer) {
-      window.clearTimeout(historyGroupRef.current.timer);
-    }
-    historyGroupRef.current = {
-      key,
-      timer: window.setTimeout(() => {
-        historyGroupRef.current = null;
-      }, 700),
-    };
-  }
-
-  function pushDraftHistory(current: EditorDraftState, label: string, groupKey?: string) {
-    if (groupKey && historyGroupRef.current?.key === groupKey) {
-      markHistoryGroup(groupKey);
-      return;
-    }
-
-    if (groupKey) {
-      markHistoryGroup(groupKey);
-    } else {
-      clearHistoryGroup();
-    }
-
-    undoStackRef.current = [
-      ...undoStackRef.current,
-      {
-        draft: cloneEditorDraftState(current),
-        selectedHotspotId,
-        batchSelectedHotspotIds: [...batchSelectedHotspotIds],
-        label,
-      },
-    ].slice(-50);
-    redoStackRef.current = [];
-    syncHistoryState(label);
-  }
-
-  function updateDraftStateWithHistory(
-    updater: EditorDraftStateUpdater,
-    label: string,
-    groupKey?: string,
-  ) {
-    if (!canEdit) {
-      return;
-    }
-
-    setDraftState((current) => {
-      const next = updater(current);
-      if (areEditorDraftStatesEqual(current, next)) {
-        return current;
-      }
-      pushDraftHistory(current, label, groupKey);
-      draftStateRef.current = next;
-      return next;
-    });
-  }
-
-  function restoreDraftHistoryEntry(entry: EditorHistoryEntry) {
-    const restored = cloneEditorDraftState(entry.draft);
-    draftStateRef.current = restored;
-    setDraftState(restored);
-    setSelectedHotspotId(entry.selectedHotspotId);
-    setBatchSelectedHotspotIds([...entry.batchSelectedHotspotIds]);
-  }
-
-  function undoDraftChange() {
-    if (!canEdit || !undoStackRef.current.length) {
-      return;
-    }
-
-    clearHistoryGroup();
-    const entry = undoStackRef.current[undoStackRef.current.length - 1];
-    undoStackRef.current = undoStackRef.current.slice(0, -1);
-    redoStackRef.current = [
-      ...redoStackRef.current,
-      {
-        draft: cloneEditorDraftState(draftState),
-        selectedHotspotId,
-        batchSelectedHotspotIds: [...batchSelectedHotspotIds],
-        label: entry.label,
-      },
-    ].slice(-50);
-    restoreDraftHistoryEntry(entry);
-    syncHistoryState(entry.label);
-    showEditorNotice({
-      tone: "success",
-      title: "已撤销",
-      detail: `已恢复到“${entry.label}”之前的草稿状态。`,
-    });
-  }
-
-  function redoDraftChange() {
-    if (!canEdit || !redoStackRef.current.length) {
-      return;
-    }
-
-    clearHistoryGroup();
-    const entry = redoStackRef.current[redoStackRef.current.length - 1];
-    redoStackRef.current = redoStackRef.current.slice(0, -1);
-    undoStackRef.current = [
-      ...undoStackRef.current,
-      {
-        draft: cloneEditorDraftState(draftState),
-        selectedHotspotId,
-        batchSelectedHotspotIds: [...batchSelectedHotspotIds],
-        label: entry.label,
-      },
-    ].slice(-50);
-    restoreDraftHistoryEntry(entry);
-    syncHistoryState(entry.label);
-    showEditorNotice({
-      tone: "success",
-      title: "已重做",
-      detail: `已重新应用“${entry.label}”。`,
-    });
-  }
-
-  function selectSingleHotspot(hotspotId: string, options?: { keepBatch?: boolean }) {
-    setSelectedHotspotId(hotspotId);
-    if (!options?.keepBatch) {
-      setBatchSelectedHotspotIds([]);
-    }
-  }
-
-  function replaceBatchSelection(hotspotIds: string[]) {
-    const next = Array.from(new Set(hotspotIds));
-    setBatchSelectedHotspotIds(next);
-    setSelectedHotspotId(next[0] ?? null);
-  }
-
-  function toggleBatchHotspot(hotspotId: string) {
-    setBatchSelectedHotspotIds((current) =>
-      current.includes(hotspotId)
-        ? current.filter((selectedId) => selectedId !== hotspotId)
-        : [...current, hotspotId],
-    );
-  }
 
   function handleCanvasHotspotPointer(
     hotspotId: string,
@@ -1010,8 +655,28 @@ export function EditorWorkbenchWorkspace({
     replaceBatchSelection(visibleHotspots.map((hotspot) => hotspot.id));
   }
 
-  function clearBatchSelection() {
-    setBatchSelectedHotspotIds([]);
+  function handleUndoDraftChange() {
+    const label = undoDraftChange();
+    if (!label) {
+      return;
+    }
+    showEditorNotice({
+      tone: "success",
+      title: "已撤销",
+      detail: `已恢复到“${label}”之前的草稿状态。`,
+    });
+  }
+
+  function handleRedoDraftChange() {
+    const label = redoDraftChange();
+    if (!label) {
+      return;
+    }
+    showEditorNotice({
+      tone: "success",
+      title: "已重做",
+      detail: `已重新应用“${label}”。`,
+    });
   }
 
   function updateHotspotField(
@@ -1362,7 +1027,7 @@ export function EditorWorkbenchWorkspace({
       hotspots: resequenceHotspots([...current.hotspots, duplicatedHotspot]),
     }), "复制热点");
     setSelectedHotspotId(duplicatedHotspot.id);
-    setBatchSelectedHotspotIds([]);
+    clearBatchSelection();
   }
 
   function moveHotspot(hotspotId: string, x: number, y: number) {
@@ -1420,7 +1085,7 @@ export function EditorWorkbenchWorkspace({
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
     }), "新增热点");
     setSelectedHotspotId(newHotspot.id);
-    setBatchSelectedHotspotIds([]);
+    clearBatchSelection();
   }
 
   function addDeviceHotspot(device: DeviceListItemDto) {
@@ -1456,7 +1121,7 @@ export function EditorWorkbenchWorkspace({
       hotspots: resequenceHotspots([...current.hotspots, newHotspot]),
     }), "添加设备热点");
     setSelectedHotspotId(newHotspot.id);
-    setBatchSelectedHotspotIds([]);
+    clearBatchSelection();
     showEditorNotice({
       tone: "success",
       title: "草稿已更新",
@@ -1542,16 +1207,16 @@ export function EditorWorkbenchWorkspace({
       if (hasCommandModifier && key === "z") {
         event.preventDefault();
         if (event.shiftKey) {
-          redoDraftChange();
+          handleRedoDraftChange();
         } else {
-          undoDraftChange();
+          handleUndoDraftChange();
         }
         return;
       }
 
       if (hasCommandModifier && key === "y") {
         event.preventDefault();
-        redoDraftChange();
+        handleRedoDraftChange();
         return;
       }
 
@@ -1878,8 +1543,7 @@ export function EditorWorkbenchWorkspace({
         lockedByTerminalId: null,
       });
       await refreshDraft();
-      setSelectedHotspotId(null);
-      setBatchSelectedHotspotIds([]);
+      resetSelection();
       showEditorNotice({
         tone: "success",
         title: "草稿已发布",
@@ -1969,8 +1633,7 @@ export function EditorWorkbenchWorkspace({
         lockedByTerminalId: null,
       });
       await refreshDraft();
-      setSelectedHotspotId(null);
-      setBatchSelectedHotspotIds([]);
+      resetSelection();
       showEditorNotice({
         tone: "success",
         title: "草稿已丢弃",
@@ -2066,10 +1729,10 @@ export function EditorWorkbenchWorkspace({
         onAcquire={() => void handleAcquireLock()}
         onDiscardDraft={() => void handleDiscardDraft()}
         onPublishDraft={() => void handlePublishDraft()}
-        onRedo={redoDraftChange}
+        onRedo={handleRedoDraftChange}
         onSaveDraft={() => void handleSaveDraft()}
         onTakeover={() => void handleTakeover()}
-        onUndo={undoDraftChange}
+        onUndo={handleUndoDraftChange}
         discardBusy={isDiscardingDraft}
         publishBusy={isPublishingDraft}
         rows={viewModel.commandRows}
