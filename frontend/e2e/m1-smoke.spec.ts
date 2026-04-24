@@ -934,6 +934,50 @@ async function openSettingsTaskFlow(page: Page) {
   return taskFlow;
 }
 
+async function openDeliveryDetails(page: Page) {
+  const expandButton = page.getByRole("button", { name: "展开交付详情" });
+  if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
+    await expandButton.click();
+  }
+  await expect(page.locator("section[aria-label='终端交付现场台']")).toBeVisible();
+}
+
+async function openBackupDetails(page: Page) {
+  const expandButton = page.getByRole("button", { name: "展开备份详情" });
+  if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
+    await expandButton.click();
+  }
+  await expect(page.getByRole("heading", { level: 3, name: "备份恢复" })).toBeVisible();
+}
+
+async function openEditorWorkspace(page: Page) {
+  await page.goto("/settings?section=home");
+  await expect(page.getByRole("navigation", { name: "设置分区" })).toBeVisible();
+
+  const publishButton = page.getByRole("button", { name: "展开发布面板" });
+  if ((await publishButton.count()) > 0 && (await publishButton.isVisible())) {
+    await publishButton.click();
+  }
+
+  const advancedEditorButton = page.getByRole("button", { name: "展开高级编辑" });
+  if (
+    (await advancedEditorButton.count()) > 0 &&
+    (await advancedEditorButton.isVisible())
+  ) {
+    await advancedEditorButton.click();
+  }
+
+  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+}
+
+async function openHomeDashboard(page: Page) {
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("link", { name: "总览", exact: true })
+    .click();
+  await expect(page.locator(".home-command-stage")).toBeVisible();
+}
+
 async function readEditorFieldValue(page: Page, label: string) {
   const field = page.locator("header .field-grid > div").filter({
     has: page.locator("dt", { hasText: label }),
@@ -1017,14 +1061,10 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(
     taskFlow.getByRole("button", { name: /备份恢复/ }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "终端交付现场台" }),
-  ).toBeVisible();
+  await openDeliveryDetails(page);
 
   await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "备份恢复" }),
-  ).toBeVisible();
+  await openBackupDetails(page);
   await expect(page.getByRole("heading", { name: "恢复历史" })).toBeVisible();
   await page
     .getByPlaceholder("例如：联调前、夜间稳定版")
@@ -1046,9 +1086,7 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
   await taskFlow.getByRole("button", { name: /换机恢复/ }).click();
   await expect(taskFlow.getByText("重置激活凭据")).toBeVisible();
   await expect(taskFlow.getByText("必要时复查系统连接")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "终端交付现场台" }),
-  ).toBeVisible();
+  await openDeliveryDetails(page);
   await expect(
     page.getByRole("heading", { level: 3, name: "认领绑定码" }),
   ).toBeVisible();
@@ -1262,9 +1300,7 @@ test("editor UI opens an edit session, saves draft, and publishes", async ({
   await ensureDevicesReady(request, session.access_token);
 
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   await page.getByLabel("上传背景图").setInputFiles({
@@ -1415,9 +1451,7 @@ test("editor downgrades to readonly after takeover and can recover", async ({
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   ensureSecondaryTerminal();
@@ -1451,8 +1485,7 @@ test("editor save surfaces version conflict and retries after refresh", async ({
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   const leaseId = await readEditorFieldValue(page, "租约 ID");
@@ -1491,8 +1524,7 @@ test("editor publish surfaces version conflict and retries after refresh", async
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "编辑" }).click();
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  await openEditorWorkspace(page);
   await ensureEditorWritable(page);
 
   const leaseId = await readEditorFieldValue(page, "租约 ID");
@@ -1898,7 +1930,7 @@ test("home control UI sends null payload for no-value actions and shows result",
   });
 
   await unlockManagementPin(page);
-  await page.getByRole("link", { name: "总览" }).click();
+  await openHomeDashboard(page);
   await page.getByRole("button", { name: "无值测试开关" }).click();
   await expect(page.locator(".home-hotspot-control-modal.is-detail")).toBeVisible();
   await expect(page.locator(".home-device-control-panel")).toHaveCount(0);
@@ -2091,9 +2123,7 @@ test("backup restore syncs to another terminal through realtime", async ({
   await unlockManagementPin(page);
   const taskFlow = await openSettingsTaskFlow(page);
   await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "备份恢复" }),
-  ).toBeVisible();
+  await openBackupDetails(page);
 
   ensureSecondaryTerminal();
   const secondarySession = await bootstrapSession(
