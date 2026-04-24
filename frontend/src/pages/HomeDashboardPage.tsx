@@ -32,6 +32,166 @@ type HotspotModalState = {
   mode: "detail" | "group";
 };
 
+interface ClimateDevicePickerProps {
+  devices: DeviceListItemDto[];
+  onClose: () => void;
+  onSelectDevice: (device: DeviceListItemDto) => void;
+  open: boolean;
+}
+
+function normalizeDeviceKeyword(value: string | null | undefined) {
+  return (value ?? "").toLowerCase();
+}
+
+function isClimateDevice(device: DeviceListItemDto) {
+  const source = normalizeDeviceKeyword(device.device_type);
+  return (
+    source.includes("climate") ||
+    source.includes("air") ||
+    source.includes("fan") ||
+    source.includes("fridge") ||
+    source.includes("refrigerator")
+  );
+}
+
+function formatClimateDeviceType(value: string | null | undefined) {
+  const source = normalizeDeviceKeyword(value);
+  if (source.includes("fridge") || source.includes("refrigerator")) {
+    return "冰箱";
+  }
+  if (source.includes("air") || source.includes("climate")) {
+    return "空调";
+  }
+  if (source.includes("fan")) {
+    return "新风";
+  }
+  return "温控设备";
+}
+
+function formatDeviceControlBadge(device: DeviceListItemDto) {
+  if (device.is_offline) {
+    return device.is_readonly_device ? "离线 · 只读" : "离线 · 待恢复";
+  }
+  return device.is_readonly_device ? "在线 · 只读" : "在线 · 可控";
+}
+
+function deviceListItemToHotspot(device: DeviceListItemDto): HomeHotspotViewModel {
+  return {
+    id: `cluster-${device.device_id}`,
+    deviceId: device.device_id,
+    label: device.display_name,
+    deviceType: device.device_type,
+    deviceTypeLabel: device.device_type,
+    x: 0,
+    y: 0,
+    iconGlyph: "温",
+    tone: "accent",
+    iconType: "device",
+    iconAssetId: null,
+    iconAssetUrl: null,
+    labelMode: "ALWAYS",
+    status: device.status,
+    statusLabel: device.is_offline ? "离线" : device.status,
+    statusSummary: null,
+    isOffline: device.is_offline,
+    isComplex: device.is_complex_device,
+    isReadonly: device.is_readonly_device,
+    entryBehavior: "VIEW",
+    entryBehaviorLabel: "查看",
+  };
+}
+
+function ClimateDevicePicker({
+  devices,
+  onClose,
+  onSelectDevice,
+  open,
+}: ClimateDevicePickerProps) {
+  if (!open) {
+    return null;
+  }
+
+  const onlineCount = devices.filter((device) => !device.is_offline).length;
+  const controllableCount = devices.filter(
+    (device) => !device.is_offline && !device.is_readonly_device,
+  ).length;
+
+  return (
+    <div
+      aria-label="全屋温控"
+      className="home-cluster-modal home-climate-picker"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="home-cluster-modal__backdrop" onClick={onClose} aria-hidden="true" />
+      <section className="home-cluster-modal__panel home-climate-picker__panel is-climate">
+        <header className="home-cluster-modal__header home-climate-picker__header">
+          <div className="home-cluster-modal__title-row">
+            <span className="home-cluster-modal__glyph" aria-hidden="true">
+              温
+            </span>
+            <div>
+              <span className="card-eyebrow">温控设备</span>
+              <h3>全屋温控</h3>
+              <p>选择要调节的温控设备。</p>
+            </div>
+          </div>
+          <div className="home-cluster-modal__header-meta">
+            <span>{devices.length} 个设备</span>
+            <span>{onlineCount} 个在线</span>
+            <span>{controllableCount} 个可控</span>
+          </div>
+          <button
+            aria-label="关闭温控选择"
+            className="home-cluster-modal__close"
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </header>
+
+        {devices.length ? (
+          <div className="home-climate-picker__grid">
+            {devices.map((device) => (
+              <button
+                className={[
+                  "home-climate-picker__device",
+                  device.is_offline ? "is-offline" : "",
+                  device.is_readonly_device ? "is-readonly" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                key={device.device_id}
+                onClick={() => onSelectDevice(device)}
+                type="button"
+              >
+                <span className="home-climate-picker__icon" aria-hidden="true">
+                  温
+                </span>
+                <span className="home-climate-picker__copy">
+                  <strong>{device.display_name}</strong>
+                  <small>
+                    {device.room_name ?? "未分配房间"} · {formatClimateDeviceType(device.device_type)}
+                  </small>
+                </span>
+                <span className="home-climate-picker__status">
+                  {formatDeviceControlBadge(device)}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="home-cluster-modal__empty home-climate-picker__empty">
+            <strong>当前没有温控设备</strong>
+            <p>接入空调、冰箱、新风或其他温控设备后，这里会显示可选择的全屋温控入口。</p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export function HomeDashboardPage() {
   const session = useAppStore((state) => state.session);
   const pin = useAppStore((state) => state.pin);
@@ -45,6 +205,7 @@ export function HomeDashboardPage() {
   const [selectedCluster, setSelectedCluster] = useState<HomeClusterKey | null>(null);
   const [selectedHotspotModal, setSelectedHotspotModal] =
     useState<HotspotModalState | null>(null);
+  const [climatePickerOpen, setClimatePickerOpen] = useState(false);
   const [pendingHotspotControls, setPendingHotspotControls] = useState<
     Record<string, boolean>
   >({});
@@ -102,6 +263,7 @@ export function HomeDashboardPage() {
         .map(([hotspotId]) => hotspotId),
     [pendingHotspotControls],
   );
+  const climateDevices = useMemo(() => devices.filter(isClimateDevice), [devices]);
 
   function setHotspotPending(hotspotId: string, pending: boolean) {
     setPendingHotspotControls((current) => ({ ...current, [hotspotId]: pending }));
@@ -131,6 +293,7 @@ export function HomeDashboardPage() {
     }
 
     setSelectedCluster(null);
+    setClimatePickerOpen(false);
     setSelectedHotspotModal(null);
 
     const openDetailModal = () => {
@@ -184,6 +347,7 @@ export function HomeDashboardPage() {
 
   function handleOpenHotspotGroup(hotspot: HomeHotspotViewModel) {
     setSelectedCluster(null);
+    setClimatePickerOpen(false);
     setSelectedHotspotId(null);
     setSelectedHotspotModal({ hotspot, mode: "group" });
   }
@@ -196,6 +360,7 @@ export function HomeDashboardPage() {
       return;
     }
     setSelectedCluster(null);
+    setClimatePickerOpen(false);
     setSelectedHotspotId(null);
     setSelectedHotspotModal({
       hotspot: homeFavoriteDeviceToHotspot(
@@ -204,6 +369,29 @@ export function HomeDashboardPage() {
       ),
       mode: "detail",
     });
+  }
+
+  function openClimateDeviceDetail(device: DeviceListItemDto) {
+    setClimatePickerOpen(false);
+    setSelectedCluster(null);
+    setSelectedHotspotId(null);
+    setSelectedHotspotModal({
+      hotspot: deviceListItemToHotspot(device),
+      mode: "detail",
+    });
+  }
+
+  function handleOpenClimateEntry() {
+    setSelectedHotspotId(null);
+    setSelectedCluster(null);
+    setSelectedHotspotModal(null);
+
+    if (climateDevices.length === 1) {
+      openClimateDeviceDetail(climateDevices[0]);
+      return;
+    }
+
+    setClimatePickerOpen(true);
   }
 
   if (isHomeEditing) {
@@ -252,6 +440,12 @@ export function HomeDashboardPage() {
             devices={devices}
             onOpenCluster={(clusterKey) => {
               setSelectedHotspotId(null);
+              setClimatePickerOpen(false);
+              setSelectedHotspotModal(null);
+              if (clusterKey === "climate") {
+                handleOpenClimateEntry();
+                return;
+              }
               setSelectedCluster(clusterKey);
             }}
             onOpenFavoriteDevice={handleOpenFavoriteDevice}
@@ -274,6 +468,7 @@ export function HomeDashboardPage() {
           onLongPressHotspot={handleOpenHotspotGroup}
           onSelectHotspot={(hotspotId) => {
             setSelectedCluster(null);
+            setClimatePickerOpen(false);
             setSelectedHotspotModal(null);
             setSelectedHotspotId(hotspotId);
           }}
@@ -287,6 +482,12 @@ export function HomeDashboardPage() {
         devices={devices}
         onClose={() => setSelectedCluster(null)}
         open={selectedCluster !== null}
+      />
+      <ClimateDevicePicker
+        devices={climateDevices}
+        onClose={() => setClimatePickerOpen(false)}
+        onSelectDevice={openClimateDeviceDetail}
+        open={climatePickerOpen}
       />
       <HomeHotspotControlModal
         devices={devices}

@@ -46,7 +46,13 @@ function deviceKind(deviceType: string): HotspotGroupKind {
   if (source.includes("light") || source.includes("lamp") || source.includes("switch")) {
     return "lighting";
   }
-  if (source.includes("climate") || source.includes("air") || source.includes("fan")) {
+  if (
+    source.includes("climate") ||
+    source.includes("air") ||
+    source.includes("fan") ||
+    source.includes("fridge") ||
+    source.includes("refrigerator")
+  ) {
     return "climate";
   }
   if (source.includes("cover") || source.includes("curtain") || source.includes("blind")) {

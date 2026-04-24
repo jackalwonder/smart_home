@@ -4199,6 +4199,123 @@
   backdrop-filter: blur(14px);
 }
 
+.home-climate-picker .home-cluster-modal__backdrop {
+  background:
+    radial-gradient(circle at 50% 16%, rgba(85, 167, 255, 0.18), transparent 36%),
+    rgba(3, 6, 12, 0.78);
+  backdrop-filter: blur(14px);
+}
+
+.home-climate-picker__panel {
+  inset: 50% auto auto 50%;
+  width: min(820px, calc(100vw - 96px));
+  max-height: min(560px, 76vh);
+  transform: translate(-50%, -50%);
+  padding: 20px 22px 22px;
+  border-color: rgba(145, 207, 255, 0.24);
+  background:
+    linear-gradient(180deg, rgba(20, 30, 48, 0.94), rgba(10, 15, 27, 0.96)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.home-climate-picker__header {
+  border-bottom: 1px solid rgba(222, 231, 251, 0.08);
+  padding-bottom: 16px;
+}
+
+.home-climate-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  overflow: auto;
+  padding: 12px 4px 2px 0;
+}
+
+.home-climate-picker__device {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 86px;
+  padding: 14px;
+  border: 1px solid rgba(222, 231, 251, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(25, 36, 56, 0.88), rgba(13, 19, 33, 0.92)),
+    rgba(255, 255, 255, 0.035);
+  color: #f5f8ff;
+  text-align: left;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 12px 26px rgba(0, 0, 0, 0.2);
+}
+
+.home-climate-picker__device:not(:disabled):hover,
+.home-climate-picker__device:not(:disabled):focus-visible {
+  border-color: rgba(145, 207, 255, 0.38);
+  transform: translateY(-1px);
+}
+
+.home-climate-picker__device.is-offline {
+  opacity: 0.62;
+}
+
+.home-climate-picker__device.is-readonly {
+  border-style: dashed;
+}
+
+.home-climate-picker__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: rgba(75, 113, 162, 0.42);
+  color: rgba(241, 246, 255, 0.92);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.home-climate-picker__copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.home-climate-picker__copy strong,
+.home-climate-picker__copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-climate-picker__copy strong {
+  color: rgba(246, 249, 255, 0.94);
+  font-size: 13px;
+}
+
+.home-climate-picker__copy small {
+  color: rgba(222, 231, 251, 0.54);
+  font-size: 10px;
+}
+
+.home-climate-picker__status {
+  grid-column: 2;
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid rgba(222, 231, 251, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(222, 231, 251, 0.7);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.home-climate-picker__empty {
+  margin-top: 12px;
+}
+
 .home-hotspot-control-modal__panel {
   inset: 50% auto auto 50%;
   width: min(960px, calc(100vw - 96px));
@@ -4515,6 +4632,18 @@
 }
 
 @media (max-width: 760px) {
+  .home-climate-picker__panel {
+    inset: 5vh 14px auto;
+    width: auto;
+    max-height: 88vh;
+    transform: none;
+    padding: 16px;
+  }
+
+  .home-climate-picker__grid {
+    grid-template-columns: 1fr;
+  }
+
   .home-hotspot-control-modal__panel {
     inset: 5vh 14px auto;
     width: auto;
