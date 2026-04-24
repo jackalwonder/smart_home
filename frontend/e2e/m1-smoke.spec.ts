@@ -900,6 +900,13 @@ async function unlockManagementPin(page: Page) {
     page.getByRole("navigation", { name: "设置分区" }),
   ).toBeVisible();
 
+  const verifiedState = page
+    .getByText(/PIN 验证通过|当前管理会话已生效|PIN 已验证/)
+    .first();
+  if ((await verifiedState.count()) > 0 && (await verifiedState.isVisible())) {
+    return;
+  }
+
   const pinCard = page.locator(".settings-inline-pin .pin-card").first();
   await expect(pinCard).toBeVisible();
 
@@ -912,6 +919,19 @@ async function unlockManagementPin(page: Page) {
   await expect(
     page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
   ).toBeVisible();
+}
+
+async function openSettingsTaskFlow(page: Page) {
+  const settingsNav = page.getByRole("navigation", { name: "设置分区" });
+  await expect(settingsNav).toBeVisible();
+  await settingsNav.getByRole("button", { name: /终端交付/ }).click();
+
+  const taskFlow = page.locator("section[aria-label='现场任务流']");
+  if ((await taskFlow.count()) === 0 || !(await taskFlow.first().isVisible())) {
+    await page.getByRole("button", { name: "展开流程" }).click();
+  }
+  await expect(taskFlow).toBeVisible();
+  return taskFlow;
 }
 
 async function readEditorFieldValue(page: Page, label: string) {
@@ -984,31 +1004,10 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
   await expect(page.getByRole("link", { name: "总览" })).toBeVisible();
   await expect(page.locator(".home-command-stage")).toBeVisible();
 
-  await page.getByRole("link", { name: "设置" }).click();
-  await expect(
-    page.getByRole("navigation", { name: "设置分区" }),
-  ).toBeVisible();
-
-  const pinCard = page.locator(".settings-inline-pin .pin-card").first();
-  await expect(pinCard).toBeVisible();
-
-  const pinInput = pinCard.getByPlaceholder("输入管理 PIN");
-  if ((await pinInput.count()) > 0 && (await pinInput.isVisible())) {
-    await pinInput.fill(DEV_PIN);
-    await pinCard.locator("form").getByRole("button", { name: "验证 PIN" }).click();
-  }
-
-  await expect(
-    page.getByText(/PIN 验证通过|当前管理会话已生效|已验证/).first(),
-  ).toBeVisible();
+  await unlockManagementPin(page);
   await expect(page.getByRole("button", { name: "保存全部" })).toBeEnabled();
 
-  const settingsNav = page.getByRole("navigation", { name: "设置分区" });
-  await expect(
-    settingsNav.getByRole("button", { name: /终端交付/ }),
-  ).toBeVisible();
-  await settingsNav.getByRole("button", { name: /系统连接/ }).click();
-  const taskFlow = page.locator("section[aria-label='现场任务流']");
+  const taskFlow = await openSettingsTaskFlow(page);
   await expect(
     taskFlow.getByRole("button", { name: /新装终端/ }),
   ).toBeVisible();
@@ -1019,11 +1018,8 @@ test("shell loads and management PIN unlocks settings", async ({ page }) => {
     taskFlow.getByRole("button", { name: /备份恢复/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 3, name: "系统连接" }),
+    page.getByRole("heading", { level: 3, name: "终端交付现场台" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { level: 3, name: "激活凭据交付" }),
-  ).toHaveCount(0);
 
   await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
   await expect(
@@ -1046,11 +1042,7 @@ test("settings can rotate bootstrap token and revoke the previous token", async 
   const previousToken = issueBootstrapToken(TERMINAL_ID);
 
   await unlockManagementPin(page);
-  await page
-    .getByRole("navigation", { name: "设置分区" })
-    .getByRole("button", { name: /系统连接/ })
-    .click();
-  const taskFlow = page.locator("section[aria-label='现场任务流']");
+  const taskFlow = await openSettingsTaskFlow(page);
   await taskFlow.getByRole("button", { name: /换机恢复/ }).click();
   await expect(taskFlow.getByText("重置激活凭据")).toBeVisible();
   await expect(taskFlow.getByText("必要时复查系统连接")).toBeVisible();
@@ -2097,7 +2089,8 @@ test("backup restore syncs to another terminal through realtime", async ({
   request,
 }) => {
   await unlockManagementPin(page);
-  await page.getByRole("button", { name: /备份恢复/ }).click();
+  const taskFlow = await openSettingsTaskFlow(page);
+  await taskFlow.getByRole("button", { name: /备份恢复/ }).click();
   await expect(
     page.getByRole("heading", { level: 3, name: "备份恢复" }),
   ).toBeVisible();
