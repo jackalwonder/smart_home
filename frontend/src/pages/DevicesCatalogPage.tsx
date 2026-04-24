@@ -98,21 +98,151 @@ function compactJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function formatShortId(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  return value.length > 12 ? `...${value.slice(-8)}` : value;
+}
+
 function getEntityLinks(detail: DeviceDetailDto): DeviceEntityLinkDto[] {
   const links = detail.source_info.entity_links;
   return Array.isArray(links) ? links : [];
 }
 
 function describeControlSchema(schema: DeviceControlSchemaItemDto) {
-  const target = [schema.target_scope, schema.target_key]
-    .filter(Boolean)
-    .join(" / ");
+  const target = formatControlTarget(schema);
   const value = schema.allowed_values?.length
-    ? schema.allowed_values.join(", ")
+    ? schema.allowed_values.map(formatControlOption).join("、")
     : schema.value_range
-      ? compactJson(schema.value_range)
-      : schema.value_type || "-";
+      ? formatControlRange(schema.value_range, schema.unit)
+      : formatControlValueType(schema.value_type);
   return { target: target || "-", value };
+}
+
+function formatControlAction(value: string | null | undefined) {
+  const normalized = (value ?? "").toUpperCase();
+  const labels: Record<string, string> = {
+    EXECUTE_ACTION: "执行动作",
+    RESET: "重置",
+    SET_BRIGHTNESS: "调节亮度",
+    SET_MODE: "切换模式",
+    SET_TEMPERATURE: "设置温度",
+    TOGGLE: "开关切换",
+    TOGGLE_POWER: "开关切换",
+    TURN_OFF: "关闭",
+    TURN_ON: "开启",
+  };
+  return labels[normalized] ?? (value ? value.replaceAll("_", " ") : "控制项");
+}
+
+function formatControlTarget(schema: DeviceControlSchemaItemDto) {
+  const source = `${schema.target_scope ?? ""} ${schema.target_key ?? ""}`.toLowerCase();
+  const scope = (schema.target_scope ?? "").toUpperCase();
+  const targetKey = (schema.target_key ?? "").toLowerCase();
+  if (source.includes("fridge") || source.includes("refrigerator")) {
+    return "冷藏室温度";
+  }
+  if (source.includes("freezer") || source.includes("freeze")) {
+    return "冷冻室温度";
+  }
+  if (source.includes("temperature") || source.includes("temp")) {
+    return "温度";
+  }
+  if (source.includes("brightness")) {
+    return "亮度";
+  }
+  if (source.includes("mode")) {
+    return "模式";
+  }
+  if (source.includes("power") || source.includes("switch")) {
+    return "开关";
+  }
+  if (scope === "PRIMARY") {
+    return "主操作";
+  }
+  if (targetKey.startsWith("button.") || targetKey.includes(".button.")) {
+    return "设备动作";
+  }
+  if (schema.target_scope || schema.target_key) {
+    return "设备控制";
+  }
+  return "设备控制";
+}
+
+function formatControlOption(value: unknown) {
+  const normalized = String(value).toLowerCase();
+  const labels: Record<string, string> = {
+    auto: "自动",
+    boost: "速冷",
+    holiday: "假日",
+    manual: "手动",
+    none: "无需输入",
+    off: "关闭",
+    on: "开启",
+    smart: "智能",
+    super_cool: "速冷",
+    super_freeze: "速冻",
+  };
+  return labels[normalized] ?? String(value);
+}
+
+function formatControlValueType(value: string | null | undefined) {
+  const normalized = (value ?? "").toUpperCase();
+  const labels: Record<string, string> = {
+    BOOLEAN: "开关值",
+    FLOAT: "数字",
+    INTEGER: "整数",
+    NONE: "无需输入",
+    NUMBER: "数字",
+    STRING: "文本",
+  };
+  return labels[normalized] ?? (value ? value.replaceAll("_", " ") : "无需输入");
+}
+
+function formatControlRange(value: unknown, unit?: string | null) {
+  if (!value || typeof value !== "object") {
+    return compactJson(value);
+  }
+  const range = value as { min?: unknown; max?: unknown; step?: unknown };
+  const min = range.min ?? "-";
+  const max = range.max ?? "-";
+  const step = range.step ? `，步进 ${range.step}` : "";
+  return `${min} 到 ${max}${unit ? ` ${unit}` : ""}${step}`;
+}
+
+function formatEntityDomain(value: string | null | undefined) {
+  const normalized = (value ?? "").toLowerCase();
+  const labels: Record<string, string> = {
+    binary_sensor: "二元传感器",
+    button: "按钮动作",
+    climate: "温控",
+    event: "事件",
+    light: "灯光",
+    media_player: "媒体播放器",
+    notify: "通知动作",
+    number: "数值控制",
+    select: "选项控制",
+    sensor: "传感器",
+    switch: "开关",
+  };
+  return labels[normalized] ?? (value || "-");
+}
+
+function formatEntityRole(value: string | null | undefined) {
+  const normalized = (value ?? "").toLowerCase();
+  const labels: Record<string, string> = {
+    alert: "事件通知",
+    battery: "电量",
+    mode: "模式",
+    power: "开关",
+    primary: "主实体",
+    primary_control: "主控制",
+    secondary_control: "辅助控制",
+    status: "状态",
+    temperature: "温度",
+  };
+  return labels[normalized] ?? (value || "-");
 }
 
 function normalizeFavorites(
@@ -615,8 +745,8 @@ export function DevicesCatalogPage() {
               ) : null}
               <dl className="field-grid">
                 <div>
-                  <dt>设备 ID</dt>
-                  <dd>{selectedDevice.device_id}</dd>
+                  <dt>设备标识</dt>
+                  <dd>{formatShortId(selectedDevice.device_id)}</dd>
                 </div>
                 <div>
                   <dt>房间</dt>
@@ -633,7 +763,7 @@ export function DevicesCatalogPage() {
                 <div>
                   <dt>聚合状态</dt>
                   <dd>
-                    {selectedDevice.runtime_state?.aggregated_state ?? "-"}
+                    {formatDeviceStatus(selectedDevice.runtime_state?.aggregated_state)}
                   </dd>
                 </div>
                 <div>
@@ -651,14 +781,29 @@ export function DevicesCatalogPage() {
               </dl>
 
               <section className="devices-detail-section">
-                <h4>运行态</h4>
-                <pre>
-                  {compactJson(selectedDevice.runtime_state?.telemetry ?? {})}
-                </pre>
+                <h4>现场摘要</h4>
+                <dl className="field-grid">
+                  <div>
+                    <dt>可控能力</dt>
+                    <dd>{selectedDevice.control_schema.length} 项</dd>
+                  </div>
+                  <div>
+                    <dt>实体映射</dt>
+                    <dd>{getEntityLinks(selectedDevice).length} 个</dd>
+                  </div>
+                  <div>
+                    <dt>只读状态</dt>
+                    <dd>{selectedDeviceCatalog?.is_readonly_device ? "只读" : "可操作"}</dd>
+                  </div>
+                  <div>
+                    <dt>首页候选</dt>
+                    <dd>{selectedDeviceCatalog ? getHomeEntryLabel(selectedDeviceCatalog) : "-"}</dd>
+                  </div>
+                </dl>
               </section>
 
               <section className="devices-detail-section">
-                <h4>control_schema</h4>
+                <h4>可控能力</h4>
                 {selectedDevice.control_schema.length ? (
                   <div className="devices-detail-list">
                     {selectedDevice.control_schema.map((schema, index) => {
@@ -668,11 +813,11 @@ export function DevicesCatalogPage() {
                           className="devices-detail-list__item"
                           key={`${schema.action_type}-${schema.target_scope}-${schema.target_key}-${index}`}
                         >
-                          <strong>{schema.action_type}</strong>
-                          <span>{`目标 ${described.target}`}</span>
-                          <span>{`取值 ${described.value}${schema.unit ? ` ${schema.unit}` : ""}`}</span>
+                          <strong>{formatControlAction(schema.action_type)}</strong>
+                          <span>{`作用对象：${described.target}`}</span>
+                          <span>{`可选值：${described.value}`}</span>
                           <span>
-                            {schema.is_quick_action ? "快捷动作" : "详情动作"}
+                            {schema.is_quick_action ? "可作为快捷动作" : "在详情中操作"}
                             {schema.requires_detail_entry
                               ? " · 需要详情入口"
                               : ""}
@@ -682,12 +827,12 @@ export function DevicesCatalogPage() {
                     })}
                   </div>
                 ) : (
-                  <p className="muted-copy">当前设备没有可用控制 schema。</p>
+                  <p className="muted-copy">当前设备没有可用控制项。</p>
                 )}
               </section>
 
               <section className="devices-detail-section">
-                <h4>HA entity 映射</h4>
+                <h4>Home Assistant 实体</h4>
                 {getEntityLinks(selectedDevice).length ? (
                   <div className="devices-detail-list">
                     {getEntityLinks(selectedDevice).map((entity) => (
@@ -695,22 +840,35 @@ export function DevicesCatalogPage() {
                         className="devices-detail-list__item"
                         key={entity.entity_id}
                       >
-                        <strong>{entity.entity_id}</strong>
-                        <span>{`${entity.domain || "-"} · ${entity.platform || "-"}`}</span>
-                        <span>{`角色 ${entity.entity_role || "-"}${entity.is_primary ? " · 主实体" : ""}`}</span>
-                        <span>{`状态 ${entity.state ?? "-"} · 可用 ${entity.is_available === false ? "否" : "是"}`}</span>
+                        <strong>{formatEntityDomain(entity.domain)}</strong>
+                        <span>{`实体标识：${formatShortId(entity.entity_id)}`}</span>
+                        <span>{`用途：${formatEntityRole(entity.entity_role)}${entity.is_primary ? " · 主实体" : ""}`}</span>
+                        <span>{`状态：${formatDeviceStatus(entity.state)} · ${entity.is_available === false ? "不可用" : "可用"}`}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="muted-copy">当前设备没有 HA entity 映射。</p>
+                  <p className="muted-copy">当前设备没有 Home Assistant 实体映射。</p>
                 )}
               </section>
 
-              <section className="devices-detail-section">
+              <details className="devices-detail-section devices-detail-section--technical">
+                <summary>技术诊断</summary>
+                <dl className="field-grid">
+                  <div>
+                    <dt>完整设备 ID</dt>
+                    <dd>{selectedDevice.device_id}</dd>
+                  </div>
+                  <div>
+                    <dt>原始类型</dt>
+                    <dd>{selectedDevice.device_type}</dd>
+                  </div>
+                </dl>
+                <h4>运行遥测</h4>
+                <pre>{compactJson(selectedDevice.runtime_state?.telemetry ?? {})}</pre>
                 <h4>来源信息</h4>
                 <pre>{compactJson(selectedDevice.source_info)}</pre>
-              </section>
+              </details>
             </div>
           ) : null}
         </aside>

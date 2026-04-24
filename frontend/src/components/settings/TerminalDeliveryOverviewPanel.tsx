@@ -5,8 +5,39 @@ interface TerminalDeliveryOverviewPanelProps {
   selectedTerminal: TerminalBootstrapTokenDirectoryItemDto | null;
 }
 
-function formatValue(value: string | null | undefined) {
-  return value && value.trim() ? value : "-";
+function formatShortId(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  return value.length > 12 ? `...${value.slice(-8)}` : value;
+}
+
+function formatTerminalMode(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  const normalized = value.toUpperCase();
+  if (normalized === "ACTIVATED") {
+    return "已激活";
+  }
+  if (normalized === "PENDING" || normalized === "UNACTIVATED") {
+    return "待激活";
+  }
+  return value;
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString("zh-CN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 export function TerminalDeliveryOverviewPanel({
@@ -74,20 +105,20 @@ export function TerminalDeliveryOverviewPanel({
 
       <dl className="terminal-delivery-workbench__details">
         <div>
-          <dt>终端 ID</dt>
-          <dd>{formatValue(selectedTerminal?.terminal_id)}</dd>
+          <dt>终端标识</dt>
+          <dd>{formatShortId(selectedTerminal?.terminal_id)}</dd>
         </div>
         <div>
           <dt>终端模式</dt>
-          <dd>{formatValue(selectedTerminal?.terminal_mode)}</dd>
+          <dd>{formatTerminalMode(selectedTerminal?.terminal_mode)}</dd>
         </div>
         <div>
           <dt>最近生成</dt>
-          <dd>{formatValue(selectedTerminal?.issued_at)}</dd>
+          <dd>{formatDateTime(selectedTerminal?.issued_at)}</dd>
         </div>
         <div>
           <dt>最近使用</dt>
-          <dd>{formatValue(selectedTerminal?.last_used_at)}</dd>
+          <dd>{formatDateTime(selectedTerminal?.last_used_at)}</dd>
         </div>
       </dl>
     </section>

@@ -290,6 +290,24 @@
   gap: 10px;
 }
 
+.devices-detail-section--technical {
+  padding: 12px;
+  border: 1px solid rgba(118, 180, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.devices-detail-section--technical summary {
+  cursor: pointer;
+  color: rgba(202, 214, 237, 0.78);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.devices-detail-section--technical[open] summary {
+  margin-bottom: 10px;
+}
+
 .devices-detail-section h4 {
   margin: 0;
   font-size: 15px;

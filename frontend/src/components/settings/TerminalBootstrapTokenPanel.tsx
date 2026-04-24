@@ -29,8 +29,11 @@ interface TerminalBootstrapTokenPanelProps {
   onSelectTerminalId: (value: string) => void;
 }
 
-function formatValue(value: string | null | undefined) {
-  return value && value.trim() ? value : "-";
+function formatShortId(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  return value.length > 12 ? `...${value.slice(-8)}` : value;
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -47,6 +50,20 @@ function formatDateTime(value: string | null | undefined) {
   });
 }
 
+function formatTerminalMode(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  const normalized = value.toUpperCase();
+  if (normalized === "ACTIVATED") {
+    return "已激活";
+  }
+  if (normalized === "PENDING" || normalized === "UNACTIVATED") {
+    return "待激活";
+  }
+  return value;
+}
+
 function formatAction(actionType: string, rotated: boolean | null) {
   if (actionType === "TERMINAL_BOOTSTRAP_TOKEN_RESET" || rotated) {
     return "重置";
@@ -55,6 +72,30 @@ function formatAction(actionType: string, rotated: boolean | null) {
     return "创建";
   }
   return actionType;
+}
+
+function formatResultStatus(status: string | null | undefined) {
+  if (status === "SUCCESS") {
+    return "成功";
+  }
+  if (status === "FAILED") {
+    return "失败";
+  }
+  return status ?? "-";
+}
+
+function formatScope(scope: string[]) {
+  if (!scope.length) {
+    return "-";
+  }
+  return scope
+    .map((item) => {
+      if (item === "terminal:activate") {
+        return "终端激活";
+      }
+      return item;
+    })
+    .join("、");
 }
 
 export function TerminalBootstrapTokenPanel({
@@ -121,12 +162,12 @@ export function TerminalBootstrapTokenPanel({
       description="为新装、换机或重装终端生成一次性激活凭据。凭据原文只在本次生成后展示，请优先交付二维码或激活链接。"
       eyebrow="凭据交付"
       rows={[
-        { label: "终端 ID", value: formatValue(status?.terminal_id) },
-        { label: "终端模式", value: formatValue(status?.terminal_mode) },
+        { label: "终端标识", value: formatShortId(status?.terminal_id) },
+        { label: "终端模式", value: formatTerminalMode(status?.terminal_mode) },
         { label: "凭据状态", value: hasToken ? "已生成" : "待生成" },
-        { label: "签发时间", value: formatValue(status?.issued_at) },
-        { label: "过期时间", value: formatValue(status?.expires_at) },
-        { label: "最近兑换", value: formatValue(status?.last_used_at) },
+        { label: "签发时间", value: formatDateTime(status?.issued_at) },
+        { label: "过期时间", value: formatDateTime(status?.expires_at) },
+        { label: "最近兑换", value: formatDateTime(status?.last_used_at) },
       ]}
       title="激活凭据交付"
     >
@@ -207,11 +248,11 @@ export function TerminalBootstrapTokenPanel({
           <dl className="bootstrap-token-reveal__meta">
             <div>
               <dt>过期时间</dt>
-              <dd>{revealedToken.expires_at}</dd>
+              <dd>{formatDateTime(revealedToken.expires_at)}</dd>
             </div>
             <div>
               <dt>作用域</dt>
-              <dd>{revealedToken.scope.join(", ")}</dd>
+              <dd>{formatScope(revealedToken.scope)}</dd>
             </div>
             <div>
               <dt>签发方式</dt>
@@ -336,8 +377,8 @@ export function TerminalBootstrapTokenPanel({
                     <dd>{audit.acting_terminal_name ?? audit.acting_terminal_id ?? "-"}</dd>
                   </div>
                   <div>
-                    <dt>审计 ID</dt>
-                    <dd>{audit.audit_id}</dd>
+                    <dt>记录编号</dt>
+                    <dd>{formatShortId(audit.audit_id)}</dd>
                   </div>
                   <div>
                     <dt>过期时间</dt>
@@ -345,7 +386,7 @@ export function TerminalBootstrapTokenPanel({
                   </div>
                   <div>
                     <dt>结果</dt>
-                    <dd>{audit.result_status}</dd>
+                    <dd>{formatResultStatus(audit.result_status)}</dd>
                   </div>
                 </dl>
               </article>

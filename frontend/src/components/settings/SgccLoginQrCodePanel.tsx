@@ -52,6 +52,33 @@ function formatTimestamp(value: string | null | undefined) {
   return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${hour}:${minute}`;
 }
 
+function formatJobState(value: string | null | undefined) {
+  const normalized = (value ?? "").toUpperCase();
+  const labels: Record<string, string> = {
+    FAILED: "失败",
+    FINISHED: "已完成",
+    IDLE: "空闲",
+    LOGIN_RUNNING: "登录中",
+    PENDING: "等待中",
+    RUNNING: "运行中",
+    SUCCESS: "成功",
+  };
+  return labels[normalized] ?? formatValue(value);
+}
+
+function formatMimeType(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  if (value === "image/png") {
+    return "PNG 图片";
+  }
+  if (value === "image/jpeg") {
+    return "JPEG 图片";
+  }
+  return value;
+}
+
 function resolvePhaseDescription(status: SgccLoginQrCodeStatusDto | null) {
   const phase = status?.phase ?? status?.status ?? "UNKNOWN";
   if (phase === "DATA_READY") {
@@ -147,7 +174,7 @@ export function SgccLoginQrCodePanel({
           </div>
           <div>
             <dt>任务状态</dt>
-            <dd>{formatValue(status?.job_state)}</dd>
+            <dd>{formatJobState(status?.job_state)}</dd>
           </div>
           <div>
             <dt>任务阶段</dt>
@@ -167,7 +194,7 @@ export function SgccLoginQrCodePanel({
           </div>
           <div>
             <dt>文件类型</dt>
-            <dd>{formatValue(status?.mime_type)}</dd>
+            <dd>{formatMimeType(status?.mime_type)}</dd>
           </div>
           <div>
             <dt>最近错误</dt>

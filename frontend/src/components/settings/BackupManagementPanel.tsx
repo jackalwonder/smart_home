@@ -33,6 +33,25 @@ function formatDateTime(value: string | null | undefined) {
   });
 }
 
+function formatShortId(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  return value.length > 14 ? `...${value.slice(-10)}` : value;
+}
+
+function formatVersion(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+  const match = value.match(/(\d{8})(\d{6})/);
+  if (!match) {
+    return value;
+  }
+  const [, date, time] = match;
+  return `${Number(date.slice(4, 6))}月${Number(date.slice(6, 8))}日 ${time.slice(0, 2)}:${time.slice(2, 4)}`;
+}
+
 function formatRestoreResult(status: string) {
   if (status === "SUCCESS") {
     return "成功";
@@ -71,12 +90,12 @@ function formatSnapshotVersion(
     return "无版本";
   }
   if (!currentVersion) {
-    return snapshotVersion;
+    return formatVersion(snapshotVersion);
   }
   if (matchesCurrent) {
-    return `${snapshotVersion}，与当前一致`;
+    return `${formatVersion(snapshotVersion)}，与当前一致`;
   }
-  return `${snapshotVersion}，当前为 ${currentVersion}`;
+  return `${formatVersion(snapshotVersion)}，当前为 ${formatVersion(currentVersion)}`;
 }
 
 function formatSnapshotStatus(status: string) {
@@ -85,6 +104,16 @@ function formatSnapshotStatus(status: string) {
   }
   if (status === "INVALID") {
     return "快照异常";
+  }
+  return status;
+}
+
+function formatBackupStatus(status: string) {
+  if (status === "READY") {
+    return "可恢复";
+  }
+  if (status === "INVALID") {
+    return "不可恢复";
   }
   return status;
 }
@@ -156,7 +185,7 @@ export function BackupManagementPanel({
           backups.map((backup) => (
             <div className="backup-list__row" key={backup.backup_id}>
               <div className="backup-list__summary">
-                <strong>{backup.backup_id}</strong>
+                <strong>{formatShortId(backup.backup_id)}</strong>
                 <span>{backup.note || "无备注"}</span>
               </div>
               <div
@@ -220,7 +249,7 @@ export function BackupManagementPanel({
                 </div>
                 <div>
                   <dt>状态</dt>
-                  <dd>{backup.status}</dd>
+                  <dd>{formatBackupStatus(backup.status)}</dd>
                 </div>
                 <div>
                   <dt>创建人</dt>
@@ -312,21 +341,21 @@ export function BackupManagementPanel({
             restoreAudits.map((audit) => (
               <article className="backup-audit__item" key={audit.audit_id}>
                 <div className="backup-audit__summary">
-                  <strong>{audit.backup_id}</strong>
+                  <strong>{formatShortId(audit.backup_id)}</strong>
                   <span>{formatDateTime(audit.restored_at)}</span>
                 </div>
                 <dl className="backup-audit__meta">
                   <div>
-                    <dt>审计 ID</dt>
-                    <dd>{audit.audit_id}</dd>
+                    <dt>记录编号</dt>
+                    <dd>{formatShortId(audit.audit_id)}</dd>
                   </div>
                   <div>
                     <dt>设置版本</dt>
-                    <dd>{audit.settings_version ?? "-"}</dd>
+                    <dd>{formatVersion(audit.settings_version)}</dd>
                   </div>
                   <div>
                     <dt>布局版本</dt>
-                    <dd>{audit.layout_version ?? "-"}</dd>
+                    <dd>{formatVersion(audit.layout_version)}</dd>
                   </div>
                   <div>
                     <dt>操作人</dt>
@@ -334,7 +363,7 @@ export function BackupManagementPanel({
                   </div>
                   <div>
                     <dt>终端</dt>
-                    <dd>{audit.terminal_id ?? "-"}</dd>
+                    <dd>{formatShortId(audit.terminal_id)}</dd>
                   </div>
                   <div>
                     <dt>结果</dt>
