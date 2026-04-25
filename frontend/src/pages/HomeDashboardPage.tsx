@@ -14,10 +14,15 @@ import {
   HomeClusterControlModal,
   HomeClusterKey,
 } from "../components/home/HomeClusterControlModal";
+import { ClimateDevicePicker } from "../components/home/ClimateDevicePicker";
 import { HomeCommandStage } from "../components/home/HomeCommandStage";
 import { HomeHotspotControlModal } from "../components/home/HomeHotspotControlModal";
 import { HomeInsightRail } from "../components/home/HomeInsightRail";
 import { HomeStageEditorWorkspace } from "../components/home/HomeStageEditorWorkspace";
+import {
+  deviceListItemToHotspot,
+  isClimateDevice,
+} from "../components/home/homeClimateDevices";
 import { PageFrame } from "../components/layout/PageFrame";
 import { appStore, useAppStore } from "../store/useAppStore";
 import {
@@ -31,166 +36,6 @@ type HotspotModalState = {
   hotspot: HomeHotspotViewModel;
   mode: "detail" | "group";
 };
-
-interface ClimateDevicePickerProps {
-  devices: DeviceListItemDto[];
-  onClose: () => void;
-  onSelectDevice: (device: DeviceListItemDto) => void;
-  open: boolean;
-}
-
-function normalizeDeviceKeyword(value: string | null | undefined) {
-  return (value ?? "").toLowerCase();
-}
-
-function isClimateDevice(device: DeviceListItemDto) {
-  const source = normalizeDeviceKeyword(device.device_type);
-  return (
-    source.includes("climate") ||
-    source.includes("air") ||
-    source.includes("fan") ||
-    source.includes("fridge") ||
-    source.includes("refrigerator")
-  );
-}
-
-function formatClimateDeviceType(value: string | null | undefined) {
-  const source = normalizeDeviceKeyword(value);
-  if (source.includes("fridge") || source.includes("refrigerator")) {
-    return "冰箱";
-  }
-  if (source.includes("air") || source.includes("climate")) {
-    return "空调";
-  }
-  if (source.includes("fan")) {
-    return "新风";
-  }
-  return "温控设备";
-}
-
-function formatDeviceControlBadge(device: DeviceListItemDto) {
-  if (device.is_offline) {
-    return device.is_readonly_device ? "离线 · 只读" : "离线 · 待恢复";
-  }
-  return device.is_readonly_device ? "在线 · 只读" : "在线 · 可控";
-}
-
-function deviceListItemToHotspot(device: DeviceListItemDto): HomeHotspotViewModel {
-  return {
-    id: `cluster-${device.device_id}`,
-    deviceId: device.device_id,
-    label: device.display_name,
-    deviceType: device.device_type,
-    deviceTypeLabel: device.device_type,
-    x: 0,
-    y: 0,
-    iconGlyph: "温",
-    tone: "accent",
-    iconType: "device",
-    iconAssetId: null,
-    iconAssetUrl: null,
-    labelMode: "ALWAYS",
-    status: device.status,
-    statusLabel: device.is_offline ? "离线" : device.status,
-    statusSummary: null,
-    isOffline: device.is_offline,
-    isComplex: device.is_complex_device,
-    isReadonly: device.is_readonly_device,
-    entryBehavior: "VIEW",
-    entryBehaviorLabel: "查看",
-  };
-}
-
-function ClimateDevicePicker({
-  devices,
-  onClose,
-  onSelectDevice,
-  open,
-}: ClimateDevicePickerProps) {
-  if (!open) {
-    return null;
-  }
-
-  const onlineCount = devices.filter((device) => !device.is_offline).length;
-  const controllableCount = devices.filter(
-    (device) => !device.is_offline && !device.is_readonly_device,
-  ).length;
-
-  return (
-    <div
-      aria-label="全屋温控"
-      className="home-cluster-modal home-climate-picker"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="home-cluster-modal__backdrop" onClick={onClose} aria-hidden="true" />
-      <section className="home-cluster-modal__panel home-climate-picker__panel is-climate">
-        <header className="home-cluster-modal__header home-climate-picker__header">
-          <div className="home-cluster-modal__title-row">
-            <span className="home-cluster-modal__glyph" aria-hidden="true">
-              温
-            </span>
-            <div>
-              <span className="card-eyebrow">温控设备</span>
-              <h3>全屋温控</h3>
-              <p>选择要调节的温控设备。</p>
-            </div>
-          </div>
-          <div className="home-cluster-modal__header-meta">
-            <span>{devices.length} 个设备</span>
-            <span>{onlineCount} 个在线</span>
-            <span>{controllableCount} 个可控</span>
-          </div>
-          <button
-            aria-label="关闭温控选择"
-            className="home-cluster-modal__close"
-            onClick={onClose}
-            type="button"
-          >
-            ×
-          </button>
-        </header>
-
-        {devices.length ? (
-          <div className="home-climate-picker__grid">
-            {devices.map((device) => (
-              <button
-                className={[
-                  "home-climate-picker__device",
-                  device.is_offline ? "is-offline" : "",
-                  device.is_readonly_device ? "is-readonly" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                key={device.device_id}
-                onClick={() => onSelectDevice(device)}
-                type="button"
-              >
-                <span className="home-climate-picker__icon" aria-hidden="true">
-                  温
-                </span>
-                <span className="home-climate-picker__copy">
-                  <strong>{device.display_name}</strong>
-                  <small>
-                    {device.room_name ?? "未分配房间"} · {formatClimateDeviceType(device.device_type)}
-                  </small>
-                </span>
-                <span className="home-climate-picker__status">
-                  {formatDeviceControlBadge(device)}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="home-cluster-modal__empty home-climate-picker__empty">
-            <strong>当前没有温控设备</strong>
-            <p>接入空调、冰箱、新风或其他温控设备后，这里会显示可选择的全屋温控入口。</p>
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
 
 export function HomeDashboardPage() {
   const session = useAppStore((state) => state.session);

@@ -3,6 +3,7 @@ from src.repositories.base.auth.HomeRepository import HomeRepository
 from src.repositories.base.auth.PinLockRepository import PinLockRepository
 from src.repositories.base.auth.PinSessionRepository import PinSessionRepository
 from src.repositories.base.auth.TerminalRepository import TerminalRepository
+from src.repositories.base.backups.BackupRepository import BackupRepository
 from src.repositories.base.control.DeviceControlRequestRepository import (
     DeviceControlRequestRepository,
 )
@@ -19,6 +20,11 @@ from src.repositories.base.devices.DeviceRuntimeStateRepository import (
 from src.repositories.base.editor.DraftLeaseRepository import DraftLeaseRepository
 from src.repositories.base.editor.DraftLayoutRepository import DraftLayoutRepository
 from src.repositories.base.editor.DraftHotspotRepository import DraftHotspotRepository
+from src.repositories.base.page_assets.AssetStorage import AssetStorage
+from src.repositories.base.page_assets.PageAssetRepository import PageAssetRepository
+from src.repositories.base.realtime.TerminalPresenceRepository import (
+    TerminalPresenceRepository,
+)
 from src.repositories.base.realtime.WsEventOutboxRepository import (
     WsEventOutboxRepository,
 )
@@ -37,6 +43,7 @@ __all__ = [
     "HomeAuthConfigRepository",
     "PinSessionRepository",
     "PinLockRepository",
+    "BackupRepository",
     "DeviceRepository",
     "DeviceRuntimeStateRepository",
     "DeviceControlSchemaRepository",
@@ -48,6 +55,9 @@ __all__ = [
     "DraftLeaseRepository",
     "DraftLayoutRepository",
     "DraftHotspotRepository",
+    "AssetStorage",
+    "PageAssetRepository",
+    "TerminalPresenceRepository",
     "LayoutHotspotRepository",
     "DeviceControlRequestRepository",
     "DeviceControlTransitionRepository",

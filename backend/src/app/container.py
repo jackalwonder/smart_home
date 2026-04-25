@@ -21,6 +21,9 @@ from src.infrastructure.db.repositories.base.auth.TerminalBootstrapTokenReposito
 from src.infrastructure.db.repositories.base.auth.TerminalPairingCodeRepositoryImpl import (
     TerminalPairingCodeRepositoryImpl,
 )
+from src.infrastructure.db.repositories.base.backups.BackupRepositoryImpl import (
+    BackupRepositoryImpl,
+)
 from src.infrastructure.db.repositories.base.control.DeviceControlRequestRepositoryImpl import (
     DeviceControlRequestRepositoryImpl,
 )
@@ -54,8 +57,14 @@ from src.infrastructure.db.repositories.base.energy.EnergySnapshotRepositoryImpl
 from src.infrastructure.db.repositories.base.media.MediaBindingRepositoryImpl import (
     MediaBindingRepositoryImpl,
 )
+from src.infrastructure.db.repositories.base.page_assets.PageAssetRepositoryImpl import (
+    PageAssetRepositoryImpl,
+)
 from src.infrastructure.db.repositories.base.realtime.WsEventOutboxRepositoryImpl import (
     WsEventOutboxRepositoryImpl,
+)
+from src.infrastructure.db.repositories.base.realtime.TerminalPresenceRepositoryImpl import (
+    TerminalPresenceRepositoryImpl,
 )
 from src.infrastructure.db.repositories.base.settings.FavoriteDevicesRepositoryImpl import (
     FavoriteDevicesRepositoryImpl,
@@ -93,6 +102,9 @@ from src.infrastructure.db.repositories.query.editor.EditorLeaseQueryRepositoryI
 from src.infrastructure.db.repositories.query.overview.HomeOverviewQueryRepositoryImpl import (
     HomeOverviewQueryRepositoryImpl,
 )
+from src.infrastructure.db.repositories.query.settings.FavoritesQueryRepositoryImpl import (
+    FavoritesQueryRepositoryImpl,
+)
 from src.infrastructure.db.repositories.query.settings.SettingsSnapshotQueryRepositoryImpl import (
     SettingsSnapshotQueryRepositoryImpl,
 )
@@ -109,6 +121,7 @@ from src.infrastructure.ha.impl.SettingsHomeAssistantBootstrapProvider import (
 from src.infrastructure.security.impl.FernetConnectionSecretCipher import (
     FernetConnectionSecretCipher,
 )
+from src.infrastructure.storage.FileSystemAssetStorage import FileSystemAssetStorage
 from src.infrastructure.weather.impl.OpenMeteoWeatherProvider import (
     OpenMeteoWeatherProvider,
 )
@@ -310,6 +323,11 @@ def get_settings_snapshot_query_repository() -> SettingsSnapshotQueryRepositoryI
 
 
 @lru_cache(maxsize=1)
+def get_favorites_query_repository() -> FavoritesQueryRepositoryImpl:
+    return FavoritesQueryRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
 def get_editor_draft_query_repository() -> EditorDraftQueryRepositoryImpl:
     return EditorDraftQueryRepositoryImpl(get_database())
 
@@ -352,6 +370,11 @@ def get_device_control_transition_repository() -> DeviceControlTransitionReposit
 @lru_cache(maxsize=1)
 def get_ws_event_outbox_repository() -> WsEventOutboxRepositoryImpl:
     return WsEventOutboxRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_terminal_presence_repository() -> TerminalPresenceRepositoryImpl:
+    return TerminalPresenceRepositoryImpl(get_database())
 
 
 @lru_cache(maxsize=1)
@@ -417,6 +440,21 @@ def get_energy_snapshot_repository() -> EnergySnapshotRepositoryImpl:
 @lru_cache(maxsize=1)
 def get_media_binding_repository() -> MediaBindingRepositoryImpl:
     return MediaBindingRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_backup_repository() -> BackupRepositoryImpl:
+    return BackupRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_page_asset_repository() -> PageAssetRepositoryImpl:
+    return PageAssetRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_asset_storage() -> FileSystemAssetStorage:
+    return FileSystemAssetStorage()
 
 
 @lru_cache(maxsize=1)
@@ -556,7 +594,7 @@ def get_settings_query_service() -> SettingsQueryService:
 
 @lru_cache(maxsize=1)
 def get_favorites_query_service() -> FavoritesQueryService:
-    return FavoritesQueryService(get_database())
+    return FavoritesQueryService(get_favorites_query_repository())
 
 
 @lru_cache(maxsize=1)
@@ -667,7 +705,7 @@ def get_device_control_result_query_service() -> DeviceControlResultQueryService
 def get_realtime_service() -> RealtimeService:
     return RealtimeService(
         ws_event_outbox_repository=get_ws_event_outbox_repository(),
-        database=get_database(),
+        terminal_presence_repository=get_terminal_presence_repository(),
     )
 
 
@@ -750,7 +788,8 @@ def get_media_service() -> MediaService:
 @lru_cache(maxsize=1)
 def get_floorplan_asset_service() -> FloorplanAssetService:
     return FloorplanAssetService(
-        database=get_database(),
+        page_asset_repository=get_page_asset_repository(),
+        asset_storage=get_asset_storage(),
         management_pin_guard=get_management_pin_guard(),
         clock=get_clock(),
     )
@@ -759,7 +798,7 @@ def get_floorplan_asset_service() -> FloorplanAssetService:
 @lru_cache(maxsize=1)
 def get_backup_service() -> BackupService:
     return BackupService(
-        database=get_database(),
+        backup_repository=get_backup_repository(),
         management_pin_guard=get_management_pin_guard(),
         clock=get_clock(),
     )

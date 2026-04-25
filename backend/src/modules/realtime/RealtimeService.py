@@ -8,14 +8,14 @@ from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
-from sqlalchemy import text
 from starlette.websockets import WebSocketState
 
-from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import session_scope
 from src.modules.realtime.RealtimeSchemas import (
     realtime_client_message_adapter,
     realtime_server_event_adapter,
+)
+from src.repositories.base.realtime.TerminalPresenceRepository import (
+    TerminalPresenceRepository,
 )
 from src.repositories.base.realtime.WsEventOutboxRepository import WsEventOutboxRepository
 from src.shared.observability import get_observability_metrics, log_structured_event
@@ -50,28 +50,18 @@ class RealtimeService:
     def __init__(
         self,
         ws_event_outbox_repository: WsEventOutboxRepository,
-        database: Database | None = None,
+        terminal_presence_repository: TerminalPresenceRepository | None = None,
     ) -> None:
         self._ws_event_outbox_repository = ws_event_outbox_repository
-        self._database = database
+        self._terminal_presence_repository = terminal_presence_repository
 
     async def _touch_terminal(self, terminal_id: str, client_host: str | None) -> None:
-        if self._database is None:
+        if self._terminal_presence_repository is None:
             return
-        stmt = text(
-            """
-            UPDATE terminals
-            SET last_seen_at = now(), last_ip = :client_host
-            WHERE id = :terminal_id
-            """
+        await self._terminal_presence_repository.touch_terminal(
+            terminal_id=terminal_id,
+            client_host=client_host,
         )
-        async with session_scope(self._database) as (session, owned):
-            await session.execute(
-                stmt,
-                {"terminal_id": terminal_id, "client_host": client_host},
-            )
-            if owned:
-                await session.commit()
 
     async def _send_event(self, websocket: WebSocket, state: RealtimeConnectionState, event) -> None:
         payload: dict[str, Any] = {
@@ -188,7 +178,9 @@ class RealtimeService:
         state = RealtimeConnectionState(
             home_id=home_id,
             terminal_id=terminal_id,
-            connected_at="1970-01-01T00:00:00+00:00" if self._database is None else _now_iso(),
+            connected_at="1970-01-01T00:00:00+00:00"
+            if self._terminal_presence_repository is None
+            else _now_iso(),
         )
         wakeup = asyncio.Event()
         await self._push_resume_backlog(websocket, state, last_event_id)

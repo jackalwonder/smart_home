@@ -8,11 +8,14 @@ from types import SimpleNamespace
 
 import pytest
 
-import src.modules.page_assets.services.FloorplanAssetService as floorplan_service_module
 from src.modules.page_assets.services.FloorplanAssetService import FloorplanAssetService
 from src.modules.system_connections.services.SystemConnectionService import (
     HomeAssistantCandidateConfig,
     SystemConnectionService,
+)
+from src.repositories.base.page_assets.PageAssetRepository import (
+    PageAssetFileRow,
+    PageAssetWriteRow,
 )
 from src.repositories.base.system.SystemConnectionRepository import SystemConnectionRow
 
@@ -176,76 +179,52 @@ async def test_reload_devices_force_full_sync_calls_gateway():
     assert gateway.triggered_reload_home_ids == ["home-1"]
 
 
-class _MappingsResult:
-    def __init__(self, row):
-        self._row = row
-
-    def mappings(self):
-        return self
-
-    def one_or_none(self):
-        return self._row
-
-    def one(self):
-        assert self._row is not None
-        return self._row
-
-
-class _FloorplanSession:
+class _PageAssetRepository:
     def __init__(self):
-        self.executed_sql = []
-        self.committed = False
+        self.floorplan_calls = []
+        self.hotspot_icon_calls = []
+        self.files = {}
 
-    async def execute(self, stmt, params=None):
-        sql = str(stmt)
-        self.executed_sql.append(sql)
-        if "WITH current_asset AS" in sql:
-            return _MappingsResult({"asset_id": "asset-existing"})
-        if "UPDATE page_assets" in sql:
-            return _MappingsResult(
-                {
-                    "asset_id": "asset-existing",
-                    "updated_at": "2026-04-14T10:00:00+00:00",
-                }
-            )
-        raise AssertionError(f"Unexpected SQL: {sql}")
+    async def upsert_floorplan_asset(self, input, *, replace_current):
+        self.floorplan_calls.append((input, replace_current))
+        return PageAssetWriteRow(
+            asset_id="asset-existing" if replace_current else "asset-new",
+            updated_at="2026-04-14T10:00:00+00:00",
+        )
 
-    async def commit(self):
-        self.committed = True
+    async def create_hotspot_icon_asset(self, input):
+        self.hotspot_icon_calls.append(input)
+        return PageAssetWriteRow(
+            asset_id="icon-asset-1",
+            updated_at="2026-04-14T10:00:00+00:00",
+        )
 
-
-class _HotspotIconSession:
-    def __init__(self):
-        self.executed_sql = []
-        self.params = []
-        self.committed = False
-
-    async def execute(self, stmt, params=None):
-        sql = str(stmt)
-        self.executed_sql.append(sql)
-        self.params.append(params or {})
-        if "INSERT INTO page_assets" in sql and "HOTSPOT_ICON" in sql:
-            return _MappingsResult(
-                {
-                    "asset_id": "icon-asset-1",
-                    "updated_at": "2026-04-14T10:00:00+00:00",
-                }
-            )
-        raise AssertionError(f"Unexpected SQL: {sql}")
-
-    async def commit(self):
-        self.committed = True
+    async def find_asset_file(self, *, home_id, asset_id, asset_type):
+        return self.files.get((home_id, asset_id, asset_type))
 
 
-class _SessionScope:
-    def __init__(self, session):
-        self._session = session
+class _AssetStorage:
+    def __init__(self, root):
+        self._root = Path(root)
+        self.saved_floorplans = []
+        self.saved_hotspot_icons = []
 
-    async def __aenter__(self):
-        return self._session, True
+    def save_floorplan(self, *, home_id, filename, data, timestamp_token):
+        self.saved_floorplans.append((home_id, filename, data, timestamp_token))
+        path = self._root / home_id / f"floorplan_{timestamp_token}.bin"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return str(path)
 
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
+    def save_hotspot_icon(self, *, home_id, filename, data, timestamp_token):
+        self.saved_hotspot_icons.append((home_id, filename, data, timestamp_token))
+        path = self._root / home_id / "hotspot-icons" / f"hotspot_icon_{timestamp_token}.bin"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return str(path)
+
+    def file_exists(self, path):
+        return Path(path).is_file()
 
 
 def _png_bytes(width: int, height: int) -> bytes:
@@ -257,20 +236,16 @@ def _png_bytes(width: int, height: int) -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_floorplan_replace_current_updates_existing_asset(monkeypatch, tmp_path):
-    session = _FloorplanSession()
-    monkeypatch.setattr(
-        floorplan_service_module,
-        "session_scope",
-        lambda _database: _SessionScope(session),
-    )
+async def test_floorplan_replace_current_updates_existing_asset(tmp_path):
+    repository = _PageAssetRepository()
+    storage = _AssetStorage(tmp_path)
 
     service = FloorplanAssetService(
-        database=SimpleNamespace(),
+        page_asset_repository=repository,
+        asset_storage=storage,
         management_pin_guard=_NoopPinGuard(),
         clock=_Clock(),
     )
-    service._storage_root = Path(tmp_path)
 
     view = await service.upload_floorplan(
         home_id="home-1",
@@ -284,26 +259,22 @@ async def test_floorplan_replace_current_updates_existing_asset(monkeypatch, tmp
 
     assert view.asset_id == "asset-existing"
     assert view.background_image_size == {"width": 64, "height": 32}
-    assert any("UPDATE page_assets" in sql for sql in session.executed_sql)
-    assert all("INSERT INTO page_assets" not in sql for sql in session.executed_sql)
-    assert session.committed is True
+    assert repository.floorplan_calls[0][1] is True
+    assert repository.floorplan_calls[0][0].mime_type == "image/png"
+    assert storage.saved_floorplans[0][0] == "home-1"
 
 
 @pytest.mark.asyncio
-async def test_hotspot_icon_upload_creates_hotspot_icon_asset(monkeypatch, tmp_path):
-    session = _HotspotIconSession()
-    monkeypatch.setattr(
-        floorplan_service_module,
-        "session_scope",
-        lambda _database: _SessionScope(session),
-    )
+async def test_hotspot_icon_upload_creates_hotspot_icon_asset(tmp_path):
+    repository = _PageAssetRepository()
+    storage = _AssetStorage(tmp_path)
 
     service = FloorplanAssetService(
-        database=SimpleNamespace(),
+        page_asset_repository=repository,
+        asset_storage=storage,
         management_pin_guard=_NoopPinGuard(),
         clock=_Clock(),
     )
-    service._storage_root = Path(tmp_path)
 
     view = await service.upload_hotspot_icon(
         home_id="home-1",
@@ -316,19 +287,20 @@ async def test_hotspot_icon_upload_creates_hotspot_icon_asset(monkeypatch, tmp_p
 
     assert view.asset_id == "icon-asset-1"
     assert view.icon_asset_url == "/api/v1/page-assets/hotspot-icons/icon-asset-1/file"
-    assert any("HOTSPOT_ICON" in sql for sql in session.executed_sql)
-    assert session.params[0]["mime_type"] == "image/svg+xml"
-    assert session.committed is True
+    assert repository.hotspot_icon_calls[0].mime_type == "image/svg+xml"
+    assert storage.saved_hotspot_icons[0][0] == "home-1"
 
 
 @pytest.mark.asyncio
 async def test_hotspot_icon_upload_rejects_non_image(tmp_path):
+    repository = _PageAssetRepository()
+    storage = _AssetStorage(tmp_path)
     service = FloorplanAssetService(
-        database=SimpleNamespace(),
+        page_asset_repository=repository,
+        asset_storage=storage,
         management_pin_guard=_NoopPinGuard(),
         clock=_Clock(),
     )
-    service._storage_root = Path(tmp_path)
 
     with pytest.raises(Exception):
         await service.upload_hotspot_icon(
@@ -339,3 +311,30 @@ async def test_hotspot_icon_upload_rejects_non_image(tmp_path):
             content_type="text/plain",
             data=b"not an image",
         )
+
+
+@pytest.mark.asyncio
+async def test_floorplan_file_uses_repository_and_storage(tmp_path):
+    repository = _PageAssetRepository()
+    storage = _AssetStorage(tmp_path)
+    path = storage.save_floorplan(
+        home_id="home-1",
+        filename="floorplan.png",
+        data=_png_bytes(20, 10),
+        timestamp_token="existing",
+    )
+    repository.files[("home-1", "asset-1", "FLOORPLAN")] = PageAssetFileRow(
+        file_url=path,
+        mime_type="image/png",
+    )
+    service = FloorplanAssetService(
+        page_asset_repository=repository,
+        asset_storage=storage,
+        management_pin_guard=_NoopPinGuard(),
+        clock=_Clock(),
+    )
+
+    view = await service.get_floorplan_file(home_id="home-1", asset_id="asset-1")
+
+    assert view.path == path
+    assert view.mime_type == "image/png"
