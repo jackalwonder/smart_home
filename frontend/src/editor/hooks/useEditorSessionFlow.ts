@@ -1,20 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
   createEditorSession,
-  discardEditorDraft,
   fetchEditorDraft,
-  heartbeatEditorSession,
-  publishEditorDraft,
-  saveEditorDraft,
-  takeoverEditorSession,
 } from "../../api/editorApi";
 import { normalizeApiError } from "../../api/httpClient";
-import {
-  buildDraftHotspotInputs,
-  buildLayoutMetaWithHotspotLabels,
-  parseLayoutMetaText,
-  type EditorDraftState,
-} from "../editorDraftState";
 import {
   asDetailRecord,
   asDetailString,
@@ -25,51 +14,19 @@ import {
   type EditorNoticeState,
 } from "../editorWorkbenchNotices";
 import { appStore } from "../../store/useAppStore";
-import { WsEvent } from "../../ws/types";
-
-interface EditorSessionFlowState {
-  lockStatus: string | null;
-  leaseId: string | null;
-  leaseExpiresAt: string | null;
-  heartbeatIntervalSeconds: number | null;
-  lockedByTerminalId: string | null;
-  draft: Record<string, unknown> | null;
-  draftVersion: string | null;
-  baseLayoutVersion: string | null;
-  readonly: boolean;
-}
-
-interface UseEditorSessionFlowOptions {
-  canEdit: boolean;
-  draftState: EditorDraftState;
-  editor: EditorSessionFlowState;
-  events: WsEvent[];
-  pinActive: boolean;
-  pinSessionActive: boolean;
-  resetSelection: () => void;
-  terminalId?: string | null;
-}
-
-type DraftLockLostEvent = Extract<WsEvent, { event_type: "draft_lock_lost" }>;
-type DraftTakenOverEvent = Extract<WsEvent, { event_type: "draft_taken_over" }>;
-type VersionConflictDetectedEvent = Extract<
-  WsEvent,
-  { event_type: "version_conflict_detected" }
->;
-
-function isDraftLockLostEvent(event: WsEvent): event is DraftLockLostEvent {
-  return event.event_type === "draft_lock_lost";
-}
-
-function isDraftTakenOverEvent(event: WsEvent): event is DraftTakenOverEvent {
-  return event.event_type === "draft_taken_over";
-}
-
-function isVersionConflictDetectedEvent(
-  event: WsEvent,
-): event is VersionConflictDetectedEvent {
-  return event.event_type === "version_conflict_detected";
-}
+import type { WsEvent } from "../../ws/types";
+import {
+  isDraftLockLostEvent,
+  isDraftTakenOverEvent,
+  isVersionConflictDetectedEvent,
+  type DraftLockLostEvent,
+  type DraftTakenOverEvent,
+  type UseEditorSessionFlowOptions,
+  type VersionConflictDetectedEvent,
+} from "./editorSessionFlowTypes";
+import { useEditorDraftLifecycle } from "./useEditorDraftLifecycle";
+import { useEditorLeaseLifecycle } from "./useEditorLeaseLifecycle";
+import { useEditorPublishFlow } from "./useEditorPublishFlow";
 
 export function useEditorSessionFlow({
   canEdit,
@@ -83,20 +40,7 @@ export function useEditorSessionFlow({
 }: UseEditorSessionFlowOptions) {
   const [editorNotice, setEditorNotice] =
     useState<EditorNoticeState | null>(null);
-  const [isAcquiringLock, setIsAcquiringLock] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [isPublishingDraft, setIsPublishingDraft] = useState(false);
-  const [isTakingOver, setIsTakingOver] = useState(false);
-  const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
   const handledRealtimeEventIdRef = useRef<string | null>(null);
-
-  const canAcquire =
-    pinActive &&
-    editor.lockStatus !== "GRANTED" &&
-    editor.lockStatus !== "LOCKED_BY_OTHER";
-  const canTakeover =
-    pinActive && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
-  const canDiscard = canEdit && Boolean(editor.leaseId && editor.draftVersion);
 
   function showEditorNotice(input: EditorNoticeState) {
     if (input.tone === "error") {
@@ -272,192 +216,52 @@ export function useEditorSessionFlow({
     showEditorNotice(buildEditorErrorNotice(apiError, action));
   }
 
-  async function persistDraft(options?: {
-    silent?: boolean;
-    errorAction?: "save" | "publish";
-  }) {
-    if (!editor.leaseId || !editor.draftVersion || !editor.baseLayoutVersion || !canEdit) {
-      return null;
-    }
+  const {
+    canAcquire,
+    canTakeover,
+    handleAcquireLock,
+    handleTakeover,
+    isAcquiringLock,
+    isTakingOver,
+  } = useEditorLeaseLifecycle({
+    editor,
+    pinActive,
+    applyEditorSession,
+    clearEditorFeedback,
+    fetchEditableSession: openEditableSession,
+    handleEditorActionError,
+    refreshDraft,
+    showEditorNotice,
+  });
 
-    try {
-      const parsedLayoutMeta = parseLayoutMetaText(draftState.layoutMetaText);
-      const layoutMeta = buildLayoutMetaWithHotspotLabels(
-        parsedLayoutMeta,
-        draftState.hotspots,
-      );
-      await saveEditorDraft({
-        lease_id: editor.leaseId,
-        draft_version: editor.draftVersion,
-        base_layout_version: editor.baseLayoutVersion,
-        background_asset_id: draftState.backgroundAssetId,
-        layout_meta: layoutMeta,
-        hotspots: buildDraftHotspotInputs(draftState.hotspots),
-      });
-      const refreshed = await refreshDraft(editor.leaseId);
-      appStore.setEditorSession({
-        lockStatus: "GRANTED",
-        leaseId: editor.leaseId,
-        leaseExpiresAt: editor.leaseExpiresAt,
-        heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds,
-        lockedByTerminalId: null,
-      });
-      if (!options?.silent) {
-        showEditorNotice({
-          tone: "success",
-          title: "草稿已保存",
-          detail: "当前修改已经写入后端草稿。",
-        });
-      }
-      return refreshed;
-    } catch (error) {
-      await handleEditorActionError(error, options?.errorAction ?? "save");
-      return null;
-    }
-  }
+  const {
+    canDiscard,
+    handleDiscardDraft,
+    handleSaveDraft,
+    isDiscardingDraft,
+    isSavingDraft,
+    persistDraft,
+  } = useEditorDraftLifecycle({
+    canEdit,
+    draftState,
+    editor,
+    clearEditorFeedback,
+    handleEditorActionError,
+    refreshDraft,
+    resetSelection,
+    showEditorNotice,
+  });
 
-  async function handleSaveDraft() {
-    clearEditorFeedback();
-    setIsSavingDraft(true);
-    try {
-      await persistDraft();
-    } finally {
-      setIsSavingDraft(false);
-    }
-  }
-
-  async function handlePublishDraft() {
-    if (!editor.leaseId || !canEdit) {
-      return;
-    }
-
-    clearEditorFeedback();
-    setIsPublishingDraft(true);
-    try {
-      const refreshed = await persistDraft({
-        silent: true,
-        errorAction: "publish",
-      });
-      if (!refreshed?.draft_version || !refreshed.base_layout_version) {
-        return;
-      }
-
-      const published = await publishEditorDraft({
-        lease_id: editor.leaseId,
-        draft_version: refreshed.draft_version,
-        base_layout_version: refreshed.base_layout_version,
-      });
-
-      appStore.setEditorSession({
-        lockStatus: "READ_ONLY",
-        leaseId: null,
-        leaseExpiresAt: null,
-        heartbeatIntervalSeconds: null,
-        lockedByTerminalId: null,
-      });
-      await refreshDraft();
-      resetSelection();
-      showEditorNotice({
-        tone: "success",
-        title: "草稿已发布",
-        detail: `布局版本已更新为 ${published.layout_version}。`,
-      });
-    } catch (error) {
-      await handleEditorActionError(error, "publish");
-    } finally {
-      setIsPublishingDraft(false);
-    }
-  }
-
-  async function handleAcquireLock() {
-    if (!canAcquire) {
-      return;
-    }
-
-    clearEditorFeedback();
-    setIsAcquiringLock(true);
-    try {
-      await openEditableSession();
-    } catch (error) {
-      await handleEditorActionError(error, "acquire");
-    } finally {
-      setIsAcquiringLock(false);
-    }
-  }
-
-  async function handleTakeover() {
-    if (!editor.leaseId || !canTakeover) {
-      return;
-    }
-
-    clearEditorFeedback();
-    setIsTakingOver(true);
-    try {
-      const takeover = await takeoverEditorSession(editor.leaseId);
-      if (!takeover.taken_over || !takeover.new_lease_id) {
-        showEditorNotice({
-          tone: "warning",
-          title: "接管未完成",
-          detail: "请刷新锁状态后再试。",
-          actions: ["refresh", "retry-takeover"],
-        });
-        return;
-      }
-
-      appStore.setEditorSession({
-        lockStatus: "GRANTED",
-        leaseId: takeover.new_lease_id,
-        leaseExpiresAt: takeover.lease_expires_at ?? null,
-        heartbeatIntervalSeconds: editor.heartbeatIntervalSeconds ?? 20,
-        lockedByTerminalId: null,
-      });
-      await refreshDraft(takeover.new_lease_id);
-      showEditorNotice({
-        tone: "success",
-        title: "已接管编辑租约",
-        detail: takeover.previous_terminal_id
-          ? `当前终端已接管终端 ${takeover.previous_terminal_id} 的编辑租约。`
-          : "当前终端已接管编辑租约。",
-      });
-    } catch (error) {
-      await handleEditorActionError(error, "takeover");
-    } finally {
-      setIsTakingOver(false);
-    }
-  }
-
-  async function handleDiscardDraft() {
-    if (!editor.leaseId || !canDiscard) {
-      return;
-    }
-
-    clearEditorFeedback();
-    setIsDiscardingDraft(true);
-    try {
-      await discardEditorDraft({
-        lease_id: editor.leaseId,
-        draft_version: editor.draftVersion,
-      });
-      appStore.setEditorSession({
-        lockStatus: "READ_ONLY",
-        leaseId: null,
-        leaseExpiresAt: null,
-        heartbeatIntervalSeconds: null,
-        lockedByTerminalId: null,
-      });
-      await refreshDraft();
-      resetSelection();
-      showEditorNotice({
-        tone: "success",
-        title: "草稿已丢弃",
-        detail: "编辑租约已释放，页面已回到只读快照。",
-      });
-    } catch (error) {
-      await handleEditorActionError(error, "discard");
-    } finally {
-      setIsDiscardingDraft(false);
-    }
-  }
+  const { handlePublishDraft, isPublishingDraft } = useEditorPublishFlow({
+    canEdit,
+    editor,
+    clearEditorFeedback,
+    handleEditorActionError,
+    persistDraft,
+    refreshDraft,
+    resetSelection,
+    showEditorNotice,
+  });
 
   useEffect(() => {
     if (!terminalId) {
@@ -652,49 +456,6 @@ export function useEditorSessionFlow({
     events,
     terminalId,
   ]);
-
-  useEffect(() => {
-    if (editor.lockStatus !== "GRANTED" || !editor.leaseId) {
-      return;
-    }
-
-    const intervalSeconds = editor.heartbeatIntervalSeconds ?? 20;
-    const heartbeatDelayMs = Math.max(5_000, Math.floor(intervalSeconds * 750));
-    let active = true;
-
-    async function renewLease() {
-      if (!editor.leaseId) {
-        return;
-      }
-
-      try {
-        const heartbeat = await heartbeatEditorSession(editor.leaseId);
-        if (!active) {
-          return;
-        }
-        appStore.setEditorSession({
-          lockStatus: heartbeat.lock_status,
-          leaseId: heartbeat.lease_id,
-          leaseExpiresAt: heartbeat.lease_expires_at,
-          lockedByTerminalId: null,
-        });
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-        await handleEditorActionError(error, "acquire");
-      }
-    }
-
-    const timer = window.setInterval(() => {
-      void renewLease();
-    }, heartbeatDelayMs);
-
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [editor.heartbeatIntervalSeconds, editor.leaseId, editor.lockStatus]);
 
   return {
     canAcquire,
