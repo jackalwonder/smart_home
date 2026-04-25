@@ -24,6 +24,9 @@ from src.infrastructure.db.repositories.base.auth.TerminalPairingCodeRepositoryI
 from src.infrastructure.db.repositories.base.backups.BackupRepositoryImpl import (
     BackupRepositoryImpl,
 )
+from src.infrastructure.db.repositories.base.backups.BackupRestoreRepositoryImpl import (
+    BackupRestoreRepositoryImpl,
+)
 from src.infrastructure.db.repositories.base.control.DeviceControlRequestRepositoryImpl import (
     DeviceControlRequestRepositoryImpl,
 )
@@ -41,6 +44,9 @@ from src.infrastructure.db.repositories.base.editor.DraftLeaseRepositoryImpl imp
 )
 from src.infrastructure.db.repositories.base.devices.DeviceControlSchemaRepositoryImpl import (
     DeviceControlSchemaRepositoryImpl,
+)
+from src.infrastructure.db.repositories.base.devices.DeviceCatalogCommandRepositoryImpl import (
+    DeviceCatalogCommandRepositoryImpl,
 )
 from src.infrastructure.db.repositories.base.devices.DeviceRepositoryImpl import (
     DeviceRepositoryImpl,
@@ -62,6 +68,9 @@ from src.infrastructure.db.repositories.base.page_assets.PageAssetRepositoryImpl
 )
 from src.infrastructure.db.repositories.base.realtime.WsEventOutboxRepositoryImpl import (
     WsEventOutboxRepositoryImpl,
+)
+from src.infrastructure.db.repositories.base.realtime.HaRealtimeSyncRepositoryImpl import (
+    HaRealtimeSyncRepositoryImpl,
 )
 from src.infrastructure.db.repositories.base.realtime.TerminalPresenceRepositoryImpl import (
     TerminalPresenceRepositoryImpl,
@@ -87,6 +96,9 @@ from src.infrastructure.db.repositories.base.settings.SettingsVersionRepositoryI
 from src.infrastructure.db.repositories.base.system.SystemConnectionRepositoryImpl import (
     SystemConnectionRepositoryImpl,
 )
+from src.infrastructure.db.repositories.base.system.HaEntitySyncRepositoryImpl import (
+    HaEntitySyncRepositoryImpl,
+)
 from src.infrastructure.db.repositories.query.auth.AuthSessionQueryRepositoryImpl import (
     AuthSessionQueryRepositoryImpl,
 )
@@ -101,6 +113,9 @@ from src.infrastructure.db.repositories.query.editor.EditorLeaseQueryRepositoryI
 )
 from src.infrastructure.db.repositories.query.overview.HomeOverviewQueryRepositoryImpl import (
     HomeOverviewQueryRepositoryImpl,
+)
+from src.infrastructure.db.repositories.query.overview.DeviceCatalogQueryRepositoryImpl import (
+    DeviceCatalogQueryRepositoryImpl,
 )
 from src.infrastructure.db.repositories.query.settings.FavoritesQueryRepositoryImpl import (
     FavoritesQueryRepositoryImpl,
@@ -154,8 +169,11 @@ from src.modules.device_control.services.query.DeviceControlResultQueryService i
 from src.modules.editor.services.EditorDraftService import EditorDraftService
 from src.modules.editor.services.EditorPublishService import EditorPublishService
 from src.modules.editor.services.EditorSessionService import EditorSessionService
-from src.modules.energy.services.EnergyService import EnergyService
 from src.modules.energy.services.EnergyAutoRefreshService import EnergyAutoRefreshService
+from src.modules.energy.services.EnergyBindingService import EnergyBindingService
+from src.modules.energy.services.EnergyRefreshCoordinator import EnergyRefreshCoordinator
+from src.modules.energy.services.EnergyService import EnergyService
+from src.modules.energy.services.EnergyUpstreamReader import EnergyUpstreamReader
 from src.modules.home_overview.services.query.HomeOverviewQueryService import (
     HomeOverviewQueryService,
 )
@@ -318,6 +336,11 @@ def get_home_overview_query_repository() -> HomeOverviewQueryRepositoryImpl:
 
 
 @lru_cache(maxsize=1)
+def get_device_catalog_query_repository() -> DeviceCatalogQueryRepositoryImpl:
+    return DeviceCatalogQueryRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
 def get_settings_snapshot_query_repository() -> SettingsSnapshotQueryRepositoryImpl:
     return SettingsSnapshotQueryRepositoryImpl(get_database())
 
@@ -348,6 +371,11 @@ def get_device_repository() -> DeviceRepositoryImpl:
 
 
 @lru_cache(maxsize=1)
+def get_device_catalog_command_repository() -> DeviceCatalogCommandRepositoryImpl:
+    return DeviceCatalogCommandRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
 def get_device_runtime_state_repository() -> DeviceRuntimeStateRepositoryImpl:
     return DeviceRuntimeStateRepositoryImpl(get_database())
 
@@ -370,6 +398,11 @@ def get_device_control_transition_repository() -> DeviceControlTransitionReposit
 @lru_cache(maxsize=1)
 def get_ws_event_outbox_repository() -> WsEventOutboxRepositoryImpl:
     return WsEventOutboxRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_ha_realtime_sync_repository() -> HaRealtimeSyncRepositoryImpl:
+    return HaRealtimeSyncRepositoryImpl(get_database())
 
 
 @lru_cache(maxsize=1)
@@ -428,6 +461,11 @@ def get_system_connection_repository() -> SystemConnectionRepositoryImpl:
 
 
 @lru_cache(maxsize=1)
+def get_ha_entity_sync_repository() -> HaEntitySyncRepositoryImpl:
+    return HaEntitySyncRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
 def get_energy_account_repository() -> EnergyAccountRepositoryImpl:
     return EnergyAccountRepositoryImpl(get_database())
 
@@ -445,6 +483,11 @@ def get_media_binding_repository() -> MediaBindingRepositoryImpl:
 @lru_cache(maxsize=1)
 def get_backup_repository() -> BackupRepositoryImpl:
     return BackupRepositoryImpl(get_database())
+
+
+@lru_cache(maxsize=1)
+def get_backup_restore_repository() -> BackupRestoreRepositoryImpl:
+    return BackupRestoreRepositoryImpl(get_database())
 
 
 @lru_cache(maxsize=1)
@@ -554,7 +597,8 @@ def get_home_overview_query_service() -> HomeOverviewQueryService:
 @lru_cache(maxsize=1)
 def get_device_catalog_service() -> DeviceCatalogService:
     return DeviceCatalogService(
-        database=get_database(),
+        device_catalog_query_repository=get_device_catalog_query_repository(),
+        device_catalog_command_repository=get_device_catalog_command_repository(),
         unit_of_work=get_unit_of_work(),
         device_repository=get_device_repository(),
         management_pin_guard=get_management_pin_guard(),
@@ -565,6 +609,7 @@ def get_device_catalog_service() -> DeviceCatalogService:
 def get_ha_entity_sync_service() -> HaEntitySyncService:
     return HaEntitySyncService(
         clock=get_clock(),
+        ha_entity_sync_repository=get_ha_entity_sync_repository(),
         device_control_schema_repository=get_device_control_schema_repository(),
     )
 
@@ -572,7 +617,7 @@ def get_ha_entity_sync_service() -> HaEntitySyncService:
 @lru_cache(maxsize=1)
 def get_ha_realtime_sync_service() -> HaRealtimeSyncService:
     return HaRealtimeSyncService(
-        database=get_database(),
+        ha_realtime_sync_repository=get_ha_realtime_sync_repository(),
         unit_of_work=get_unit_of_work(),
         ha_connection_gateway=get_ha_connection_gateway(),
         ha_entity_sync_service=get_ha_entity_sync_service(),
@@ -741,16 +786,10 @@ def get_system_connection_service() -> SystemConnectionService:
 
 
 @lru_cache(maxsize=1)
-def get_energy_service() -> EnergyService:
+def get_energy_upstream_reader() -> EnergyUpstreamReader:
     settings = get_settings()
-    return EnergyService(
-        energy_account_repository=get_energy_account_repository(),
-        energy_snapshot_repository=get_energy_snapshot_repository(),
-        ws_event_outbox_repository=get_ws_event_outbox_repository(),
-        management_pin_guard=get_management_pin_guard(),
+    return EnergyUpstreamReader(
         ha_connection_gateway=get_ha_connection_gateway(),
-        event_id_generator=get_event_id_generator(),
-        clock=get_clock(),
         sgcc_container_restarter=get_sgcc_container_restarter(),
         upstream_refresh_mode=settings.energy_upstream_refresh_mode,
         upstream_ha_domain=settings.energy_upstream_ha_domain,
@@ -759,6 +798,43 @@ def get_energy_service() -> EnergyService:
         upstream_wait_timeout_seconds=settings.energy_upstream_wait_timeout_seconds,
         upstream_poll_interval_seconds=settings.energy_upstream_poll_interval_seconds,
         sgcc_cache_file=settings.sgcc_cache_file,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_energy_binding_service() -> EnergyBindingService:
+    return EnergyBindingService(
+        energy_account_repository=get_energy_account_repository(),
+        energy_snapshot_repository=get_energy_snapshot_repository(),
+        management_pin_guard=get_management_pin_guard(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_energy_refresh_coordinator() -> EnergyRefreshCoordinator:
+    return EnergyRefreshCoordinator(
+        energy_account_repository=get_energy_account_repository(),
+        energy_snapshot_repository=get_energy_snapshot_repository(),
+        ws_event_outbox_repository=get_ws_event_outbox_repository(),
+        upstream_reader=get_energy_upstream_reader(),
+        event_id_generator=get_event_id_generator(),
+        clock=get_clock(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_energy_service() -> EnergyService:
+    return EnergyService(
+        energy_account_repository=get_energy_account_repository(),
+        energy_snapshot_repository=get_energy_snapshot_repository(),
+        ws_event_outbox_repository=get_ws_event_outbox_repository(),
+        management_pin_guard=get_management_pin_guard(),
+        ha_connection_gateway=get_ha_connection_gateway(),
+        event_id_generator=get_event_id_generator(),
+        clock=get_clock(),
+        binding_service=get_energy_binding_service(),
+        upstream_reader=get_energy_upstream_reader(),
+        refresh_coordinator=get_energy_refresh_coordinator(),
     )
 
 
@@ -807,7 +883,7 @@ def get_backup_service() -> BackupService:
 @lru_cache(maxsize=1)
 def get_backup_restore_service() -> BackupRestoreService:
     return BackupRestoreService(
-        database=get_database(),
+        backup_restore_repository=get_backup_restore_repository(),
         unit_of_work=get_unit_of_work(),
         management_pin_guard=get_management_pin_guard(),
         settings_version_repository=get_settings_version_repository(),

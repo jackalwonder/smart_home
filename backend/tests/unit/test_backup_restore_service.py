@@ -6,8 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-import src.modules.backups.services.BackupRestoreService as restore_module
 from src.modules.backups.services.BackupRestoreService import BackupRestoreService
+from src.repositories.base.backups.BackupRestoreRepository import (
+    BackupRestoreAuditRow,
+    BackupRestoreBackupRow,
+)
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 
@@ -18,89 +21,12 @@ class _NoopPinGuard:
 
 
 class _UnitOfWork:
-    def __init__(self, session=None):
+    def __init__(self):
         self.calls = 0
-        self._session = session
 
     async def run_in_transaction(self, func):
         self.calls += 1
-        return await func(SimpleNamespace(session=self._session))
-
-
-class _MappingsResult:
-    def __init__(self, row):
-        self._row = row
-
-    def mappings(self):
-        return self
-
-    def all(self):
-        if isinstance(self._row, list):
-            return self._row
-        if self._row is None:
-            return []
-        return [self._row]
-
-    def one_or_none(self):
-        return self._row
-
-    def one(self):
-        assert self._row is not None
-        return self._row
-
-
-class _BackupSession:
-    def __init__(self, row):
-        self._row = row
-        self.failure_audit_params = None
-        self.commits = 0
-
-    async def execute(self, stmt, params=None):
-        sql = str(stmt)
-        if "INSERT INTO audit_logs" in sql:
-            self.failure_audit_params = params
-            return _MappingsResult(None)
-        return _MappingsResult(self._row)
-
-    async def commit(self):
-        self.commits += 1
-
-
-class _AuditSession:
-    def __init__(self, rows):
-        self._rows = rows
-        self.params = None
-
-    async def execute(self, _stmt, params=None):
-        self.params = params
-        return _MappingsResult(self._rows)
-
-
-class _TransactionSession:
-    def __init__(self):
-        self.audit_params = None
-        self.backup_restore_params = None
-
-    async def execute(self, stmt, params=None):
-        sql = str(stmt)
-        if "INSERT INTO audit_logs" in sql:
-            self.audit_params = params
-            return _MappingsResult({"audit_id": "audit-1"})
-        if "UPDATE system_backups" in sql:
-            self.backup_restore_params = params
-            return _MappingsResult(None)
-        raise AssertionError(f"Unexpected SQL: {sql}")
-
-
-class _SessionScope:
-    def __init__(self, session):
-        self._session = session
-
-    async def __aenter__(self):
-        return self._session, True
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
+        return await func(SimpleNamespace(id="tx-1"))
 
 
 def _valid_snapshot_blob() -> bytes:
@@ -117,6 +43,42 @@ def _valid_snapshot_blob() -> bytes:
             },
         }
     ).encode("utf-8")
+
+
+class _BackupRestoreRepository:
+    def __init__(
+        self,
+        *,
+        backup_row: BackupRestoreBackupRow | None = None,
+        audit_rows: list[BackupRestoreAuditRow] | None = None,
+    ) -> None:
+        self.backup_row = backup_row
+        self.audit_rows = audit_rows or []
+        self.list_limit = None
+        self.failure_audit = None
+        self.success_audit = None
+        self.restored_backup = None
+
+    async def list_restore_audits(self, *, home_id, limit):
+        self.list_limit = limit
+        return self.audit_rows
+
+    async def get_backup(self, *, home_id, backup_id):
+        return self.backup_row
+
+    async def insert_restore_failure_audit(self, input):
+        self.failure_audit = input
+
+    async def insert_restore_success_audit(self, input, ctx=None):
+        self.success_audit = input
+        return "audit-1"
+
+    async def mark_backup_restored(self, *, home_id, backup_id, restored_at, ctx=None):
+        self.restored_backup = {
+            "home_id": home_id,
+            "backup_id": backup_id,
+            "restored_at": restored_at,
+        }
 
 
 class _SettingsVersionRepository:
@@ -176,9 +138,14 @@ class _Clock:
         return datetime(2026, 4, 17, 10, 0, 0, tzinfo=timezone.utc)
 
 
-def _build_service(unit_of_work, *, outbox_repository=None):
+def _build_service(
+    unit_of_work,
+    *,
+    backup_restore_repository=None,
+    outbox_repository=None,
+):
     return BackupRestoreService(
-        database=SimpleNamespace(),
+        backup_restore_repository=backup_restore_repository or _BackupRestoreRepository(),
         unit_of_work=unit_of_work,
         management_pin_guard=_NoopPinGuard(),
         settings_version_repository=_SettingsVersionRepository(),
@@ -194,13 +161,13 @@ def _build_service(unit_of_work, *, outbox_repository=None):
     )
 
 
-async def _restore(monkeypatch, row, unit_of_work, *, outbox_repository=None):
-    monkeypatch.setattr(
-        restore_module,
-        "session_scope",
-        lambda _database: _SessionScope(_BackupSession(row)),
+async def _restore(row, unit_of_work, *, outbox_repository=None, backup_restore_repository=None):
+    repository = backup_restore_repository or _BackupRestoreRepository(backup_row=row)
+    service = _build_service(
+        unit_of_work,
+        backup_restore_repository=repository,
+        outbox_repository=outbox_repository,
     )
-    service = _build_service(unit_of_work, outbox_repository=outbox_repository)
     return await service.restore_backup(
         home_id="home-1",
         backup_id="bk_1",
@@ -210,32 +177,27 @@ async def _restore(monkeypatch, row, unit_of_work, *, outbox_repository=None):
 
 
 @pytest.mark.asyncio
-async def test_list_restore_audits_returns_bounded_history(monkeypatch):
-    audit_session = _AuditSession(
-        [
-            {
-                "audit_id": "audit-1",
-                "backup_id": "bk_1",
-                "restored_at": "2026-04-17T10:00:00+00:00",
-                "operator_id": "member-1",
-                "operator_name": "Operator",
-                "terminal_id": "terminal-1",
-                "before_version": "bk_1",
-                "settings_version": "sv_restored",
-                "layout_version": "lv_restored",
-                "result_status": "SUCCESS",
-                "error_code": None,
-                "error_message": None,
-                "failure_reason": None,
-            }
+async def test_list_restore_audits_returns_bounded_history():
+    repository = _BackupRestoreRepository(
+        audit_rows=[
+            BackupRestoreAuditRow(
+                audit_id="audit-1",
+                backup_id="bk_1",
+                restored_at="2026-04-17T10:00:00+00:00",
+                operator_id="member-1",
+                operator_name="Operator",
+                terminal_id="terminal-1",
+                before_version="bk_1",
+                settings_version="sv_restored",
+                layout_version="lv_restored",
+                result_status="SUCCESS",
+                error_code=None,
+                error_message=None,
+                failure_reason=None,
+            )
         ]
     )
-    monkeypatch.setattr(
-        restore_module,
-        "session_scope",
-        lambda _database: _SessionScope(audit_session),
-    )
-    service = _build_service(_UnitOfWork())
+    service = _build_service(_UnitOfWork(), backup_restore_repository=repository)
 
     result = await service.list_restore_audits(
         home_id="home-1",
@@ -243,7 +205,7 @@ async def test_list_restore_audits_returns_bounded_history(monkeypatch):
         limit=500,
     )
 
-    assert audit_session.params == {"home_id": "home-1", "limit": 100}
+    assert repository.list_limit == 100
     assert result[0].audit_id == "audit-1"
     assert result[0].backup_id == "bk_1"
     assert result[0].settings_version == "sv_restored"
@@ -252,32 +214,27 @@ async def test_list_restore_audits_returns_bounded_history(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_list_restore_audits_includes_failure_details(monkeypatch):
-    audit_session = _AuditSession(
-        [
-            {
-                "audit_id": "audit-2",
-                "backup_id": "bk_2",
-                "restored_at": "2026-04-17T10:01:00+00:00",
-                "operator_id": "member-1",
-                "operator_name": "Operator",
-                "terminal_id": "terminal-1",
-                "before_version": "bk_2",
-                "settings_version": None,
-                "layout_version": None,
-                "result_status": "FAILED",
-                "error_code": "INVALID_PARAMS",
-                "error_message": "backup snapshot is invalid",
-                "failure_reason": "invalid_json",
-            }
+async def test_list_restore_audits_includes_failure_details():
+    repository = _BackupRestoreRepository(
+        audit_rows=[
+            BackupRestoreAuditRow(
+                audit_id="audit-2",
+                backup_id="bk_2",
+                restored_at="2026-04-17T10:01:00+00:00",
+                operator_id="member-1",
+                operator_name="Operator",
+                terminal_id="terminal-1",
+                before_version="bk_2",
+                settings_version=None,
+                layout_version=None,
+                result_status="FAILED",
+                error_code="INVALID_PARAMS",
+                error_message="backup snapshot is invalid",
+                failure_reason="invalid_json",
+            )
         ]
     )
-    monkeypatch.setattr(
-        restore_module,
-        "session_scope",
-        lambda _database: _SessionScope(audit_session),
-    )
-    service = _build_service(_UnitOfWork())
+    service = _build_service(_UnitOfWork(), backup_restore_repository=repository)
 
     result = await service.list_restore_audits(
         home_id="home-1",
@@ -291,15 +248,12 @@ async def test_list_restore_audits_includes_failure_details(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_restore_rejects_non_ready_backup_before_transaction(monkeypatch):
+async def test_restore_rejects_non_ready_backup_before_transaction():
     unit_of_work = _UnitOfWork()
-    backup_session = _BackupSession({"status": "FAILED", "snapshot_blob": _valid_snapshot_blob()})
-    monkeypatch.setattr(
-        restore_module,
-        "session_scope",
-        lambda _database: _SessionScope(backup_session),
+    repository = _BackupRestoreRepository(
+        backup_row=BackupRestoreBackupRow(status="FAILED", snapshot_blob=_valid_snapshot_blob())
     )
-    service = _build_service(unit_of_work)
+    service = _build_service(unit_of_work, backup_restore_repository=repository)
 
     with pytest.raises(AppError) as exc_info:
         await service.restore_backup(
@@ -312,23 +266,18 @@ async def test_restore_rejects_non_ready_backup_before_transaction(monkeypatch):
     assert exc_info.value.code == ErrorCode.INVALID_PARAMS
     assert exc_info.value.details["fields"][0]["reason"] == "status_not_ready"
     assert exc_info.value.details["fields"][0]["status"] == "FAILED"
-    assert backup_session.failure_audit_params["result_status"] == "FAILED"
-    assert backup_session.failure_audit_params["target_id"] == "bk_1"
-    assert backup_session.failure_audit_params["error_code"] == "INVALID_PARAMS"
-    assert backup_session.commits == 1
+    assert repository.failure_audit.backup_id == "bk_1"
+    assert repository.failure_audit.error_code == "INVALID_PARAMS"
     assert unit_of_work.calls == 0
 
 
 @pytest.mark.asyncio
-async def test_restore_rejects_corrupt_snapshot_before_transaction(monkeypatch):
+async def test_restore_rejects_corrupt_snapshot_before_transaction():
     unit_of_work = _UnitOfWork()
-    backup_session = _BackupSession({"status": "READY", "snapshot_blob": b"{not-json"})
-    monkeypatch.setattr(
-        restore_module,
-        "session_scope",
-        lambda _database: _SessionScope(backup_session),
+    repository = _BackupRestoreRepository(
+        backup_row=BackupRestoreBackupRow(status="READY", snapshot_blob=b"{not-json")
     )
-    service = _build_service(unit_of_work)
+    service = _build_service(unit_of_work, backup_restore_repository=repository)
 
     with pytest.raises(AppError) as exc_info:
         await service.restore_backup(
@@ -341,14 +290,12 @@ async def test_restore_rejects_corrupt_snapshot_before_transaction(monkeypatch):
     assert exc_info.value.code == ErrorCode.INVALID_PARAMS
     assert exc_info.value.details["fields"][0]["field"] == "snapshot_blob"
     assert exc_info.value.details["fields"][0]["reason"] == "invalid_json"
-    assert backup_session.failure_audit_params["result_status"] == "FAILED"
-    assert backup_session.failure_audit_params["target_id"] == "bk_1"
-    assert backup_session.commits == 1
+    assert repository.failure_audit.backup_id == "bk_1"
     assert unit_of_work.calls == 0
 
 
 @pytest.mark.asyncio
-async def test_restore_rejects_invalid_hotspot_snapshot_before_transaction(monkeypatch):
+async def test_restore_rejects_invalid_hotspot_snapshot_before_transaction():
     unit_of_work = _UnitOfWork()
     snapshot = {
         "settings": {
@@ -367,12 +314,18 @@ async def test_restore_rejects_invalid_hotspot_snapshot_before_transaction(monke
             ],
         },
     }
+    repository = _BackupRestoreRepository(
+        backup_row=BackupRestoreBackupRow(
+            status="READY",
+            snapshot_blob=json.dumps(snapshot).encode("utf-8"),
+        )
+    )
 
     with pytest.raises(AppError) as exc_info:
         await _restore(
-            monkeypatch,
-            {"status": "READY", "snapshot_blob": json.dumps(snapshot).encode("utf-8")},
+            repository.backup_row,
             unit_of_work,
+            backup_restore_repository=repository,
         )
 
     assert exc_info.value.code == ErrorCode.INVALID_PARAMS
@@ -382,15 +335,10 @@ async def test_restore_rejects_invalid_hotspot_snapshot_before_transaction(monke
 
 
 @pytest.mark.asyncio
-async def test_restore_rejects_missing_backup_with_failure_audit(monkeypatch):
+async def test_restore_rejects_missing_backup_with_failure_audit():
     unit_of_work = _UnitOfWork()
-    backup_session = _BackupSession(None)
-    monkeypatch.setattr(
-        restore_module,
-        "session_scope",
-        lambda _database: _SessionScope(backup_session),
-    )
-    service = _build_service(unit_of_work)
+    repository = _BackupRestoreRepository(backup_row=None)
+    service = _build_service(unit_of_work, backup_restore_repository=repository)
 
     with pytest.raises(AppError) as exc_info:
         await service.restore_backup(
@@ -401,32 +349,30 @@ async def test_restore_rejects_missing_backup_with_failure_audit(monkeypatch):
         )
 
     assert exc_info.value.code == ErrorCode.INVALID_PARAMS
-    assert backup_session.failure_audit_params["target_id"] == "bk_missing"
-    assert backup_session.failure_audit_params["result_status"] == "FAILED"
-    assert backup_session.commits == 1
+    assert repository.failure_audit.backup_id == "bk_missing"
+    assert repository.failure_audit.error_code == "INVALID_PARAMS"
     assert unit_of_work.calls == 0
 
 
 @pytest.mark.asyncio
-async def test_restore_writes_audit_log_and_returns_audit_id(monkeypatch):
-    transaction_session = _TransactionSession()
-    unit_of_work = _UnitOfWork(session=transaction_session)
+async def test_restore_writes_audit_log_and_returns_audit_id():
+    unit_of_work = _UnitOfWork()
     outbox_repository = _WsEventOutboxRepository()
+    backup_restore_repository = _BackupRestoreRepository(
+        backup_row=BackupRestoreBackupRow(status="READY", snapshot_blob=_valid_snapshot_blob())
+    )
 
     result = await _restore(
-        monkeypatch,
-        {"status": "READY", "snapshot_blob": _valid_snapshot_blob()},
+        backup_restore_repository.backup_row,
         unit_of_work,
         outbox_repository=outbox_repository,
+        backup_restore_repository=backup_restore_repository,
     )
 
     assert result.audit_id == "audit-1"
     assert unit_of_work.calls == 1
-    assert transaction_session.audit_params["action_type"] == "BACKUP_RESTORE"
-    assert transaction_session.audit_params["target_type"] == "SYSTEM_BACKUP"
-    assert transaction_session.audit_params["target_id"] == "bk_1"
-    assert transaction_session.audit_params["before_version"] == "bk_1"
-    assert transaction_session.audit_params["after_version"] == "sv_restored"
-    assert transaction_session.audit_params["result_status"] == "SUCCESS"
-    assert transaction_session.backup_restore_params["backup_id"] == "bk_1"
+    assert backup_restore_repository.success_audit.backup_id == "bk_1"
+    assert backup_restore_repository.success_audit.settings_version == "sv_restored"
+    assert backup_restore_repository.success_audit.layout_version == "lv_restored"
+    assert backup_restore_repository.restored_backup["backup_id"] == "bk_1"
     assert outbox_repository.inserted.payload_json["audit_id"] == "audit-1"

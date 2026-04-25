@@ -4,12 +4,13 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import text
-
-from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import session_scope, to_jsonb
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
 from src.repositories.base.realtime.WsEventOutboxRepository import NewWsEventOutboxRow, WsEventOutboxRepository
+from src.repositories.base.backups.BackupRestoreRepository import (
+    BackupRestoreFailureAuditInput,
+    BackupRestoreRepository,
+    BackupRestoreSuccessAuditInput,
+)
 from src.repositories.base.settings.FavoriteDevicesRepository import (
     FavoriteDeviceSnapshotRow,
     FavoriteDevicesRepository,
@@ -200,7 +201,7 @@ def _first_field_reason(error: AppError) -> str | None:
 class BackupRestoreService:
     def __init__(
         self,
-        database: Database,
+        backup_restore_repository: BackupRestoreRepository,
         unit_of_work: UnitOfWork,
         management_pin_guard: ManagementPinGuard,
         settings_version_repository: SettingsVersionRepository,
@@ -214,7 +215,7 @@ class BackupRestoreService:
         event_id_generator: EventIdGenerator,
         clock: Clock,
     ) -> None:
-        self._database = database
+        self._backup_restore_repository = backup_restore_repository
         self._unit_of_work = unit_of_work
         self._management_pin_guard = management_pin_guard
         self._settings_version_repository = settings_version_repository
@@ -237,58 +238,25 @@ class BackupRestoreService:
     ) -> list[BackupRestoreAuditView]:
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
         bounded_limit = max(1, min(limit, 100))
-        stmt = text(
-            """
-            SELECT
-                al.id::text AS audit_id,
-                al.target_id AS backup_id,
-                al.created_at::text AS restored_at,
-                al.operator_id::text AS operator_id,
-                m.display_name AS operator_name,
-                al.terminal_id::text AS terminal_id,
-                al.before_version,
-                COALESCE(al.payload_json ->> 'settings_version', al.after_version) AS settings_version,
-                al.payload_json ->> 'layout_version' AS layout_version,
-                al.result_status,
-                al.error_code,
-                al.payload_json ->> 'error_message' AS error_message,
-                al.payload_json ->> 'failure_reason' AS failure_reason
-            FROM audit_logs al
-            LEFT JOIN members m
-              ON m.id = al.operator_id
-            WHERE al.home_id = :home_id
-              AND al.action_type = 'BACKUP_RESTORE'
-              AND al.target_type = 'SYSTEM_BACKUP'
-            ORDER BY al.created_at DESC
-            LIMIT :limit
-            """
+        rows = await self._backup_restore_repository.list_restore_audits(
+            home_id=home_id,
+            limit=bounded_limit,
         )
-        async with session_scope(self._database) as (session, _):
-            rows = (
-                await session.execute(
-                    stmt,
-                    {
-                        "home_id": home_id,
-                        "limit": bounded_limit,
-                    },
-                )
-            ).mappings().all()
-
         return [
             BackupRestoreAuditView(
-                audit_id=row["audit_id"],
-                backup_id=row["backup_id"],
-                restored_at=row["restored_at"],
-                operator_id=row["operator_id"],
-                operator_name=row["operator_name"],
-                terminal_id=row["terminal_id"],
-                before_version=row["before_version"],
-                settings_version=row["settings_version"],
-                layout_version=row["layout_version"],
-                result_status=row["result_status"],
-                error_code=row["error_code"],
-                error_message=row["error_message"],
-                failure_reason=row["failure_reason"],
+                audit_id=row.audit_id,
+                backup_id=row.backup_id,
+                restored_at=row.restored_at,
+                operator_id=row.operator_id,
+                operator_name=row.operator_name,
+                terminal_id=row.terminal_id,
+                before_version=row.before_version,
+                settings_version=row.settings_version,
+                layout_version=row.layout_version,
+                result_status=row.result_status,
+                error_code=row.error_code,
+                error_message=row.error_message,
+                failure_reason=row.failure_reason,
             )
             for row in rows
         ]
@@ -304,62 +272,19 @@ class BackupRestoreService:
     ) -> None:
         now_iso = self._clock.now().isoformat()
         failure_reason = _first_field_reason(error)
-        stmt = text(
-            """
-            INSERT INTO audit_logs (
-                home_id,
-                operator_id,
-                terminal_id,
-                action_type,
-                target_type,
-                target_id,
-                before_version,
-                result_status,
-                error_code,
-                payload_json,
-                created_at
-            ) VALUES (
-                :home_id,
-                :operator_id,
-                :terminal_id,
-                :action_type,
-                :target_type,
-                :target_id,
-                :before_version,
-                :result_status,
-                :error_code,
-                :payload_json,
-                :created_at
+        await self._backup_restore_repository.insert_restore_failure_audit(
+            BackupRestoreFailureAuditInput(
+                home_id=home_id,
+                backup_id=backup_id,
+                terminal_id=terminal_id,
+                operator_id=operator_id,
+                error_code=error.code.value,
+                error_message=error.message,
+                failure_reason=failure_reason,
+                details_json=error.details or {},
+                created_at=now_iso,
             )
-            """
         )
-        async with session_scope(self._database) as (session, owned):
-            await session.execute(
-                stmt,
-                {
-                    "home_id": home_id,
-                    "operator_id": operator_id,
-                    "terminal_id": terminal_id,
-                    "action_type": "BACKUP_RESTORE",
-                    "target_type": "SYSTEM_BACKUP",
-                    "target_id": backup_id,
-                    "before_version": backup_id,
-                    "result_status": "FAILED",
-                    "error_code": error.code.value,
-                    "payload_json": to_jsonb(
-                        {
-                            "backup_id": backup_id,
-                            "error_message": error.message,
-                            "failure_reason": failure_reason,
-                            "details": error.details or {},
-                            "restored_by_terminal_id": terminal_id,
-                        }
-                    ),
-                    "created_at": now_iso,
-                },
-            )
-            if owned:
-                await session.commit()
 
     async def restore_backup(
         self,
@@ -370,21 +295,11 @@ class BackupRestoreService:
         operator_id: str | None,
     ) -> BackupRestoreView:
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
-        async with session_scope(self._database) as (session, _):
-            backup_row = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT status, snapshot_blob
-                        FROM system_backups
-                        WHERE home_id = :home_id
-                          AND backup_id = :backup_id
-                        """
-                    ),
-                    {"home_id": home_id, "backup_id": backup_id},
-                )
-            ).mappings().one_or_none()
-        if backup_row is None or backup_row["snapshot_blob"] is None:
+        backup_row = await self._backup_restore_repository.get_backup(
+            home_id=home_id,
+            backup_id=backup_id,
+        )
+        if backup_row is None or backup_row.snapshot_blob is None:
             error = AppError(
                 ErrorCode.INVALID_PARAMS,
                 "backup_id is invalid",
@@ -398,7 +313,7 @@ class BackupRestoreService:
                 error=error,
             )
             raise error
-        if backup_row["status"] != "READY":
+        if backup_row.status != "READY":
             error = AppError(
                 ErrorCode.INVALID_PARAMS,
                 "backup is not ready to restore",
@@ -407,7 +322,7 @@ class BackupRestoreService:
                         {
                             "field": "backup_id",
                             "reason": "status_not_ready",
-                            "status": backup_row["status"],
+                            "status": backup_row.status,
                         }
                     ]
                 },
@@ -422,7 +337,7 @@ class BackupRestoreService:
             raise error
 
         try:
-            snapshot = _decode_snapshot_blob(backup_row["snapshot_blob"])
+            snapshot = _decode_snapshot_blob(backup_row.snapshot_blob)
         except AppError as error:
             await self._write_restore_failure_audit(
                 home_id=home_id,
@@ -532,72 +447,23 @@ class BackupRestoreService:
                 ctx=ctx,
             )
 
-            audit_row = (
-                await tx.session.execute(
-                    text(
-                        """
-                        INSERT INTO audit_logs (
-                            home_id,
-                            operator_id,
-                            terminal_id,
-                            action_type,
-                            target_type,
-                            target_id,
-                            before_version,
-                            after_version,
-                            result_status,
-                            payload_json,
-                            created_at
-                        ) VALUES (
-                            :home_id,
-                            :operator_id,
-                            :terminal_id,
-                            :action_type,
-                            :target_type,
-                            :target_id,
-                            :before_version,
-                            :after_version,
-                            :result_status,
-                            :payload_json,
-                            :created_at
-                        )
-                        RETURNING id::text AS audit_id
-                        """
-                    ),
-                    {
-                        "home_id": home_id,
-                        "operator_id": operator_id,
-                        "terminal_id": terminal_id,
-                        "action_type": "BACKUP_RESTORE",
-                        "target_type": "SYSTEM_BACKUP",
-                        "target_id": backup_id,
-                        "before_version": backup_id,
-                        "after_version": next_settings_version,
-                        "result_status": "SUCCESS",
-                        "payload_json": to_jsonb(
-                            {
-                                "backup_id": backup_id,
-                                "settings_version": next_settings_version,
-                                "layout_version": next_layout_version,
-                                "restored_by_terminal_id": terminal_id,
-                            }
-                        ),
-                        "created_at": now_iso,
-                    },
-                )
-            ).mappings().one()
-            audit_id = audit_row["audit_id"]
-
-            await tx.session.execute(
-                text(
-                    """
-                    UPDATE system_backups
-                    SET restored_at = :restored_at
-                    WHERE home_id = :home_id
-                      AND backup_id = :backup_id
-                    """
+            audit_id = await self._backup_restore_repository.insert_restore_success_audit(
+                BackupRestoreSuccessAuditInput(
+                    home_id=home_id,
+                    backup_id=backup_id,
+                    terminal_id=terminal_id,
+                    operator_id=operator_id,
+                    settings_version=next_settings_version,
+                    layout_version=next_layout_version,
+                    created_at=now_iso,
                 ),
-                {"home_id": home_id, "backup_id": backup_id, "restored_at": now_iso},
+                ctx=ctx,
+            )
+            await self._backup_restore_repository.mark_backup_restored(
+                home_id=home_id,
+                backup_id=backup_id,
+                restored_at=now_iso,
+                ctx=ctx,
             )
             await self._ws_event_outbox_repository.insert(
                 NewWsEventOutboxRow(

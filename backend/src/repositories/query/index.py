@@ -11,6 +11,9 @@ from src.repositories.query.editor.EditorLeaseQueryRepository import (
 from src.repositories.query.overview.HomeOverviewQueryRepository import (
     HomeOverviewQueryRepository,
 )
+from src.repositories.query.overview.DeviceCatalogQueryRepository import (
+    DeviceCatalogQueryRepository,
+)
 from src.repositories.query.settings.FavoritesQueryRepository import (
     FavoritesQueryRepository,
 )
@@ -20,6 +23,7 @@ from src.repositories.query.settings.SettingsSnapshotQueryRepository import (
 
 __all__ = [
     "AuthSessionQueryRepository",
+    "DeviceCatalogQueryRepository",
     "HomeOverviewQueryRepository",
     "FavoritesQueryRepository",
     "SettingsSnapshotQueryRepository",

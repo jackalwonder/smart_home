@@ -1,3 +1,6 @@
+from src.infrastructure.db.repositories.base.devices.DeviceCatalogCommandRepositoryImpl import (
+    DeviceCatalogCommandRepositoryImpl,
+)
 from src.infrastructure.db.repositories.base.devices.DeviceControlSchemaRepositoryImpl import (
     DeviceControlSchemaRepositoryImpl,
 )
@@ -7,6 +10,7 @@ from src.infrastructure.db.repositories.base.devices.DeviceRuntimeStateRepositor
 )
 
 __all__ = [
+    "DeviceCatalogCommandRepositoryImpl",
     "DeviceControlSchemaRepositoryImpl",
     "DeviceRepositoryImpl",
     "DeviceRuntimeStateRepositoryImpl",

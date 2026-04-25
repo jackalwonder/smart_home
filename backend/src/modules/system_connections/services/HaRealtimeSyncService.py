@@ -4,9 +4,6 @@ import asyncio
 import hashlib
 import json
 
-from sqlalchemy import text
-
-from src.infrastructure.db.connection.Database import Database
 from src.infrastructure.ha.HaConnectionGateway import HaConnectionGateway, HaRealtimeEvent
 from src.infrastructure.ha.HomeAssistantBootstrapProvider import HomeAssistantBootstrapProvider
 from src.infrastructure.security.ConnectionSecretCipher import ConnectionSecretCipher
@@ -17,6 +14,9 @@ from src.modules.system_connections.services.HaEntitySyncService import (
 from src.repositories.base.realtime.WsEventOutboxRepository import (
     NewWsEventOutboxRow,
     WsEventOutboxRepository,
+)
+from src.repositories.base.realtime.HaRealtimeSyncRepository import (
+    HaRealtimeSyncRepository,
 )
 from src.repositories.base.system.SystemConnectionRepository import (
     SystemConnectionRepository,
@@ -38,7 +38,7 @@ REGISTRY_EVENT_TYPES = {
 class HaRealtimeSyncService:
     def __init__(
         self,
-        database: Database,
+        ha_realtime_sync_repository: HaRealtimeSyncRepository,
         unit_of_work: UnitOfWork,
         ha_connection_gateway: HaConnectionGateway,
         ha_entity_sync_service: HaEntitySyncService,
@@ -49,7 +49,7 @@ class HaRealtimeSyncService:
         event_id_generator: EventIdGenerator,
         clock: Clock,
     ) -> None:
-        self._database = database
+        self._ha_realtime_sync_repository = ha_realtime_sync_repository
         self._unit_of_work = unit_of_work
         self._ha_connection_gateway = ha_connection_gateway
         self._ha_entity_sync_service = ha_entity_sync_service
@@ -96,19 +96,7 @@ class HaRealtimeSyncService:
         )
 
     async def _list_home_ids(self) -> list[str]:
-        async with self._database.session_factory()() as session:
-            rows = (
-                await session.execute(
-                    text(
-                        """
-                        SELECT id::text AS id
-                        FROM homes
-                        ORDER BY created_at ASC
-                        """
-                    )
-                )
-            ).mappings().all()
-        return [str(row["id"]) for row in rows]
+        return await self._ha_realtime_sync_repository.list_home_ids()
 
     async def _ensure_connection(
         self,

@@ -6,10 +6,6 @@ from pathlib import Path
 
 MODULE_DB_ACCESS_ALLOWLIST = {
     "src/modules/auth/services/query/RequestContextService.py",
-    "src/modules/backups/services/BackupRestoreService.py",
-    "src/modules/home_overview/services/DeviceCatalogService.py",
-    "src/modules/system_connections/services/HaEntitySyncService.py",
-    "src/modules/system_connections/services/HaRealtimeSyncService.py",
 }
 
 

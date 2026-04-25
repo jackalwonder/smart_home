@@ -4,6 +4,7 @@ from src.repositories.base.auth.PinLockRepository import PinLockRepository
 from src.repositories.base.auth.PinSessionRepository import PinSessionRepository
 from src.repositories.base.auth.TerminalRepository import TerminalRepository
 from src.repositories.base.backups.BackupRepository import BackupRepository
+from src.repositories.base.backups.BackupRestoreRepository import BackupRestoreRepository
 from src.repositories.base.control.DeviceControlRequestRepository import (
     DeviceControlRequestRepository,
 )
@@ -12,6 +13,9 @@ from src.repositories.base.control.DeviceControlTransitionRepository import (
 )
 from src.repositories.base.devices.DeviceControlSchemaRepository import (
     DeviceControlSchemaRepository,
+)
+from src.repositories.base.devices.DeviceCatalogCommandRepository import (
+    DeviceCatalogCommandRepository,
 )
 from src.repositories.base.devices.DeviceRepository import DeviceRepository
 from src.repositories.base.devices.DeviceRuntimeStateRepository import (
@@ -22,6 +26,9 @@ from src.repositories.base.editor.DraftLayoutRepository import DraftLayoutReposi
 from src.repositories.base.editor.DraftHotspotRepository import DraftHotspotRepository
 from src.repositories.base.page_assets.AssetStorage import AssetStorage
 from src.repositories.base.page_assets.PageAssetRepository import PageAssetRepository
+from src.repositories.base.realtime.HaRealtimeSyncRepository import (
+    HaRealtimeSyncRepository,
+)
 from src.repositories.base.realtime.TerminalPresenceRepository import (
     TerminalPresenceRepository,
 )
@@ -44,6 +51,8 @@ __all__ = [
     "PinSessionRepository",
     "PinLockRepository",
     "BackupRepository",
+    "BackupRestoreRepository",
+    "DeviceCatalogCommandRepository",
     "DeviceRepository",
     "DeviceRuntimeStateRepository",
     "DeviceControlSchemaRepository",
@@ -57,6 +66,7 @@ __all__ = [
     "DraftHotspotRepository",
     "AssetStorage",
     "PageAssetRepository",
+    "HaRealtimeSyncRepository",
     "TerminalPresenceRepository",
     "LayoutHotspotRepository",
     "DeviceControlRequestRepository",
