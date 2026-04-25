@@ -4,9 +4,7 @@ import ast
 from pathlib import Path
 
 
-MODULE_DB_ACCESS_ALLOWLIST = {
-    "src/modules/auth/services/query/RequestContextService.py",
-}
+MODULE_DB_ACCESS_ALLOWLIST: set[str] = set()
 
 
 def _repo_root() -> Path:

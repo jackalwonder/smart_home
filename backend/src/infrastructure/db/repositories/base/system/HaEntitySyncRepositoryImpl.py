@@ -1,10 +1,31 @@
 from __future__ import annotations
 
 from psycopg.types.json import Jsonb
-from sqlalchemy import bindparam, text
 
 from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import as_dict, session_scope
+from src.infrastructure.db.repositories._support import session_scope
+from src.infrastructure.db.repositories.base.system.HaEntitySyncRowMapper import (
+    device_id_by_ha_device_id,
+    entity_row_id_by_entity_id,
+    room_id_by_name,
+    runtime_entity_links,
+)
+from src.infrastructure.db.repositories.base.system.HaEntitySyncSql import (
+    DELETE_STALE_DEVICE_ENTITY_LINKS_SQL,
+    ENSURE_ROOM_SQL,
+    FIND_STATE_CHANGED_ENTITY_SQL,
+    INSERT_DEVICE_SQL,
+    LOAD_DEVICES_SQL,
+    LOAD_ENTITIES_SQL,
+    LOAD_ROOMS_SQL,
+    RUNTIME_ENTITY_LINKS_SQL,
+    UPDATE_DEVICE_SQL,
+    UPDATE_HA_ENTITY_SQL,
+    UPDATE_HA_ENTITY_STATE_SQL,
+    UPSERT_DEVICE_ENTITY_LINK_SQL,
+    UPSERT_HA_ENTITY_SQL,
+    UPSERT_RUNTIME_STATE_SQL,
+)
 from src.repositories.base.system.HaEntitySyncRepository import (
     DeviceEntityLinkSaveInput,
     HaDeviceSaveInput,
@@ -21,17 +42,14 @@ class HaEntitySyncRepositoryImpl:
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    async def load_existing_rooms(self, home_id: str, ctx: RepoContext | None = None) -> dict[str, str]:
-        stmt = text(
-            """
-            SELECT id::text AS id, room_name
-            FROM rooms
-            WHERE home_id = :home_id
-            """
-        )
+    async def load_existing_rooms(
+        self,
+        home_id: str,
+        ctx: RepoContext | None = None,
+    ) -> dict[str, str]:
         async with session_scope(self._database, ctx) as (session, _):
-            rows = (await session.execute(stmt, {"home_id": home_id})).mappings().all()
-        return {str(row["room_name"]): str(row["id"]) for row in rows}
+            rows = (await session.execute(LOAD_ROOMS_SQL, {"home_id": home_id})).mappings().all()
+        return room_id_by_name(list(rows))
 
     async def ensure_room(
         self,
@@ -39,55 +57,22 @@ class HaEntitySyncRepositoryImpl:
         room_name: str,
         ctx: RepoContext | None = None,
     ) -> str:
-        stmt = text(
-            """
-            INSERT INTO rooms (
-                home_id,
-                room_name,
-                priority,
-                visible_in_editor,
-                sort_order,
-                created_at,
-                updated_at
-            ) VALUES (
-                :home_id,
-                :room_name,
-                0,
-                true,
-                0,
-                now(),
-                now()
-            )
-            ON CONFLICT (home_id, room_name) DO UPDATE
-            SET updated_at = now()
-            RETURNING id::text AS id
-            """
-        )
         async with session_scope(self._database, ctx) as (session, owned):
             row = (
-                await session.execute(stmt, {"home_id": home_id, "room_name": room_name})
+                await session.execute(ENSURE_ROOM_SQL, {"home_id": home_id, "room_name": room_name})
             ).mappings().one()
             if owned:
                 await session.commit()
         return str(row["id"])
 
-    async def load_existing_devices(self, home_id: str, ctx: RepoContext | None = None) -> dict[str, str]:
-        stmt = text(
-            """
-            SELECT
-                id::text AS id,
-                source_meta_json ->> 'ha_device_id' AS ha_device_id
-            FROM devices
-            WHERE home_id = :home_id
-            """
-        )
+    async def load_existing_devices(
+        self,
+        home_id: str,
+        ctx: RepoContext | None = None,
+    ) -> dict[str, str]:
         async with session_scope(self._database, ctx) as (session, _):
-            rows = (await session.execute(stmt, {"home_id": home_id})).mappings().all()
-        return {
-            str(row["ha_device_id"]): str(row["id"])
-            for row in rows
-            if row["ha_device_id"] is not None
-        }
+            rows = (await session.execute(LOAD_DEVICES_SQL, {"home_id": home_id})).mappings().all()
+        return device_id_by_ha_device_id(list(rows))
 
     async def load_existing_entities(
         self,
@@ -97,19 +82,14 @@ class HaEntitySyncRepositoryImpl:
     ) -> dict[str, str]:
         if not entity_ids:
             return {}
-        stmt = text(
-            """
-            SELECT id::text AS id, entity_id
-            FROM ha_entities
-            WHERE home_id = :home_id
-              AND entity_id IN :entity_ids
-            """
-        ).bindparams(bindparam("entity_ids", expanding=True))
         async with session_scope(self._database, ctx) as (session, _):
             rows = (
-                await session.execute(stmt, {"home_id": home_id, "entity_ids": entity_ids})
+                await session.execute(
+                    LOAD_ENTITIES_SQL,
+                    {"home_id": home_id, "entity_ids": entity_ids},
+                )
             ).mappings().all()
-        return {str(row["entity_id"]): str(row["id"]) for row in rows}
+        return entity_row_id_by_entity_id(list(rows))
 
     async def save_device(
         self,
@@ -132,117 +112,24 @@ class HaEntitySyncRepositoryImpl:
             "capabilities_json": Jsonb(input.capabilities_json),
             "source_meta_json": Jsonb(input.source_meta_json),
         }
-        if device_id is not None:
-            stmt = text(
-                """
-                UPDATE devices
-                SET
-                    room_id = :room_id,
-                    display_name = :display_name,
-                    raw_name = :raw_name,
-                    device_type = :device_type,
-                    is_complex_device = :is_complex_device,
-                    is_readonly_device = :is_readonly_device,
-                    entry_behavior = :entry_behavior,
-                    default_control_target = :default_control_target,
-                    is_homepage_visible = true,
-                    capabilities_json = :capabilities_json,
-                    source_meta_json = :source_meta_json,
-                    updated_at = now()
-                WHERE id = :device_id
-                """
-            )
-            async with session_scope(self._database, ctx) as (session, owned):
-                await session.execute(stmt, params)
-                if owned:
-                    await session.commit()
-            return device_id
-
-        stmt = text(
-            """
-            INSERT INTO devices (
-                home_id,
-                room_id,
-                display_name,
-                raw_name,
-                device_type,
-                is_complex_device,
-                is_readonly_device,
-                confirmation_type,
-                entry_behavior,
-                default_control_target,
-                is_primary_device,
-                is_homepage_visible,
-                capabilities_json,
-                source_meta_json,
-                created_at,
-                updated_at
-            ) VALUES (
-                :home_id,
-                :room_id,
-                :display_name,
-                :raw_name,
-                :device_type,
-                :is_complex_device,
-                :is_readonly_device,
-                'ACK_DRIVEN',
-                :entry_behavior,
-                :default_control_target,
-                false,
-                true,
-                :capabilities_json,
-                :source_meta_json,
-                now(),
-                now()
-            )
-            RETURNING id::text AS id
-            """
-        )
+        stmt = UPDATE_DEVICE_SQL if device_id is not None else INSERT_DEVICE_SQL
         async with session_scope(self._database, ctx) as (session, owned):
-            row = (await session.execute(stmt, params)).mappings().one()
+            result = await session.execute(stmt, params)
+            new_device_id = (
+                device_id if device_id is not None else str(result.mappings().one()["id"])
+            )
             if owned:
                 await session.commit()
-        return str(row["id"])
+        return new_device_id
 
     async def upsert_runtime_state(
         self,
         input: HaRuntimeStateInput,
         ctx: RepoContext | None = None,
     ) -> None:
-        stmt = text(
-            """
-            INSERT INTO device_runtime_states (
-                device_id,
-                home_id,
-                status,
-                is_offline,
-                status_summary_json,
-                runtime_state_json,
-                last_state_update_at,
-                updated_at
-            ) VALUES (
-                :device_id,
-                :home_id,
-                :status,
-                :is_offline,
-                :status_summary_json,
-                :runtime_state_json,
-                :last_state_update_at,
-                now()
-            )
-            ON CONFLICT (device_id) DO UPDATE SET
-                home_id = EXCLUDED.home_id,
-                status = EXCLUDED.status,
-                is_offline = EXCLUDED.is_offline,
-                status_summary_json = EXCLUDED.status_summary_json,
-                runtime_state_json = EXCLUDED.runtime_state_json,
-                last_state_update_at = EXCLUDED.last_state_update_at,
-                updated_at = now()
-            """
-        )
         async with session_scope(self._database, ctx) as (session, owned):
             await session.execute(
-                stmt,
+                UPSERT_RUNTIME_STATE_SQL,
                 {
                     "device_id": input.device_id,
                     "home_id": input.home_id,
@@ -277,118 +164,25 @@ class HaEntitySyncRepositoryImpl:
             "room_hint": input.room_hint,
             "is_available": input.is_available,
         }
-        if ha_entity_id is not None:
-            stmt = text(
-                """
-                UPDATE ha_entities
-                SET
-                    platform = :platform,
-                    domain = :domain,
-                    raw_name = :raw_name,
-                    state = :state,
-                    attributes_json = :attributes_json,
-                    last_synced_at = now(),
-                    last_state_changed_at = :last_state_changed_at,
-                    room_hint = :room_hint,
-                    is_available = :is_available,
-                    updated_at = now()
-                WHERE id = :id
-                """
-            )
-            async with session_scope(self._database, ctx) as (session, owned):
-                await session.execute(stmt, params)
-                if owned:
-                    await session.commit()
-            return ha_entity_id
-
-        stmt = text(
-            """
-            INSERT INTO ha_entities (
-                home_id,
-                entity_id,
-                platform,
-                domain,
-                raw_name,
-                state,
-                attributes_json,
-                last_synced_at,
-                last_state_changed_at,
-                room_hint,
-                is_available,
-                created_at,
-                updated_at
-            ) VALUES (
-                :home_id,
-                :entity_id,
-                :platform,
-                :domain,
-                :raw_name,
-                :state,
-                :attributes_json,
-                now(),
-                :last_state_changed_at,
-                :room_hint,
-                :is_available,
-                now(),
-                now()
-            )
-            ON CONFLICT (home_id, entity_id) DO UPDATE SET
-                platform = EXCLUDED.platform,
-                domain = EXCLUDED.domain,
-                raw_name = EXCLUDED.raw_name,
-                state = EXCLUDED.state,
-                attributes_json = EXCLUDED.attributes_json,
-                last_synced_at = now(),
-                last_state_changed_at = EXCLUDED.last_state_changed_at,
-                room_hint = EXCLUDED.room_hint,
-                is_available = EXCLUDED.is_available,
-                updated_at = now()
-            RETURNING id::text AS id
-            """
-        )
+        stmt = UPDATE_HA_ENTITY_SQL if ha_entity_id is not None else UPSERT_HA_ENTITY_SQL
         async with session_scope(self._database, ctx) as (session, owned):
-            row = (await session.execute(stmt, params)).mappings().one()
+            result = await session.execute(stmt, params)
+            new_entity_id = (
+                ha_entity_id
+                if ha_entity_id is not None
+                else str(result.mappings().one()["id"])
+            )
             if owned:
                 await session.commit()
-        return str(row["id"])
+        return new_entity_id
 
     async def upsert_device_entity_link(
         self,
         input: DeviceEntityLinkSaveInput,
         ctx: RepoContext | None = None,
     ) -> None:
-        stmt = text(
-            """
-            INSERT INTO device_entity_links (
-                home_id,
-                device_id,
-                ha_entity_id,
-                entity_role,
-                is_primary,
-                sort_order,
-                created_at,
-                updated_at
-            ) VALUES (
-                :home_id,
-                :device_id,
-                :ha_entity_id,
-                :entity_role,
-                :is_primary,
-                :sort_order,
-                now(),
-                now()
-            )
-            ON CONFLICT (ha_entity_id) DO UPDATE SET
-                home_id = EXCLUDED.home_id,
-                device_id = EXCLUDED.device_id,
-                entity_role = EXCLUDED.entity_role,
-                is_primary = EXCLUDED.is_primary,
-                sort_order = EXCLUDED.sort_order,
-                updated_at = now()
-            """
-        )
         async with session_scope(self._database, ctx) as (session, owned):
-            await session.execute(stmt, input.__dict__)
+            await session.execute(UPSERT_DEVICE_ENTITY_LINK_SQL, input.__dict__)
             if owned:
                 await session.commit()
 
@@ -400,16 +194,9 @@ class HaEntitySyncRepositoryImpl:
     ) -> None:
         if not current_ha_entity_ids:
             return
-        stmt = text(
-            """
-            DELETE FROM device_entity_links
-            WHERE device_id = :device_id
-              AND ha_entity_id NOT IN :ha_entity_ids
-            """
-        ).bindparams(bindparam("ha_entity_ids", expanding=True))
         async with session_scope(self._database, ctx) as (session, owned):
             await session.execute(
-                stmt,
+                DELETE_STALE_DEVICE_ENTITY_LINKS_SQL,
                 {"device_id": device_id, "ha_entity_ids": current_ha_entity_ids},
             )
             if owned:
@@ -421,22 +208,12 @@ class HaEntitySyncRepositoryImpl:
         entity_id: str,
         ctx: RepoContext | None = None,
     ) -> StateChangedEntityLinkRow | None:
-        stmt = text(
-            """
-            SELECT
-                he.id::text AS ha_entity_id,
-                he.state AS current_state,
-                he.last_state_changed_at::text AS current_last_state_changed_at,
-                del.device_id::text AS device_id
-            FROM ha_entities he
-            JOIN device_entity_links del ON del.ha_entity_id = he.id
-            WHERE he.home_id = :home_id
-              AND he.entity_id = :entity_id
-            """
-        )
         async with session_scope(self._database, ctx) as (session, _):
             row = (
-                await session.execute(stmt, {"home_id": home_id, "entity_id": entity_id})
+                await session.execute(
+                    FIND_STATE_CHANGED_ENTITY_SQL,
+                    {"home_id": home_id, "entity_id": entity_id},
+                )
             ).mappings().one_or_none()
         return StateChangedEntityLinkRow(**row) if row is not None else None
 
@@ -445,22 +222,9 @@ class HaEntitySyncRepositoryImpl:
         input: HaEntityStateUpdateInput,
         ctx: RepoContext | None = None,
     ) -> None:
-        stmt = text(
-            """
-            UPDATE ha_entities
-            SET
-                state = :state,
-                attributes_json = :attributes_json,
-                last_synced_at = now(),
-                last_state_changed_at = :last_state_changed_at,
-                is_available = :is_available,
-                updated_at = now()
-            WHERE id = :ha_entity_id
-            """
-        )
         async with session_scope(self._database, ctx) as (session, owned):
             await session.execute(
-                stmt,
+                UPDATE_HA_ENTITY_STATE_SQL,
                 {
                     "ha_entity_id": input.ha_entity_id,
                     "state": input.state,
@@ -478,45 +242,11 @@ class HaEntitySyncRepositoryImpl:
         device_id: str,
         ctx: RepoContext | None = None,
     ) -> list[RuntimeEntityLinkRow]:
-        stmt = text(
-            """
-            SELECT
-                d.id::text AS device_id,
-                d.home_id::text AS home_id,
-                d.display_name,
-                d.device_type,
-                he.entity_id,
-                he.domain,
-                he.state,
-                he.attributes_json,
-                he.last_state_changed_at::text AS last_state_changed_at,
-                del.is_primary,
-                del.sort_order
-            FROM devices d
-            JOIN device_entity_links del ON del.device_id = d.id
-            JOIN ha_entities he ON he.id = del.ha_entity_id
-            WHERE d.home_id = :home_id
-              AND d.id = :device_id
-            ORDER BY del.is_primary DESC, del.sort_order ASC, he.entity_id ASC
-            """
-        )
         async with session_scope(self._database, ctx) as (session, _):
             rows = (
-                await session.execute(stmt, {"home_id": home_id, "device_id": device_id})
+                await session.execute(
+                    RUNTIME_ENTITY_LINKS_SQL,
+                    {"home_id": home_id, "device_id": device_id},
+                )
             ).mappings().all()
-        return [
-            RuntimeEntityLinkRow(
-                device_id=str(row["device_id"]),
-                home_id=str(row["home_id"]),
-                display_name=str(row["display_name"]),
-                device_type=str(row["device_type"]),
-                entity_id=str(row["entity_id"]),
-                domain=str(row["domain"]),
-                state=row["state"],
-                attributes_json=as_dict(row["attributes_json"]),
-                last_state_changed_at=row["last_state_changed_at"],
-                is_primary=bool(row["is_primary"]),
-                sort_order=int(row["sort_order"]),
-            )
-            for row in rows
-        ]
+        return runtime_entity_links(list(rows))

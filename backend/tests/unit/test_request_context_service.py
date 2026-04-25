@@ -10,6 +10,7 @@ from src.modules.auth.services.query.RequestContextService import (
     RequestContext,
     RequestContextService,
 )
+from src.repositories.query.auth.RequestContextRepository import RequestContextLookupRow
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 
@@ -23,9 +24,33 @@ def _resolver() -> JwtAccessTokenResolver:
     )
 
 
+class FakeRequestContextRepository:
+    def __init__(self) -> None:
+        self.terminal_contexts: dict[str, RequestContextLookupRow] = {}
+        self.session_contexts: dict[str, RequestContextLookupRow] = {}
+        self.device_home_ids: dict[str, str] = {}
+        self.control_request_home_ids: dict[str, str] = {}
+
+    async def find_terminal_context(self, terminal_id: str):
+        return self.terminal_contexts.get(terminal_id)
+
+    async def find_session_context(self, session_token: str):
+        return self.session_contexts.get(session_token)
+
+    async def find_home_id_by_device_id(self, device_id: str):
+        return self.device_home_ids.get(device_id)
+
+    async def find_home_id_by_control_request_id(self, request_id: str):
+        return self.control_request_home_ids.get(request_id)
+
+
+def _repository() -> FakeRequestContextRepository:
+    return FakeRequestContextRepository()
+
+
 def _service() -> RequestContextService:
     return RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=_resolver(),
     )
 
@@ -48,7 +73,7 @@ async def test_bearer_claims_are_authoritative_context():
         operator_id="member-1",
     )
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -74,7 +99,7 @@ async def test_bearer_rejects_mismatched_legacy_context_fields():
     resolver = _resolver()
     token = resolver.issue(home_id="home-1", terminal_id="terminal-1")
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -137,7 +162,7 @@ async def test_http_runtime_rejects_query_access_token_transport():
     resolver = _resolver()
     token = resolver.issue(home_id="home-1", terminal_id="terminal-1", scope=("api", "ws"))
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -270,7 +295,7 @@ async def test_websocket_subprotocol_can_carry_bearer_jwt():
         scope=("api", "ws"),
     )
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -295,7 +320,7 @@ async def test_websocket_query_access_token_is_legacy_compatible():
         scope=("api", "ws"),
     )
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -320,7 +345,7 @@ async def test_websocket_cookie_access_token_is_not_accepted():
         scope=("api", "ws"),
     )
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -345,7 +370,7 @@ async def test_websocket_explicit_token_is_not_accepted():
         scope=("api", "ws"),
     )
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -371,7 +396,7 @@ async def test_internal_context_can_still_resolve_explicit_ws_token():
         scope=("api", "ws"),
     )
     service = RequestContextService(
-        database=object(),  # type: ignore[arg-type]
+        request_context_repository=_repository(),
         access_token_resolver=resolver,
     )
 
@@ -391,3 +416,42 @@ async def test_internal_context_can_still_resolve_explicit_ws_token():
     assert context.auth_mode == "bearer"
     assert context.home_id == "home-1"
     assert context.terminal_id == "terminal-1"
+
+
+@pytest.mark.asyncio
+async def test_terminal_fallback_uses_request_context_repository():
+    repository = _repository()
+    repository.terminal_contexts["terminal-1"] = RequestContextLookupRow(
+        home_id="home-1",
+        terminal_id="terminal-1",
+    )
+    service = RequestContextService(
+        request_context_repository=repository,
+        access_token_resolver=_resolver(),
+    )
+
+    context = await service._resolve_context(
+        query_params={"terminal_id": "terminal-1"},
+        headers={},
+        cookies={},
+        require_home=True,
+        require_terminal=True,
+        required_access_scope="api",
+    )
+
+    assert context.home_id == "home-1"
+    assert context.terminal_id == "terminal-1"
+
+
+@pytest.mark.asyncio
+async def test_home_lookup_helpers_use_request_context_repository():
+    repository = _repository()
+    repository.device_home_ids["device-1"] = "home-1"
+    repository.control_request_home_ids["request-1"] = "home-2"
+    service = RequestContextService(
+        request_context_repository=repository,
+        access_token_resolver=_resolver(),
+    )
+
+    assert await service.find_home_id_by_device_id("device-1") == "home-1"
+    assert await service.find_home_id_by_control_request_id("request-1") == "home-2"

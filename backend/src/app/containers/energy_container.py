@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from src.app.containers import (
+    auth_container,
+    core_container,
+    repositories_container,
+    settings_container,
+)
 from src.modules.energy.services.EnergyAutoRefreshService import EnergyAutoRefreshService
 from src.modules.energy.services.EnergyBindingService import EnergyBindingService
 from src.modules.energy.services.EnergyRefreshCoordinator import EnergyRefreshCoordinator
@@ -9,19 +15,12 @@ from src.modules.energy.services.EnergyService import EnergyService
 from src.modules.energy.services.EnergyUpstreamReader import EnergyUpstreamReader
 
 
-def _root():
-    from src.app import container
-
-    return container
-
-
 @lru_cache(maxsize=1)
 def get_energy_upstream_reader() -> EnergyUpstreamReader:
-    root = _root()
-    settings = root.get_settings()
+    settings = core_container.get_settings()
     return EnergyUpstreamReader(
-        ha_connection_gateway=root.get_ha_connection_gateway(),
-        sgcc_container_restarter=root.get_sgcc_container_restarter(),
+        ha_connection_gateway=core_container.get_ha_connection_gateway(),
+        sgcc_container_restarter=settings_container.get_sgcc_container_restarter(),
         upstream_refresh_mode=settings.energy_upstream_refresh_mode,
         upstream_ha_domain=settings.energy_upstream_ha_domain,
         upstream_ha_service=settings.energy_upstream_ha_service,
@@ -34,38 +33,35 @@ def get_energy_upstream_reader() -> EnergyUpstreamReader:
 
 @lru_cache(maxsize=1)
 def get_energy_binding_service() -> EnergyBindingService:
-    root = _root()
     return EnergyBindingService(
-        energy_account_repository=root.get_energy_account_repository(),
-        energy_snapshot_repository=root.get_energy_snapshot_repository(),
-        management_pin_guard=root.get_management_pin_guard(),
+        energy_account_repository=repositories_container.get_energy_account_repository(),
+        energy_snapshot_repository=repositories_container.get_energy_snapshot_repository(),
+        management_pin_guard=auth_container.get_management_pin_guard(),
     )
 
 
 @lru_cache(maxsize=1)
 def get_energy_refresh_coordinator() -> EnergyRefreshCoordinator:
-    root = _root()
     return EnergyRefreshCoordinator(
-        energy_account_repository=root.get_energy_account_repository(),
-        energy_snapshot_repository=root.get_energy_snapshot_repository(),
-        ws_event_outbox_repository=root.get_ws_event_outbox_repository(),
+        energy_account_repository=repositories_container.get_energy_account_repository(),
+        energy_snapshot_repository=repositories_container.get_energy_snapshot_repository(),
+        ws_event_outbox_repository=repositories_container.get_ws_event_outbox_repository(),
         upstream_reader=get_energy_upstream_reader(),
-        event_id_generator=root.get_event_id_generator(),
-        clock=root.get_clock(),
+        event_id_generator=core_container.get_event_id_generator(),
+        clock=core_container.get_clock(),
     )
 
 
 @lru_cache(maxsize=1)
 def get_energy_service() -> EnergyService:
-    root = _root()
     return EnergyService(
-        energy_account_repository=root.get_energy_account_repository(),
-        energy_snapshot_repository=root.get_energy_snapshot_repository(),
-        ws_event_outbox_repository=root.get_ws_event_outbox_repository(),
-        management_pin_guard=root.get_management_pin_guard(),
-        ha_connection_gateway=root.get_ha_connection_gateway(),
-        event_id_generator=root.get_event_id_generator(),
-        clock=root.get_clock(),
+        energy_account_repository=repositories_container.get_energy_account_repository(),
+        energy_snapshot_repository=repositories_container.get_energy_snapshot_repository(),
+        ws_event_outbox_repository=repositories_container.get_ws_event_outbox_repository(),
+        management_pin_guard=auth_container.get_management_pin_guard(),
+        ha_connection_gateway=core_container.get_ha_connection_gateway(),
+        event_id_generator=core_container.get_event_id_generator(),
+        clock=core_container.get_clock(),
         binding_service=get_energy_binding_service(),
         upstream_reader=get_energy_upstream_reader(),
         refresh_coordinator=get_energy_refresh_coordinator(),
@@ -74,8 +70,7 @@ def get_energy_service() -> EnergyService:
 
 @lru_cache(maxsize=1)
 def get_energy_auto_refresh_service() -> EnergyAutoRefreshService:
-    root = _root()
-    settings = root.get_settings()
+    settings = core_container.get_settings()
     return EnergyAutoRefreshService(
         get_energy_service(),
         enabled=settings.energy_auto_refresh_enabled,

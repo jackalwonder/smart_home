@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Mapping
 
 from fastapi import Request, WebSocket
-from sqlalchemy import text
 
-from src.infrastructure.db.connection.Database import Database
-from src.infrastructure.db.repositories._support import session_scope
 from src.modules.auth.services.query.AccessTokenResolver import (
     AccessTokenClaims,
     AccessTokenError,
     AccessTokenResolver,
     NoopAccessTokenResolver,
+)
+from src.repositories.query.auth.RequestContextRepository import (
+    RequestContextLookupRow,
+    RequestContextRepository,
 )
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
@@ -70,11 +71,24 @@ def _websocket_protocol_bearer(headers: Mapping[str, str]) -> str | None:
 class RequestContextService:
     def __init__(
         self,
-        database: Database,
+        request_context_repository: RequestContextRepository,
         access_token_resolver: AccessTokenResolver | None = None,
     ) -> None:
-        self._database = database
+        self._request_context_repository = request_context_repository
         self._access_token_resolver = access_token_resolver or NoopAccessTokenResolver()
+
+    def _context_from_row(
+        self,
+        row: RequestContextLookupRow,
+        *,
+        session_token: str | None = None,
+    ) -> RequestContext:
+        return RequestContext(
+            home_id=row.home_id,
+            terminal_id=row.terminal_id,
+            operator_id=row.operator_id,
+            session_token=session_token,
+        )
 
     def _resolve_access_token_candidate(
         self,
@@ -208,89 +222,26 @@ class RequestContextService:
         )
 
     async def _find_terminal_context(self, terminal_id: str) -> RequestContext | None:
-        stmt = text(
-            """
-            SELECT
-                home_id::text AS home_id,
-                id::text AS terminal_id
-            FROM terminals
-            WHERE id = :terminal_id
-            """
-        )
-        async with session_scope(self._database) as (session, _):
-            row = (
-                await session.execute(stmt, {"terminal_id": terminal_id})
-            ).mappings().one_or_none()
-        if row is None:
-            return None
-        return RequestContext(
-            home_id=row["home_id"],
-            terminal_id=row["terminal_id"],
-        )
+        row = await self._request_context_repository.find_terminal_context(terminal_id)
+        return self._context_from_row(row) if row is not None else None
 
     async def _find_session_context(self, session_token: str) -> RequestContext | None:
-        stmt = text(
-            """
-            SELECT
-                home_id::text AS home_id,
-                terminal_id::text AS terminal_id,
-                member_id::text AS operator_id
-            FROM pin_sessions
-            WHERE session_token_hash = :session_token
-              AND is_active = true
-              AND expires_at > :now
-            ORDER BY verified_at DESC
-            LIMIT 1
-            """
-        )
-        async with session_scope(self._database) as (session, _):
-            row = (
-                await session.execute(
-                    stmt,
-                    {
-                        "session_token": session_token,
-                        "now": datetime.now(timezone.utc),
-                    },
-                )
-            ).mappings().one_or_none()
-        if row is None:
-            return None
-        return RequestContext(
-            home_id=row["home_id"],
-            terminal_id=row["terminal_id"],
-            operator_id=row["operator_id"],
-            session_token=session_token,
+        row = await self._request_context_repository.find_session_context(session_token)
+        return (
+            self._context_from_row(row, session_token=session_token)
+            if row is not None
+            else None
         )
 
     async def find_home_id_by_device_id(self, device_id: str) -> str | None:
-        stmt = text(
-            """
-            SELECT home_id::text AS home_id
-            FROM devices
-            WHERE id = :device_id
-            """
+        return await self._request_context_repository.find_home_id_by_device_id(
+            device_id,
         )
-        async with session_scope(self._database) as (session, _):
-            row = (
-                await session.execute(stmt, {"device_id": device_id})
-            ).mappings().one_or_none()
-        return row["home_id"] if row is not None else None
 
     async def find_home_id_by_control_request_id(self, request_id: str) -> str | None:
-        stmt = text(
-            """
-            SELECT home_id::text AS home_id
-            FROM device_control_requests
-            WHERE request_id = :request_id
-            ORDER BY created_at DESC
-            LIMIT 1
-            """
+        return await self._request_context_repository.find_home_id_by_control_request_id(
+            request_id,
         )
-        async with session_scope(self._database) as (session, _):
-            row = (
-                await session.execute(stmt, {"request_id": request_id})
-            ).mappings().one_or_none()
-        return row["home_id"] if row is not None else None
 
     async def _resolve_context(
         self,
