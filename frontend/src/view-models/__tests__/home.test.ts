@@ -43,8 +43,6 @@ describe("home overview view model", () => {
     });
 
     expect(viewModel.energyFields[0]).toEqual({ label: "状态", value: "未绑定" });
-    expect(viewModel.railCards.find((card) => card.key === "energy")?.title).toBe(
-      "等待绑定",
-    );
+    expect(viewModel.railCards.find((card) => card.key === "energy")?.title).toBe("等待绑定");
   });
 });

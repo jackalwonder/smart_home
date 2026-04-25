@@ -49,8 +49,7 @@ export function useSgccLoginQrCode({
           return;
         }
 
-        const shouldReloadImage =
-          response.updated_at !== status?.updated_at || !imageUrl;
+        const shouldReloadImage = response.updated_at !== status?.updated_at || !imageUrl;
         if (!shouldReloadImage) {
           return;
         }

@@ -78,9 +78,7 @@ export function useHomeStageHotspotEditing({
     syncHistoryState();
   }
 
-  function updateDraft(
-    updater: (current: EditorDraftState) => EditorDraftState,
-  ) {
+  function updateDraft(updater: (current: EditorDraftState) => EditorDraftState) {
     if (!canEdit) {
       return;
     }
@@ -131,10 +129,7 @@ export function useHomeStageHotspotEditing({
     syncHistoryState();
   }
 
-  function setSelectedHotspotField(
-    field: "label" | "iconType" | "labelMode",
-    value: string,
-  ) {
+  function setSelectedHotspotField(field: "label" | "iconType" | "labelMode", value: string) {
     if (!selectedHotspot) {
       return;
     }

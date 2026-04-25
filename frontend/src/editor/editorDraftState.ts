@@ -9,9 +9,7 @@ export interface EditorDraftState {
   hotspots: EditorHotspotViewModel[];
 }
 
-export type EditorDraftStateUpdater = (
-  current: EditorDraftState,
-) => EditorDraftState;
+export type EditorDraftStateUpdater = (current: EditorDraftState) => EditorDraftState;
 
 export const EMPTY_EDITOR_DRAFT_STATE: EditorDraftState = {
   backgroundAssetId: null,
@@ -26,9 +24,7 @@ export function stringifyLayoutMeta(value: Record<string, unknown>) {
 }
 
 export function sortHotspots(hotspots: EditorHotspotViewModel[]) {
-  return [...hotspots].sort(
-    (left, right) => left.structureOrder - right.structureOrder,
-  );
+  return [...hotspots].sort((left, right) => left.structureOrder - right.structureOrder);
 }
 
 export function resequenceHotspots(hotspots: EditorHotspotViewModel[]) {
@@ -53,19 +49,14 @@ export function buildLayoutMetaWithHotspotLabels(
   };
 }
 
-export function cloneEditorDraftState(
-  state: EditorDraftState,
-): EditorDraftState {
+export function cloneEditorDraftState(state: EditorDraftState): EditorDraftState {
   return {
     ...state,
     hotspots: state.hotspots.map((hotspot) => ({ ...hotspot })),
   };
 }
 
-export function areEditorDraftStatesEqual(
-  left: EditorDraftState,
-  right: EditorDraftState,
-) {
+export function areEditorDraftStatesEqual(left: EditorDraftState, right: EditorDraftState) {
   if (
     left.backgroundAssetId !== right.backgroundAssetId ||
     left.backgroundImageUrl !== right.backgroundImageUrl ||
@@ -100,9 +91,7 @@ export function parseLayoutMetaText(value: string) {
     : {};
 }
 
-export function buildDraftHotspotInputs(
-  hotspots: EditorHotspotViewModel[],
-) {
+export function buildDraftHotspotInputs(hotspots: EditorHotspotViewModel[]) {
   return hotspots.map((hotspot, index) => ({
     hotspot_id: hotspot.id,
     device_id: hotspot.deviceId.trim(),
@@ -124,10 +113,7 @@ export function buildDraftDiffInput(
   return {
     base_layout_version: baseLayoutVersion,
     background_asset_id: draftState.backgroundAssetId,
-    layout_meta: buildLayoutMetaWithHotspotLabels(
-      parsedLayoutMeta,
-      draftState.hotspots,
-    ),
+    layout_meta: buildLayoutMetaWithHotspotLabels(parsedLayoutMeta, draftState.hotspots),
     hotspots: buildDraftHotspotInputs(draftState.hotspots),
   };
 }

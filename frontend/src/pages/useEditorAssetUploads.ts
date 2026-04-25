@@ -41,12 +41,15 @@ export function useEditorAssetUploads({
     setIsUploadingBackground(true);
     try {
       const uploaded = await uploadFloorplanAsset({ file, replaceCurrent: false });
-      updateDraftStateWithHistory((current) => ({
-        ...current,
-        backgroundAssetId: uploaded.asset_id,
-        backgroundImageUrl: uploaded.background_image_url,
-        backgroundImageSize: normalizeImageSize(uploaded.background_image_size),
-      }), "更新背景图");
+      updateDraftStateWithHistory(
+        (current) => ({
+          ...current,
+          backgroundAssetId: uploaded.asset_id,
+          backgroundImageUrl: uploaded.background_image_url,
+          backgroundImageSize: normalizeImageSize(uploaded.background_image_size),
+        }),
+        "更新背景图",
+      );
       showEditorNotice({
         tone: "success",
         title: "背景图已更新",
@@ -68,22 +71,26 @@ export function useEditorAssetUploads({
     setIsUploadingHotspotIcon(true);
     try {
       const uploaded = await uploadHotspotIconAsset({ file });
-      updateDraftStateWithHistory((current) => ({
-        ...current,
-        hotspots: current.hotspots.map((hotspot) =>
-          hotspot.id === selectedHotspotId
-            ? {
-                ...hotspot,
-                iconAssetId: uploaded.asset_id,
-                iconAssetUrl: uploaded.icon_asset_url,
-              }
-            : hotspot,
-        ),
-      }), "Upload hotspot icon");
+      updateDraftStateWithHistory(
+        (current) => ({
+          ...current,
+          hotspots: current.hotspots.map((hotspot) =>
+            hotspot.id === selectedHotspotId
+              ? {
+                  ...hotspot,
+                  iconAssetId: uploaded.asset_id,
+                  iconAssetUrl: uploaded.icon_asset_url,
+                }
+              : hotspot,
+          ),
+        }),
+        "Upload hotspot icon",
+      );
       showEditorNotice({
         tone: "success",
         title: "Hotspot icon uploaded",
-        detail: "The custom icon is attached to the selected hotspot. Save and publish to use it on the home page.",
+        detail:
+          "The custom icon is attached to the selected hotspot. Save and publish to use it on the home page.",
       });
     } catch (error) {
       await handleEditorActionError(error, "upload");

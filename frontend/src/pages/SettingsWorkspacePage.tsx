@@ -22,10 +22,7 @@ import { useSettingsTerminalDeliverySection } from "../settings/hooks/useSetting
 import { useSgccLoginQrCode } from "../settings/hooks/useSgccLoginQrCode";
 import { buildSettingsRuntimeCards } from "../settings/runtimeOverview";
 import { appStore, useAppStore } from "../store/useAppStore";
-import {
-  SettingsSectionViewModel,
-  mapSettingsViewModel,
-} from "../view-models/settings";
+import { SettingsSectionViewModel, mapSettingsViewModel } from "../view-models/settings";
 
 export function SettingsWorkspacePage() {
   const session = useAppStore((state) => state.session);
@@ -35,10 +32,9 @@ export function SettingsWorkspacePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedSection = searchParams.get("section");
   const normalizedRequestedSection = normalizeSettingsSectionKey(requestedSection);
-  const [activeSection, setActiveSection] =
-    useState<SettingsSectionViewModel["key"]>(
-      normalizedRequestedSection,
-    );
+  const [activeSection, setActiveSection] = useState<SettingsSectionViewModel["key"]>(
+    normalizedRequestedSection,
+  );
   const [showPinManager, setShowPinManager] = useState(false);
   const [showAdvancedEditor, setShowAdvancedEditor] = useState(false);
   const [pendingScrollTargetId, setPendingScrollTargetId] = useState<string | null>(null);
@@ -227,12 +223,8 @@ export function SettingsWorkspacePage() {
         loadSystemConnection(),
         bootstrapDirectoryPromise,
       ]);
-      const nextSettingsData = settingsData as unknown as Record<
-        string,
-        unknown
-      >;
-      appStore.setSettingsData(nextSettingsData);
-      applySettingsDraftFromData(nextSettingsData);
+      appStore.setSettingsData(settingsData);
+      applySettingsDraftFromData(settingsData);
     } catch (error) {
       appStore.setSettingsError(normalizeApiError(error).message);
     }
@@ -340,11 +332,8 @@ export function SettingsWorkspacePage() {
   const selectedFavoriteCount = settingsDraft.favorites.filter(
     (favorite) => favorite.selected,
   ).length;
-  const canSave =
-    Boolean(session.data?.terminalId) && pin.active && Boolean(settings.data);
-  const terminalStatus = bootstrapTokenState?.token_configured
-    ? "已准备"
-    : "待生成";
+  const canSave = Boolean(session.data?.terminalId) && pin.active && Boolean(settings.data);
+  const terminalStatus = bootstrapTokenState?.token_configured ? "已准备" : "待生成";
   const sgccStatus = sgccLoginQrCode?.phase ?? sgccLoginQrCode?.status ?? "UNKNOWN";
   const runtimeCards = useMemo(
     () =>

@@ -56,7 +56,8 @@ export function SettingsHomeSection({
           <span className="card-eyebrow">草稿保存</span>
           <h3>首页治理字段修改后统一点“保存首页设置”</h3>
           <p className="muted-copy">
-            这一页的常用设备、显示策略和功能策略都是设置草稿；接入、终端和备份动作则会直接调用各自 API。
+            这一页的常用设备、显示策略和功能策略都是设置草稿；接入、终端和备份动作则会直接调用各自
+            API。
           </p>
         </div>
         <div className="badge-row settings-home-shell__summary-actions">
@@ -99,10 +100,7 @@ export function SettingsHomeSection({
           onRemovePolicyEntry={removePolicyDraft}
           onSetPolicyValue={upsertPolicyDraft}
         />
-        <FunctionSettingsPanel
-          draft={settingsDraft.function}
-          onChange={updateFunctionDraft}
-        />
+        <FunctionSettingsPanel draft={settingsDraft.function} onChange={updateFunctionDraft} />
       </SettingsTaskModule>
 
       <SettingsTaskModule

@@ -1,8 +1,5 @@
 import { Link } from "react-router-dom";
-import {
-  HomeFavoriteDeviceViewModel,
-  HomeQuickActionViewModel,
-} from "../../view-models/home";
+import { HomeFavoriteDeviceViewModel, HomeQuickActionViewModel } from "../../view-models/home";
 
 interface QuickSceneCardProps {
   actions: HomeQuickActionViewModel[];
@@ -43,8 +40,7 @@ export function QuickSceneCard({
   showFavoriteDevices,
   onOpenFavoriteDevice,
 }: QuickSceneCardProps) {
-  const entryCount =
-    actions.length + (showFavoriteDevices ? favoriteDevices.length : 0);
+  const entryCount = actions.length + (showFavoriteDevices ? favoriteDevices.length : 0);
 
   return (
     <section className="utility-card quick-scene-card">
@@ -53,17 +49,12 @@ export function QuickSceneCard({
           <span className="card-eyebrow">快捷入口</span>
           <h3>常用操作</h3>
         </div>
-        <span className="state-chip">
-          {entryCount ? `${entryCount} 个入口` : "等待配置"}
-        </span>
+        <span className="state-chip">{entryCount ? `${entryCount} 个入口` : "等待配置"}</span>
       </div>
 
       <div className="quick-scene-card__body">
         {showFavoriteDevices ? (
-          <section
-            aria-label="首页常用设备"
-            className="quick-scene-card__section"
-          >
+          <section aria-label="首页常用设备" className="quick-scene-card__section">
             <div className="quick-scene-card__section-header">
               <span>首页常用设备</span>
               <small>{favoriteDevices.length ? "点击即控" : "等待添加"}</small>

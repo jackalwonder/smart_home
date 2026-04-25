@@ -1,5 +1,9 @@
 import type { components } from "./types.generated";
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
+export type JsonObject = { [key: string]: JsonValue };
+
 type Schema<Name extends keyof components["schemas"]> = components["schemas"][Name];
 type RequireFields<T, Keys extends keyof T> = Omit<T, Keys> & {
   [Key in Keys]-?: Exclude<T[Key], undefined>;
@@ -18,7 +22,7 @@ export interface ApiEnvelope<T> {
 export interface ApiErrorPayload {
   code: string;
   message: string;
-  details?: Record<string, unknown>;
+  details?: JsonObject;
 }
 
 export class ApiError extends Error {
@@ -200,7 +204,11 @@ export interface HotspotIconAssetDto {
 
 export type EditorSessionDto = RequireFields<
   Schema<"EditorSessionResponse">,
-  "lease_id" | "lease_expires_at" | "heartbeat_interval_seconds" | "draft_version" | "current_layout_version"
+  | "lease_id"
+  | "lease_expires_at"
+  | "heartbeat_interval_seconds"
+  | "draft_version"
+  | "current_layout_version"
 >;
 
 export type EditorSessionInput = Omit<
@@ -236,10 +244,7 @@ export type EditorDraftDiffInput = RequireFields<
 
 export type EditorDraftDiffItemDto = Schema<"EditorDraftDiffItemResponse">;
 
-export type EditorDraftDiffDto = RequireFields<
-  Schema<"EditorDraftDiffResponse">,
-  "items"
->;
+export type EditorDraftDiffDto = RequireFields<Schema<"EditorDraftDiffResponse">, "items">;
 
 export type EditorPublishInput = Omit<
   Schema<"EditorPublishRequestBody">,
@@ -256,7 +261,10 @@ export type PinVerifyInput = Omit<Schema<"PinVerifyRequestBody">, "member_id">;
 
 export type PinVerifyDto = Schema<"PinVerifyResponse">;
 
-export type PinSessionDto = RequireFields<Schema<"PinSessionResponse">, "pin_session_expires_at">;
+export type PinSessionDto = RequireFields<
+  Schema<"PinSessionResponse">,
+  "pin_session_expires_at"
+>;
 
 export interface TerminalBootstrapTokenStatusDto {
   terminal_id: string;

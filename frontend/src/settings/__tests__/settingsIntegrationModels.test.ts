@@ -30,14 +30,16 @@ describe("settingsIntegrationModels", () => {
 
     expect(inferEnergyAccountIdFromEntities(energy.entity_map ?? {})).toBe("8170");
     expect(draft.accountId).toBe("8170");
-    expect(buildEnergyBindingPayload({
-      accountId: " acct-1 ",
-      entityMap: {
-        ...draft.entityMap,
-        balance: " sensor.balance ",
-        monthly_usage: " ",
-      },
-    })).toEqual({
+    expect(
+      buildEnergyBindingPayload({
+        accountId: " acct-1 ",
+        entityMap: {
+          ...draft.entityMap,
+          balance: " sensor.balance ",
+          monthly_usage: " ",
+        },
+      }),
+    ).toEqual({
       provider: "SGCC_SIDECAR",
       account_id: "acct-1",
       entity_map: {
@@ -49,10 +51,12 @@ describe("settingsIntegrationModels", () => {
   });
 
   it("formats refresh detail and detects media candidates", () => {
-    expect(formatEnergyRefreshMessage({
-      refresh_status: "FAILED",
-      refresh_status_detail: "FAILED_SOURCE_TIMEOUT",
-    } as EnergyRefreshDto)).toBe("已触发上游同步，但等待 HA 更新超时。");
+    expect(
+      formatEnergyRefreshMessage({
+        refresh_status: "FAILED",
+        refresh_status_detail: "FAILED_SOURCE_TIMEOUT",
+      } as EnergyRefreshDto),
+    ).toBe("已触发上游同步，但等待 HA 更新超时。");
     expect(isMediaCandidateDevice(device({ device_type: "media_player" }))).toBe(true);
     expect(isMediaCandidateDevice(device({ display_name: "Kitchen speaker" }))).toBe(true);
     expect(isMediaCandidateDevice(device({ device_type: "sensor" }))).toBe(false);

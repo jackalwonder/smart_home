@@ -43,9 +43,7 @@ export function HomeStageEditorToolbar({
         <span className="state-chip">
           {canEdit ? "编辑锁已授予" : "请前往高级设置处理锁状态"}
         </span>
-        <span className="state-chip">
-          {hasUnsavedChanges ? "有未应用更改" : "当前已同步"}
-        </span>
+        <span className="state-chip">{hasUnsavedChanges ? "有未应用更改" : "当前已同步"}</span>
         <button
           className="button button--ghost"
           disabled={!canEdit}

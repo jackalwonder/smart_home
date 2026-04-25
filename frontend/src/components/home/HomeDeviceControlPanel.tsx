@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  acceptDeviceControl,
-  fetchDeviceControlResult,
-} from "../../api/deviceControlsApi";
+import { acceptDeviceControl, fetchDeviceControlResult } from "../../api/deviceControlsApi";
 import { fetchDeviceDetail } from "../../api/devicesApi";
 import {
   DeviceControlAcceptedDto,
@@ -29,10 +26,7 @@ interface HomeDeviceControlPanelProps {
   onClose: () => void;
 }
 
-export function HomeDeviceControlPanel({
-  hotspot,
-  onClose,
-}: HomeDeviceControlPanelProps) {
+export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPanelProps) {
   const [device, setDevice] = useState<DeviceDetailDto | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -87,7 +81,8 @@ export function HomeDeviceControlPanel({
   const selectedValue = selectedKey ? values[selectedKey] : undefined;
   const selectedAction = selectedSchema ? describeAction(selectedSchema) : null;
   const powerSchemaIndex = schemas.findIndex(isBooleanSchema);
-  const isSimpleQuickPanel = schemas.length <= 2 && powerSchemaIndex >= 0 && !hotspot.isComplex;
+  const isSimpleQuickPanel =
+    schemas.length <= 2 && powerSchemaIndex >= 0 && !hotspot.isComplex;
   const panelClass = useMemo(
     () =>
       [
@@ -98,7 +93,11 @@ export function HomeDeviceControlPanel({
     [hotspot.x, hotspot.y],
   );
 
-  async function submitControl(schema = selectedSchema, overrideValue?: unknown, index = selectedIndex) {
+  async function submitControl(
+    schema = selectedSchema,
+    overrideValue?: unknown,
+    index = selectedIndex,
+  ) {
     if (!schema) {
       return;
     }
@@ -159,10 +158,7 @@ export function HomeDeviceControlPanel({
       <div className="home-device-control-panel__header">
         <div className="home-device-control-panel__title-group">
           <span
-            className={[
-              "home-device-control-panel__glyph",
-              toneLabel(hotspot.tone),
-            ].join(" ")}
+            className={["home-device-control-panel__glyph", toneLabel(hotspot.tone)].join(" ")}
             aria-hidden="true"
           >
             {hotspot.iconGlyph}

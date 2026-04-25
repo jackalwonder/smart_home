@@ -20,7 +20,8 @@ export function RealtimeNoticeBar() {
   }
 
   const tone =
-    realtime.connectionStatus === "reconnecting" || realtime.connectionStatus === "disconnected"
+    realtime.connectionStatus === "reconnecting" ||
+    realtime.connectionStatus === "disconnected"
       ? "is-warning"
       : realtime.connectionStatus === "connected"
         ? "is-success"

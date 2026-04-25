@@ -45,11 +45,13 @@ const initialDraft: EditorDraftState = {
   ],
 };
 
-function renderEditingHook(options: {
-  canEdit?: boolean;
-  draftResetKey?: number;
-  initial?: EditorDraftState;
-} = {}) {
+function renderEditingHook(
+  options: {
+    canEdit?: boolean;
+    draftResetKey?: number;
+    initial?: EditorDraftState;
+  } = {},
+) {
   const devices = [
     device({ device_id: "device-1", display_name: "Lamp" }),
     device({ device_id: "device-2", display_name: "Thermostat", room_name: "Bedroom" }),
@@ -144,9 +146,9 @@ describe("useHomeStageHotspotEditing", () => {
       result.current.editing.addHotspot();
     });
 
-    expect(result.current.editing.filteredUnplacedDevices.map((item) => item.device_id)).toEqual([
-      "device-2",
-    ]);
+    expect(
+      result.current.editing.filteredUnplacedDevices.map((item) => item.device_id),
+    ).toEqual(["device-2"]);
     expect(result.current.draftState.hotspots).toHaveLength(1);
   });
 });

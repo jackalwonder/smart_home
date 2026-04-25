@@ -1,12 +1,6 @@
-import {
-  acceptDeviceControl,
-  fetchDeviceControlResult,
-} from "../../api/deviceControlsApi";
+import { acceptDeviceControl, fetchDeviceControlResult } from "../../api/deviceControlsApi";
 import { normalizeApiError } from "../../api/httpClient";
-import {
-  DeviceControlResultDto,
-  DeviceControlSchemaItemDto,
-} from "../../api/types";
+import { DeviceControlResultDto, DeviceControlSchemaItemDto } from "../../api/types";
 
 export function normalizeControlKeyword(value: string | null | undefined) {
   return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
@@ -154,9 +148,7 @@ export async function submitDeviceControl({
   });
 
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
-    await new Promise((resolve) =>
-      window.setTimeout(resolve, attempt === 0 ? 320 : 580),
-    );
+    await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 320 : 580));
     const result = await fetchDeviceControlResult(accepted.request_id);
     if (result.execution_status !== "PENDING") {
       return result;

@@ -34,9 +34,7 @@ export function SettingsTaskModule({
           <p className="muted-copy">{description}</p>
         </div>
         <div className="settings-task-module__actions">
-          <span className={`state-chip settings-state-chip is-${statusTone}`}>
-            {status}
-          </span>
+          <span className={`state-chip settings-state-chip is-${statusTone}`}>{status}</span>
           {action}
         </div>
       </div>

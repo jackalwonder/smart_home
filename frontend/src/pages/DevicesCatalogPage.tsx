@@ -67,9 +67,7 @@ export function DevicesCatalogPage() {
       {homeEntry.homeEntryFeedback ? (
         <p
           className={
-            homeEntry.homeEntryFeedback.tone === "error"
-              ? "inline-error"
-              : "inline-success"
+            homeEntry.homeEntryFeedback.tone === "error" ? "inline-error" : "inline-success"
           }
         >
           {homeEntry.homeEntryFeedback.text}
@@ -136,11 +134,7 @@ export function DevicesCatalogPage() {
             </select>
           </label>
           <div className="devices-header__actions">
-            <button
-              className="button button--ghost"
-              onClick={catalog.runSearch}
-              type="button"
-            >
+            <button className="button button--ghost" onClick={catalog.runSearch} type="button">
               查询目录
             </button>
             <button

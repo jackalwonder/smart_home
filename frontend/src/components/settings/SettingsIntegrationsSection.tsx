@@ -214,7 +214,10 @@ export function SettingsIntegrationsSection({
         eyebrow="接入配置"
         id="settings-module-media"
         status={mediaStatus}
-        statusTone={getSettingsStatusTone(mediaState?.binding_status ?? "MEDIA_UNSET", "media")}
+        statusTone={getSettingsStatusTone(
+          mediaState?.binding_status ?? "MEDIA_UNSET",
+          "media",
+        )}
         title="默认媒体"
       >
         <DefaultMediaPanel

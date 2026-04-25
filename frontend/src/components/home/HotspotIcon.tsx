@@ -39,18 +39,8 @@ const iconPaths: Record<string, string[]> = {
     "M9 6v1",
     "M9 14v1",
   ],
-  thermometer: [
-    "M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0Z",
-    "M12 6v8",
-  ],
-  blinds: [
-    "M4 4h16",
-    "M5 8h14",
-    "M5 12h14",
-    "M5 16h14",
-    "M12 4v16",
-    "M8 20h8",
-  ],
+  thermometer: ["M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0Z", "M12 6v8"],
+  blinds: ["M4 4h16", "M5 8h14", "M5 12h14", "M5 16h14", "M12 4v16", "M8 20h8"],
   tv: [
     "M7 21h10",
     "M12 17v4",

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatSettingsStatus,
-  getSettingsStatusTone,
-} from "../statusFormat";
+import { formatSettingsStatus, getSettingsStatusTone } from "../statusFormat";
 
 describe("settings status formatting", () => {
   it("localizes connection and binding statuses", () => {

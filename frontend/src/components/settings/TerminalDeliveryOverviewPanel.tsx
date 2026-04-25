@@ -52,10 +52,7 @@ export function TerminalDeliveryOverviewPanel({
     : "待生成激活凭据";
 
   return (
-    <section
-      className="utility-card terminal-delivery-workbench"
-      aria-label="终端交付现场台"
-    >
+    <section className="utility-card terminal-delivery-workbench" aria-label="终端交付现场台">
       <div className="terminal-delivery-workbench__header">
         <div>
           <span className="card-eyebrow">现场交付台</span>
@@ -80,16 +77,11 @@ export function TerminalDeliveryOverviewPanel({
         </dl>
       </div>
 
-      <div
-        className="terminal-delivery-workbench__routes"
-        aria-label="终端交付入口"
-      >
+      <div className="terminal-delivery-workbench__routes" aria-label="终端交付入口">
         <article>
           <span>01</span>
           <strong>扫码激活</strong>
-          <p>
-            推荐现场使用。生成激活凭据后，让终端扫码打开链接并自动清理地址参数。
-          </p>
+          <p>推荐现场使用。生成激活凭据后，让终端扫码打开链接并自动清理地址参数。</p>
         </article>
         <article>
           <span>02</span>

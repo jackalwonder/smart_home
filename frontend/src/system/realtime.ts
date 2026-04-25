@@ -47,7 +47,7 @@ function targetsForEvent(event: WsEvent): SnapshotTarget[] {
 async function refreshHomeSnapshot() {
   try {
     const data = await fetchHomeOverview();
-    appStore.setHomeData(data as unknown as Record<string, unknown>);
+    appStore.setHomeData(data);
   } catch (error) {
     appStore.setHomeError(normalizeApiError(error).message);
     throw error;
@@ -57,7 +57,7 @@ async function refreshHomeSnapshot() {
 async function refreshSettingsSnapshot() {
   try {
     const data = await fetchSettings();
-    appStore.setSettingsData(data as unknown as Record<string, unknown>);
+    appStore.setSettingsData(data);
   } catch (error) {
     appStore.setSettingsError(normalizeApiError(error).message);
     throw error;
@@ -117,15 +117,17 @@ function flushSnapshotRefreshes() {
   const refreshRun = snapshotRefreshChain
     .catch(() => undefined)
     .then(() => refreshSnapshots(targets));
-  snapshotRefreshChain = refreshRun.then(
-    () => {
-      waiters.forEach(({ resolve }) => resolve());
-    },
-    (error) => {
-      waiters.forEach(({ reject }) => reject(error));
-      throw error;
-    },
-  ).catch(() => undefined);
+  snapshotRefreshChain = refreshRun
+    .then(
+      () => {
+        waiters.forEach(({ resolve }) => resolve());
+      },
+      (error) => {
+        waiters.forEach(({ reject }) => reject(error));
+        throw error;
+      },
+    )
+    .catch(() => undefined);
 }
 
 function scheduleSnapshotRefresh(targets: SnapshotTarget[]): Promise<void> {
@@ -137,9 +139,7 @@ function scheduleSnapshotRefresh(targets: SnapshotTarget[]): Promise<void> {
   if (snapshotRefreshTimer === null) {
     snapshotRefreshTimer = setTimeout(flushSnapshotRefreshes, 250);
   }
-  return new Promise((resolve, reject) =>
-    snapshotRefreshWaiters.push({ resolve, reject }),
-  );
+  return new Promise((resolve, reject) => snapshotRefreshWaiters.push({ resolve, reject }));
 }
 
 function clearSnapshotRefreshQueue() {

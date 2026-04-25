@@ -51,10 +51,7 @@ export function PageSettingsPanel({
     knownHomepageKeys,
   );
   const iconUnknownEntries = getUnknownEntries(draft.iconPolicy, knownIconKeys);
-  const layoutUnknownEntries = getUnknownEntries(
-    draft.layoutPreference,
-    knownLayoutKeys,
-  );
+  const layoutUnknownEntries = getUnknownEntries(draft.layoutPreference, knownLayoutKeys);
 
   return (
     <SettingsModuleCard

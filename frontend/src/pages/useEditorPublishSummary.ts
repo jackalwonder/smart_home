@@ -12,8 +12,10 @@ export function useEditorPublishSummary(
   publishBaseline: EditorDraftState | null,
   baseLayoutVersion: string | null,
 ) {
-  const [publishSummary, setPublishSummary] =
-    useState<EditorPublishSummaryViewModel>({ items: [], totalChanges: 0 });
+  const [publishSummary, setPublishSummary] = useState<EditorPublishSummaryViewModel>({
+    items: [],
+    totalChanges: 0,
+  });
   const [publishSummaryLoading, setPublishSummaryLoading] = useState(false);
   const [publishSummaryError, setPublishSummaryError] = useState<string | null>(null);
 

@@ -78,10 +78,7 @@ export function nextIndex(current: number, length: number, direction: -1 | 1) {
   return (current + direction + length) % length;
 }
 
-export function buildInsightCounts(
-  viewModel: HomeViewModel,
-  devices: DeviceListItemDto[],
-) {
+export function buildInsightCounts(viewModel: HomeViewModel, devices: DeviceListItemDto[]) {
   return {
     lights:
       devices.filter((device) => !device.is_offline && isLightDevice(device)).length ||
@@ -89,15 +86,11 @@ export function buildInsightCounts(
     climate: devices.filter((device) => isClimateDevice(device)).length,
     battery: viewModel.summary.lowBatteryCount,
     offline:
-      devices.filter((device) => device.is_offline).length ||
-      viewModel.summary.offlineCount,
+      devices.filter((device) => device.is_offline).length || viewModel.summary.offlineCount,
   };
 }
 
-export function buildMediaSources(
-  viewModel: HomeViewModel,
-  devices: DeviceListItemDto[],
-) {
+export function buildMediaSources(viewModel: HomeViewModel, devices: DeviceListItemDto[]) {
   const sources: HomeMediaSource[] = [];
 
   if (viewModel.media.deviceId || viewModel.media.bindingStatus !== "未配置") {

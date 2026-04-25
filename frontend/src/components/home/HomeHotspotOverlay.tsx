@@ -36,7 +36,7 @@ export function HomeHotspotOverlay({
         const pending = pendingHotspotIds.includes(hotspot.id);
         const statusLabel = pending
           ? "执行中"
-          : hotspot.statusSummary ?? hotspot.statusLabel;
+          : (hotspot.statusSummary ?? hotspot.statusLabel);
         const actionLabel = hotspot.isOffline ? "查看详情" : hotspot.entryBehaviorLabel;
         return (
           <button

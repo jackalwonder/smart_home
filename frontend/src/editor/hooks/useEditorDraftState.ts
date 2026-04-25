@@ -9,6 +9,7 @@ import {
   type EditorDraftStateUpdater,
 } from "../editorDraftState";
 import { EditorViewModel } from "../../view-models/editor";
+import type { EditorDraftLayoutDto } from "../../store/appStoreTypes";
 
 interface EditorHistoryEntry {
   draft: EditorDraftState;
@@ -31,7 +32,7 @@ interface EditorSnapshotKey {
 
 interface UseEditorDraftStateOptions {
   canEdit: boolean;
-  draftSource: Record<string, unknown> | null;
+  draftSource: EditorDraftLayoutDto | null;
   snapshot: EditorSnapshotKey;
   viewModel: EditorViewModel;
 }
@@ -45,14 +46,9 @@ export function useEditorDraftState({
   const [draftState, setDraftStateValue] = useState<EditorDraftState>(
     EMPTY_EDITOR_DRAFT_STATE,
   );
-  const [publishBaseline, setPublishBaseline] =
-    useState<EditorDraftState | null>(null);
-  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(
-    null,
-  );
-  const [batchSelectedHotspotIds, setBatchSelectedHotspotIds] = useState<
-    string[]
-  >([]);
+  const [publishBaseline, setPublishBaseline] = useState<EditorDraftState | null>(null);
+  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [batchSelectedHotspotIds, setBatchSelectedHotspotIds] = useState<string[]>([]);
   const [historyState, setHistoryState] = useState<{
     undoCount: number;
     redoCount: number;
@@ -105,11 +101,7 @@ export function useEditorDraftState({
     });
   }
 
-  function pushDraftHistory(
-    current: EditorDraftState,
-    label: string,
-    groupKey?: string,
-  ) {
+  function pushDraftHistory(current: EditorDraftState, label: string, groupKey?: string) {
     if (groupKey && historyGroupRef.current?.key === groupKey) {
       markHistoryGroup(groupKey);
       return;
@@ -206,10 +198,7 @@ export function useEditorDraftState({
     return entry.label;
   }
 
-  function selectSingleHotspot(
-    hotspotId: string,
-    options?: { keepBatch?: boolean },
-  ) {
+  function selectSingleHotspot(hotspotId: string, options?: { keepBatch?: boolean }) {
     setSelectedHotspotId(hotspotId);
     if (!options?.keepBatch) {
       setBatchSelectedHotspotIds([]);
@@ -281,9 +270,7 @@ export function useEditorDraftState({
       return;
     }
 
-    const nextHotspotIds = new Set(
-      nextDraftState.hotspots.map((hotspot) => hotspot.id),
-    );
+    const nextHotspotIds = new Set(nextDraftState.hotspots.map((hotspot) => hotspot.id));
     setDraftStateValue(nextDraftState);
     draftStateRef.current = nextDraftState;
     appliedEditorSnapshotRef.current = snapshot;
@@ -294,7 +281,7 @@ export function useEditorDraftState({
     setSelectedHotspotId((current) =>
       current && nextHotspotIds.has(current)
         ? current
-        : nextDraftState.hotspots[0]?.id ?? null,
+        : (nextDraftState.hotspots[0]?.id ?? null),
     );
     setBatchSelectedHotspotIds((current) =>
       current.filter((hotspotId) => nextHotspotIds.has(hotspotId)),

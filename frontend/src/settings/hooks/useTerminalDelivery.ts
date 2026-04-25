@@ -30,13 +30,9 @@ export function useTerminalDelivery({
   canEdit,
   currentTerminalId,
 }: UseTerminalDeliveryOptions) {
-  const [directory, setDirectory] = useState<
-    TerminalBootstrapTokenDirectoryItemDto[]
-  >([]);
+  const [directory, setDirectory] = useState<TerminalBootstrapTokenDirectoryItemDto[]>([]);
   const [selectedTerminalId, setSelectedTerminalIdState] = useState("");
-  const [reveal, setReveal] = useState<TerminalBootstrapTokenCreateDto | null>(
-    null,
-  );
+  const [reveal, setReveal] = useState<TerminalBootstrapTokenCreateDto | null>(null);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [loading, setLoading] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
@@ -44,30 +40,21 @@ export function useTerminalDelivery({
   const [auditLoading, setAuditLoading] = useState(false);
   const [pairingCode, setPairingCode] = useState("");
   const [pairingClaimBusy, setPairingClaimBusy] = useState(false);
-  const [pairingClaimFeedback, setPairingClaimFeedback] =
-    useState<FeedbackState | null>(null);
+  const [pairingClaimFeedback, setPairingClaimFeedback] = useState<FeedbackState | null>(null);
 
   const selectedTerminal = useMemo(
-    () =>
-      directory.find((item) => item.terminal_id === selectedTerminalId) ?? null,
+    () => directory.find((item) => item.terminal_id === selectedTerminalId) ?? null,
     [directory, selectedTerminalId],
   );
-  const activationLink = reveal
-    ? buildBootstrapActivationLink(reveal.bootstrap_token)
-    : null;
-  const activationCode = reveal
-    ? buildBootstrapActivationCode(reveal.bootstrap_token)
-    : null;
+  const activationLink = reveal ? buildBootstrapActivationLink(reveal.bootstrap_token) : null;
+  const activationCode = reveal ? buildBootstrapActivationCode(reveal.bootstrap_token) : null;
 
   const chooseDefaultTerminalId = useCallback(
     (items: TerminalBootstrapTokenDirectoryItemDto[], current: string) => {
       if (current && items.some((item) => item.terminal_id === current)) {
         return current;
       }
-      if (
-        currentTerminalId &&
-        items.some((item) => item.terminal_id === currentTerminalId)
-      ) {
+      if (currentTerminalId && items.some((item) => item.terminal_id === currentTerminalId)) {
         return currentTerminalId;
       }
       return items[0]?.terminal_id ?? "";
@@ -83,9 +70,7 @@ export function useTerminalDelivery({
   const applyDirectoryItems = useCallback(
     (items: TerminalBootstrapTokenDirectoryItemDto[]) => {
       setDirectory(items);
-      setSelectedTerminalIdState((current) =>
-        chooseDefaultTerminalId(items, current),
-      );
+      setSelectedTerminalIdState((current) => chooseDefaultTerminalId(items, current));
     },
     [chooseDefaultTerminalId],
   );
@@ -160,9 +145,7 @@ export function useTerminalDelivery({
     setFeedback(null);
     setCreateBusy(true);
     try {
-      const response = await createOrResetTerminalBootstrapToken(
-        selectedTerminalId,
-      );
+      const response = await createOrResetTerminalBootstrapToken(selectedTerminalId);
       setReveal(response);
       setFeedback({
         tone: "success",

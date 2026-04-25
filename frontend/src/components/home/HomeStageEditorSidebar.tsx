@@ -46,9 +46,7 @@ export function HomeStageEditorSidebar({
             <input
               className="control-input"
               disabled={!canEdit}
-              onChange={(event) =>
-                onSelectedHotspotFieldChange("label", event.target.value)
-              }
+              onChange={(event) => onSelectedHotspotFieldChange("label", event.target.value)}
               value={selectedHotspot.label}
             />
           </label>

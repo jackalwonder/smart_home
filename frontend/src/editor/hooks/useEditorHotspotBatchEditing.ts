@@ -109,10 +109,7 @@ export function useEditorHotspotBatchEditing({
           : selected[selected.length - 1].y;
       const step = (last - first) / (selected.length - 1);
       const targetById = new Map(
-        selected.map((hotspot, index) => [
-          hotspot.id,
-          clampPosition(first + step * index),
-        ]),
+        selected.map((hotspot, index) => [hotspot.id, clampPosition(first + step * index)]),
       );
 
       return {
@@ -141,11 +138,7 @@ export function useEditorHotspotBatchEditing({
 
   function distributeBatchHotspotsByStep(axis: "x" | "y", value: string) {
     const stepValue = Number(value);
-    if (
-      !Number.isFinite(stepValue) ||
-      stepValue <= 0 ||
-      batchSelectedHotspotIds.length < 2
-    ) {
+    if (!Number.isFinite(stepValue) || stepValue <= 0 || batchSelectedHotspotIds.length < 2) {
       return;
     }
 
@@ -161,10 +154,7 @@ export function useEditorHotspotBatchEditing({
 
       const start = selected[0][axis];
       const targetById = new Map(
-        selected.map((hotspot, index) => [
-          hotspot.id,
-          clampPosition(start + step * index),
-        ]),
+        selected.map((hotspot, index) => [hotspot.id, clampPosition(start + step * index)]),
       );
       return {
         ...current,

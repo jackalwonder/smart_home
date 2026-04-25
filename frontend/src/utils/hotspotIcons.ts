@@ -62,10 +62,7 @@ export function deriveHotspotIconKey(
   return "device";
 }
 
-export function isHotspotRunning(
-  status: string | null | undefined,
-  isOffline = false,
-) {
+export function isHotspotRunning(status: string | null | undefined, isOffline = false) {
   if (isOffline) {
     return false;
   }
@@ -88,7 +85,6 @@ export function shouldSpinHotspotIcon(input: {
 }) {
   const key = deriveHotspotIconKey(input.iconType, input.deviceType);
   return (
-    (key === "fan" || key === "air-vent") &&
-    isHotspotRunning(input.status, input.isOffline)
+    (key === "fan" || key === "air-vent") && isHotspotRunning(input.status, input.isOffline)
   );
 }

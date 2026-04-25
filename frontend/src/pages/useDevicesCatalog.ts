@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchDeviceDetail, fetchDevices, fetchRooms } from "../api/devicesApi";
 import { normalizeApiError } from "../api/httpClient";
-import {
-  DeviceDetailDto,
-  DeviceListItemDto,
-  RoomListItemDto,
-} from "../api/types";
+import { DeviceDetailDto, DeviceListItemDto, RoomListItemDto } from "../api/types";
 import {
   buildCatalogStats,
   filterDevicesByOfflineStatus,
@@ -23,38 +19,33 @@ export function useDevicesCatalog() {
   const [error, setError] = useState<string | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
   const [totalFromServer, setTotalFromServer] = useState(0);
-  const [selectedDevice, setSelectedDevice] = useState<DeviceDetailDto | null>(
-    null,
-  );
+  const [selectedDevice, setSelectedDevice] = useState<DeviceDetailDto | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const loadCatalog = useCallback(
-    async (nextKeyword: string, nextRoomFilter: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [roomsResponse, devicesResponse] = await Promise.all([
-          fetchRooms(),
-          fetchDevices({
-            room_id: nextRoomFilter || undefined,
-            keyword: nextKeyword || undefined,
-            page: 1,
-            page_size: 200,
-          }),
-        ]);
-        setRooms(roomsResponse.rooms);
-        setDevices(devicesResponse.items);
-        setTotalFromServer(devicesResponse.page_info.total);
-        setLastLoadedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
-      } catch (requestError) {
-        setError(normalizeApiError(requestError).message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const loadCatalog = useCallback(async (nextKeyword: string, nextRoomFilter: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [roomsResponse, devicesResponse] = await Promise.all([
+        fetchRooms(),
+        fetchDevices({
+          room_id: nextRoomFilter || undefined,
+          keyword: nextKeyword || undefined,
+          page: 1,
+          page_size: 200,
+        }),
+      ]);
+      setRooms(roomsResponse.rooms);
+      setDevices(devicesResponse.items);
+      setTotalFromServer(devicesResponse.page_info.total);
+      setLastLoadedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
+    } catch (requestError) {
+      setError(normalizeApiError(requestError).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadCatalog("", "");
@@ -106,9 +97,7 @@ export function useDevicesCatalog() {
   const selectedDeviceCatalog = useMemo(
     () =>
       selectedDevice
-        ? (devices.find(
-            (device) => device.device_id === selectedDevice.device_id,
-          ) ?? null)
+        ? (devices.find((device) => device.device_id === selectedDevice.device_id) ?? null)
         : null,
     [devices, selectedDevice],
   );

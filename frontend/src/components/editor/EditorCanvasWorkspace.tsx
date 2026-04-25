@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { EditorHotspotViewModel } from "../../view-models/editor";
-import { useContainedImageFrame, useViewportSize, readImageSize } from "../../hooks/useContainedImageFrame";
+import {
+  useContainedImageFrame,
+  useViewportSize,
+  readImageSize,
+} from "../../hooks/useContainedImageFrame";
 import { useResolvedAssetImageUrl } from "../../hooks/useResolvedAssetImageUrl";
 import { hasImageSize, type ImageSize } from "../../types/image";
 import { EditorSelectionLayer } from "./EditorSelectionLayer";
@@ -40,9 +44,8 @@ export function EditorCanvasWorkspace({
   onMoveHotspots,
 }: EditorCanvasWorkspaceProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [measuredBackgroundImageSize, setMeasuredBackgroundImageSize] = useState<ImageSize | null>(
-    backgroundImageSize,
-  );
+  const [measuredBackgroundImageSize, setMeasuredBackgroundImageSize] =
+    useState<ImageSize | null>(backgroundImageSize);
   const resolvedBackgroundImageUrl = useResolvedAssetImageUrl(backgroundImageUrl);
   const viewportSize = useViewportSize(viewportRef);
   const effectiveBackgroundImageSize = hasImageSize(backgroundImageSize)
@@ -107,7 +110,10 @@ export function EditorCanvasWorkspace({
               src={resolvedBackgroundImageUrl}
             />
           ) : (
-            <div className="floorplan-fallback editor-canvas-workspace__placeholder" aria-hidden="true">
+            <div
+              className="floorplan-fallback editor-canvas-workspace__placeholder"
+              aria-hidden="true"
+            >
               <span className="floorplan-fallback__room floorplan-fallback__room--living" />
               <span className="floorplan-fallback__room floorplan-fallback__room--kitchen" />
               <span className="floorplan-fallback__room floorplan-fallback__room--bedroom" />

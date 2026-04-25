@@ -17,10 +17,7 @@ interface TerminalActivationPageProps {
   terminalId: string;
   error: string | null;
   loading: boolean;
-  onActivate: (
-    bootstrapToken: string,
-    mode: TerminalActivationEntryMode,
-  ) => Promise<void>;
+  onActivate: (bootstrapToken: string, mode: TerminalActivationEntryMode) => Promise<void>;
   onContinueAfterSuccess: () => void;
   successState: TerminalActivationSuccessState | null;
 }
@@ -48,7 +45,10 @@ export function TerminalActivationPage({
 
   return (
     <main className="terminal-activation">
-      <section className="terminal-activation__panel" aria-labelledby="terminal-activation-title">
+      <section
+        className="terminal-activation__panel"
+        aria-labelledby="terminal-activation-title"
+      >
         <div className="terminal-activation__visual" aria-hidden="true">
           <div className="terminal-activation__screen">
             <span />
@@ -68,7 +68,9 @@ export function TerminalActivationPage({
           <p>
             新装终端优先用扫码或绑定码认领，换机、重装和恢复可以直接输入激活码。终端激活成功后会直接进入首页。
           </p>
-          <p className="terminal-activation__legacy-note">Activate this terminal with a pairing code</p>
+          <p className="terminal-activation__legacy-note">
+            Activate this terminal with a pairing code
+          </p>
           <dl className="terminal-activation__summary">
             <div>
               <dt>终端 ID</dt>
@@ -116,7 +118,11 @@ export function TerminalActivationPage({
                 <dd>设置 &gt; 终端交付</dd>
               </div>
             </dl>
-            <button className="button button--primary" onClick={onContinueAfterSuccess} type="button">
+            <button
+              className="button button--primary"
+              onClick={onContinueAfterSuccess}
+              type="button"
+            >
               进入首页
             </button>
           </section>
@@ -156,7 +162,11 @@ export function TerminalActivationPage({
                 <span className="terminal-activation__entry-hint">
                   支持扫码枪、扫码盒或直接粘贴链接
                 </span>
-                <button className="button button--primary" disabled={loading || !flow.scanValue.trim()} type="submit">
+                <button
+                  className="button button--primary"
+                  disabled={loading || !flow.scanValue.trim()}
+                  type="submit"
+                >
                   {loading ? "正在激活..." : "开始激活"}
                 </button>
               </div>
@@ -197,7 +207,12 @@ export function TerminalActivationPage({
                 <span className="terminal-activation__entry-hint">
                   也支持现场直接粘贴系统签发的终端激活凭证
                 </span>
-                <button aria-label="激活终端" className="button button--primary" disabled={loading || !flow.codeValue.trim()} type="submit">
+                <button
+                  aria-label="激活终端"
+                  className="button button--primary"
+                  disabled={loading || !flow.codeValue.trim()}
+                  type="submit"
+                >
                   {loading ? "正在激活..." : "验证并进入"}
                 </button>
               </div>
@@ -212,21 +227,28 @@ export function TerminalActivationPage({
                   <span className="terminal-activation__entry-tag">现场认领</span>
                   <h2 id="pairing-title">等待绑定码认领</h2>
                 </div>
-                <span className={`terminal-activation__entry-badge is-${statusTone(flow.pairingStatus)}`}>
+                <span
+                  className={`terminal-activation__entry-badge is-${statusTone(flow.pairingStatus)}`}
+                >
                   {pairingSummary.hint}
                 </span>
               </div>
               <p className="terminal-activation__entry-copy">
-                适合新装终端。管理端在“设置 &gt; 终端交付”输入这串绑定码后，当前终端会自动完成激活。
+                适合新装终端。管理端在“设置 &gt;
+                终端交付”输入这串绑定码后，当前终端会自动完成激活。
               </p>
-              <p className="terminal-activation__legacy-note">Claim this code from Pairing claim.</p>
+              <p className="terminal-activation__legacy-note">
+                Claim this code from Pairing claim.
+              </p>
 
               <div className="terminal-activation__pairing-grid">
                 <div className="terminal-activation__pairing-code">
                   <span className="terminal-activation__pairing-label">绑定码</span>
                   <strong data-testid="pairing-code-value">{pairingCode}</strong>
                 </div>
-                <div className={`terminal-activation__pairing-meta is-${statusTone(flow.pairingStatus)}`}>
+                <div
+                  className={`terminal-activation__pairing-meta is-${statusTone(flow.pairingStatus)}`}
+                >
                   <span>当前状态</span>
                   <strong data-testid="pairing-status-value">{pairingSummary.label}</strong>
                   <small>{pairingSummary.detail}</small>
@@ -249,7 +271,10 @@ export function TerminalActivationPage({
 
               <div className="terminal-activation__status-rail" aria-label="绑定状态轨迹">
                 {pairingStages.map((stage) => (
-                  <span className={`terminal-activation__status-chip is-${stage.state}`} key={stage.label}>
+                  <span
+                    className={`terminal-activation__status-chip is-${stage.state}`}
+                    key={stage.label}
+                  >
                     {stage.label}
                   </span>
                 ))}

@@ -261,11 +261,7 @@ describe("useEditorSessionFlow", () => {
       await vi.advanceTimersByTimeAsync(6_000);
     });
 
-    expect(mockedEditorApi.heartbeatEditorSession).toHaveBeenCalledWith(
-      "lease-1",
-    );
-    expect(appStore.getSnapshot().editor.leaseExpiresAt).toBe(
-      "2026-04-24T12:02:00Z",
-    );
+    expect(mockedEditorApi.heartbeatEditorSession).toHaveBeenCalledWith("lease-1");
+    expect(appStore.getSnapshot().editor.leaseExpiresAt).toBe("2026-04-24T12:02:00Z");
   });
 });

@@ -21,10 +21,13 @@ export function saveHomeAssistantConnection(input: SystemConnectionSaveInput) {
 }
 
 export function testHomeAssistantConnection(input: SystemConnectionTestInput) {
-  return apiRequest<SystemConnectionTestDto>("/api/v1/system-connections/home-assistant/test", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return apiRequest<SystemConnectionTestDto>(
+    "/api/v1/system-connections/home-assistant/test",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export function reloadHomeAssistantDevices(input: DeviceReloadInput) {

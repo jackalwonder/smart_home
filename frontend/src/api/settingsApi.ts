@@ -19,9 +19,7 @@ export function saveSettings(input: SettingsSaveInput) {
 }
 
 export function fetchSgccLoginQrCodeStatus() {
-  return apiRequest<SgccLoginQrCodeStatusDto>(
-    "/api/v1/settings/sgcc-login-qrcode",
-  );
+  return apiRequest<SgccLoginQrCodeStatusDto>("/api/v1/settings/sgcc-login-qrcode");
 }
 
 export function regenerateSgccLoginQrCode() {

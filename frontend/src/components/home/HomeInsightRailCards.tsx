@@ -45,7 +45,10 @@ export function RailCarousel({
   }
 
   return (
-    <section className={`home-rail-carousel home-rail-carousel--${variant}`} aria-label={ariaLabel}>
+    <section
+      className={`home-rail-carousel home-rail-carousel--${variant}`}
+      aria-label={ariaLabel}
+    >
       <div
         className="home-rail-carousel__viewport"
         onPointerCancel={() => setDragStart(null)}
@@ -58,7 +61,11 @@ export function RailCarousel({
           style={{ transform: `translateX(-${activeIndex * 100}%)` }}
         >
           {slides.map((slide) => (
-            <div key={slide.key} className="home-rail-carousel__slide" aria-label={slide.label}>
+            <div
+              key={slide.key}
+              className="home-rail-carousel__slide"
+              aria-label={slide.label}
+            >
               {slide.content}
             </div>
           ))}
@@ -105,7 +112,12 @@ export function HomeRailWeatherBrief({ viewModel }: { viewModel: HomeViewModel }
       </div>
 
       <div className="home-weather-brief__meters">
-        <Meter label="空气湿度" tone="blue" value={`${humidityValue}%`} width={humidityValue} />
+        <Meter
+          label="空气湿度"
+          tone="blue"
+          value={`${humidityValue}%`}
+          width={humidityValue}
+        />
         <Meter
           label="降雨量"
           tone="cyan"
@@ -210,10 +222,7 @@ export function FavoriteDevicesSlide({
   onOpenFavoriteDevice: (deviceId: string) => void;
 }) {
   return (
-    <section
-      aria-label="首页常用设备"
-      className="home-trends-slide home-favorite-rail-slide"
-    >
+    <section aria-label="首页常用设备" className="home-trends-slide home-favorite-rail-slide">
       <header className="home-status-panel__header">
         <div>
           <span className="card-eyebrow">首页入口</span>
@@ -286,11 +295,7 @@ function ToggleRow({
   );
 }
 
-export function HomeMediaPlayerSlide({
-  source,
-}: {
-  source: HomeMediaSource;
-}) {
+export function HomeMediaPlayerSlide({ source }: { source: HomeMediaSource }) {
   return (
     <article className="home-media-player">
       <div className="home-media-player__cover">

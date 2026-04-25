@@ -1,10 +1,5 @@
 import { apiRequest } from "./httpClient";
-import {
-  EnergyBindingDto,
-  EnergyBindingInput,
-  EnergyDto,
-  EnergyRefreshDto,
-} from "./types";
+import { EnergyBindingDto, EnergyBindingInput, EnergyDto, EnergyRefreshDto } from "./types";
 
 export function fetchEnergy() {
   return apiRequest<EnergyDto>("/api/v1/energy");

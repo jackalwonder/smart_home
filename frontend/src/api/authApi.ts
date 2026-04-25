@@ -13,23 +13,11 @@ import {
 } from "./types";
 
 export class BootstrapTokenActivationError extends Error {
-  reason:
-    | "missing"
-    | "expired"
-    | "invalid"
-    | "network"
-    | "server"
-    | "malformed";
+  reason: "missing" | "expired" | "invalid" | "network" | "server" | "malformed";
 
   constructor(
     message: string,
-    reason:
-      | "missing"
-      | "expired"
-      | "invalid"
-      | "network"
-      | "server"
-      | "malformed" = "invalid",
+    reason: "missing" | "expired" | "invalid" | "network" | "server" | "malformed" = "invalid",
   ) {
     super(message);
     this.name = "BootstrapTokenActivationError";

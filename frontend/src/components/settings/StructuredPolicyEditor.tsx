@@ -13,11 +13,7 @@ interface StructuredPolicyEditorProps {
   entries: PolicyEntryDraft[];
   onAddEntry: () => void;
   onRemoveEntry: (index: number) => void;
-  onChangeEntry: (
-    index: number,
-    field: "key" | "type" | "value",
-    value: string,
-  ) => void;
+  onChangeEntry: (index: number, field: "key" | "type" | "value", value: string) => void;
 }
 
 export function StructuredPolicyEditor({

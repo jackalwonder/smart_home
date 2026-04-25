@@ -22,10 +22,7 @@ export function useEditorHotspotCanvasEditing({
   setSelectedHotspotId,
   updateDraftStateWithHistory,
 }: UseEditorHotspotCanvasEditingOptions) {
-  function nudgeSelectedHotspot(
-    direction: "left" | "right" | "up" | "down",
-    delta = 0.01,
-  ) {
+  function nudgeSelectedHotspot(direction: "left" | "right" | "up" | "down", delta = 0.01) {
     const targetIds = batchSelectedHotspotIds.length
       ? batchSelectedHotspotIds
       : selectedHotspotId
@@ -75,9 +72,7 @@ export function useEditorHotspotCanvasEditing({
     );
   }
 
-  function moveHotspotGroup(
-    updates: Array<{ hotspotId: string; x: number; y: number }>,
-  ) {
+  function moveHotspotGroup(updates: Array<{ hotspotId: string; x: number; y: number }>) {
     if (!canEdit || !updates.length) {
       return;
     }

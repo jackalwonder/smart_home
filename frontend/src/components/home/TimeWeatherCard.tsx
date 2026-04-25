@@ -48,10 +48,7 @@ export function TimeWeatherCard({
             <strong>{humidity}</strong>
           </div>
           <div className="ambient-bars__track">
-            <div
-              className="ambient-bars__fill"
-              style={{ width: `${humidityValue}%` }}
-            />
+            <div className="ambient-bars__fill" style={{ width: `${humidityValue}%` }} />
           </div>
         </div>
         <div className="ambient-bars__row">
@@ -60,10 +57,7 @@ export function TimeWeatherCard({
             <strong>{Math.round(clampPercent(Number(comfortWidth.replace("%", ""))))}%</strong>
           </div>
           <div className="ambient-bars__track">
-            <div
-              className="ambient-bars__fill is-warm"
-              style={{ width: comfortWidth }}
-            />
+            <div className="ambient-bars__fill is-warm" style={{ width: comfortWidth }} />
           </div>
         </div>
       </div>

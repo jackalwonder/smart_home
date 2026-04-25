@@ -28,14 +28,8 @@ interface UseEditorHotspotEditingOptions {
   redoDraftChange: () => string | null;
   replaceBatchSelection: (hotspotIds: string[]) => void;
   selectedHotspotId: string | null;
-  selectSingleHotspot: (
-    hotspotId: string,
-    options?: { keepBatch?: boolean },
-  ) => void;
-  setBatchSelectedHotspotIds: (
-    updater: (current: string[]) => string[],
-  ) => void;
-  setDraftState: (updater: EditorDraftStateUpdater) => void;
+  selectSingleHotspot: (hotspotId: string, options?: { keepBatch?: boolean }) => void;
+  setBatchSelectedHotspotIds: (updater: (current: string[]) => string[]) => void;
   setSelectedHotspotId: (
     value: string | null | ((current: string | null) => string | null),
   ) => void;
@@ -67,7 +61,6 @@ export function useEditorHotspotEditing({
   selectedHotspotId,
   selectSingleHotspot,
   setBatchSelectedHotspotIds,
-  setDraftState,
   setSelectedHotspotId,
   showEditorNotice,
   toggleBatchHotspot,
@@ -104,9 +97,7 @@ export function useEditorHotspotEditing({
     draftState.hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ??
     null;
   const selectedBatchHotspots = sortHotspots(
-    draftState.hotspots.filter((hotspot) =>
-      batchSelectedHotspotIds.includes(hotspot.id),
-    ),
+    draftState.hotspots.filter((hotspot) => batchSelectedHotspotIds.includes(hotspot.id)),
   );
   const orderedHotspots = sortHotspots(draftState.hotspots);
   const selectedHotspotIndex = selectedHotspot
@@ -125,14 +116,13 @@ export function useEditorHotspotEditing({
     canEdit,
     updateDraftStateWithHistory,
   });
-  const { handleCanvasHotspotPointer, selectAllVisibleHotspots } =
-    useEditorHotspotSelection({
-      replaceBatchSelection,
-      selectSingleHotspot,
-      setSelectedHotspotId,
-      toggleBatchHotspot,
-      visibleHotspots,
-    });
+  const { handleCanvasHotspotPointer, selectAllVisibleHotspots } = useEditorHotspotSelection({
+    replaceBatchSelection,
+    selectSingleHotspot,
+    setSelectedHotspotId,
+    toggleBatchHotspot,
+    visibleHotspots,
+  });
   const { moveHotspot, moveHotspotGroup, nudgeSelectedHotspot } =
     useEditorHotspotCanvasEditing({
       batchSelectedHotspotIds,

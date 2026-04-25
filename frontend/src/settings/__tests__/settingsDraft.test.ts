@@ -1,40 +1,56 @@
 import { describe, expect, it } from "vitest";
-import {
-  createSettingsDraft,
-  materializePolicyEntries,
-} from "../settingsDraft";
+import { createSettingsDraft, materializePolicyEntries } from "../settingsDraft";
+import type { SettingsDto } from "../../api/types";
+
+function settingsFixture(overrides: Partial<SettingsDto>): SettingsDto {
+  return {
+    favorites: [],
+    function_settings: null,
+    page_settings: null,
+    pin_session_required: false,
+    settings_version: "settings-test",
+    system_settings_summary: {
+      default_media_binding_status: "MEDIA_UNSET",
+      energy_binding_status: "UNBOUND",
+      system_connections_configured: false,
+    },
+    ...overrides,
+  };
+}
 
 describe("settingsDraft", () => {
   it("creates editable settings draft fields from backend settings data", () => {
-    const draft = createSettingsDraft({
-      page_settings: {
-        room_label_mode: "ALWAYS",
-        homepage_display_policy: {
-          show_weather: true,
-          max_cards: 6,
-          nested: { mode: "compact" },
+    const draft = createSettingsDraft(
+      settingsFixture({
+        page_settings: {
+          room_label_mode: "ALWAYS",
+          homepage_display_policy: {
+            show_weather: true,
+            max_cards: 6,
+            nested: { mode: "compact" },
+          },
         },
-      },
-      function_settings: {
-        music_enabled: true,
-        low_battery_threshold: 25,
-        offline_threshold_seconds: 120,
-        favorite_limit: 12,
-        quick_entry_policy: { favorites: false },
-        auto_home_timeout_seconds: 240,
-        position_device_thresholds: {
-          closed_max: 10,
-          opened_min: 90,
+        function_settings: {
+          music_enabled: true,
+          low_battery_threshold: 25,
+          offline_threshold_seconds: 120,
+          favorite_limit: 12,
+          quick_entry_policy: { favorites: false },
+          auto_home_timeout_seconds: 240,
+          position_device_thresholds: {
+            closed_max: 10,
+            opened_min: 90,
+          },
         },
-      },
-      favorites: [
-        {
-          device_id: "light.kitchen",
-          selected: true,
-          favorite_order: 2,
-        },
-      ],
-    });
+        favorites: [
+          {
+            device_id: "light.kitchen",
+            selected: true,
+            favorite_order: 2,
+          },
+        ],
+      }),
+    );
 
     expect(draft.page.roomLabelMode).toBe("ALWAYS");
     expect(draft.page.homepageDisplayPolicy).toEqual([

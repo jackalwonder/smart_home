@@ -68,7 +68,9 @@ function formatInvalidFieldList(details: Record<string, unknown> | undefined) {
         return null;
       }
       const value = (field as { field?: unknown }).field;
-      return typeof value === "string" && value.length ? translateEditorFieldPath(value) : null;
+      return typeof value === "string" && value.length
+        ? translateEditorFieldPath(value)
+        : null;
     })
     .filter((value): value is string => Boolean(value))
     .slice(0, 3);

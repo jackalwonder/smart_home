@@ -60,13 +60,13 @@ export function useHomeHotspotControl({
   const primaryCandidate =
     targetCandidates[0] ?? (hotspot ? candidateFromHotspot(hotspot) : null);
   const primaryDetail = primaryCandidate
-    ? detailsById.get(primaryCandidate.deviceId) ?? null
+    ? (detailsById.get(primaryCandidate.deviceId) ?? null)
     : null;
   const anchorKind = primaryCandidate ? deviceKind(primaryCandidate.deviceType) : "device";
   const onlineCount = targetCandidates.filter((device) => !device.isOffline).length;
   const controllableCount =
     mode === "detail"
-      ? primaryDetail?.control_schema.length ?? 0
+      ? (primaryDetail?.control_schema.length ?? 0)
       : targetCandidates.filter((device) => {
           const detail = detailsById.get(device.deviceId);
           return Boolean(detail?.control_schema.some(isPowerControlSchema));

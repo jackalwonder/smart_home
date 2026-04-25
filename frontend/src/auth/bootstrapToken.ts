@@ -43,8 +43,7 @@ export function buildBootstrapActivationLink(token: string, baseUrl?: string) {
     return null;
   }
   const source =
-    baseUrl?.trim() ||
-    (typeof window !== "undefined" ? window.location.href : null);
+    baseUrl?.trim() || (typeof window !== "undefined" ? window.location.href : null);
   if (!source) {
     return null;
   }
@@ -98,8 +97,7 @@ export function consumeBootstrapTokenFromUrl() {
 
 function readBootstrapTokenFromUrlLike(value: string) {
   try {
-    const base =
-      typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost";
     const url = new URL(value, base);
     return url.searchParams.get(BOOTSTRAP_TOKEN_QUERY_PARAM)?.trim() || null;
   } catch {

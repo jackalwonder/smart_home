@@ -1,6 +1,8 @@
-import type { SessionModel } from "../api/types";
+import type { EditorDraftDto, HomeOverviewDto, SessionModel, SettingsDto } from "../api/types";
 import type { WsEvent } from "../ws/types";
 import type { AppState, RealtimeState } from "./appStoreTypes";
+
+type EditorDraftLayoutDto = NonNullable<EditorDraftDto["layout"]>;
 
 type SetAppState = (recipe: (current: AppState) => AppState) => void;
 
@@ -128,7 +130,7 @@ export function createHomeActions(setState: SetAppState) {
         ...current,
         home: { ...current.home, status: "loading", error: null },
       })),
-    setHomeData: (data: Record<string, unknown>) =>
+    setHomeData: (data: HomeOverviewDto) =>
       setState((current) => ({
         ...current,
         home: { status: "success", data, error: null },
@@ -148,7 +150,7 @@ export function createSettingsActions(setState: SetAppState) {
         ...current,
         settings: { ...current.settings, status: "loading", error: null },
       })),
-    setSettingsData: (data: Record<string, unknown>) =>
+    setSettingsData: (data: SettingsDto) =>
       setState((current) => ({
         ...current,
         settings: { status: "success", data, error: null },
@@ -203,7 +205,7 @@ export function createEditorActions(setState: SetAppState) {
         editor: { ...current.editor, draftStatus: "loading" },
       })),
     setEditorDraftData: (payload: {
-      draft: Record<string, unknown> | null;
+      draft: EditorDraftLayoutDto | null;
       draftVersion: string | null;
       baseLayoutVersion: string | null;
       readonly: boolean;

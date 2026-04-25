@@ -19,9 +19,7 @@ interface EditorWorkbenchWorkspaceProps {
   embedded?: boolean;
 }
 
-export function EditorWorkbenchWorkspace({
-  embedded = false,
-}: EditorWorkbenchWorkspaceProps) {
+export function EditorWorkbenchWorkspace({ embedded = false }: EditorWorkbenchWorkspaceProps) {
   const session = useAppStore((state) => state.session);
   const editor = useAppStore((state) => state.editor);
   const pin = useAppStore((state) => state.pin);
@@ -153,7 +151,6 @@ export function EditorWorkbenchWorkspace({
     selectedHotspotId,
     selectSingleHotspot,
     setBatchSelectedHotspotIds,
-    setDraftState,
     setSelectedHotspotId,
     showEditorNotice,
     toggleBatchHotspot,
@@ -164,11 +161,7 @@ export function EditorWorkbenchWorkspace({
     effectivePublishSummary,
     effectivePublishSummaryError,
     effectivePublishSummaryLoading,
-  } = useEditorPublishSummary(
-    draftState,
-    publishBaseline,
-    editor.baseLayoutVersion,
-  );
+  } = useEditorPublishSummary(draftState, publishBaseline, editor.baseLayoutVersion);
   const {
     handleUploadBackground,
     handleUploadHotspotIcon,
@@ -187,39 +180,63 @@ export function EditorWorkbenchWorkspace({
     switch (action) {
       case "refresh":
         return (
-          <button className="button button--ghost" onClick={() => void refreshDraft()} type="button">
+          <button
+            className="button button--ghost"
+            onClick={() => void refreshDraft()}
+            type="button"
+          >
             刷新草稿
           </button>
         );
       case "retry-save":
         return (
-          <button className="button button--primary" onClick={() => void handleSaveDraft()} type="button">
+          <button
+            className="button button--primary"
+            onClick={() => void handleSaveDraft()}
+            type="button"
+          >
             重新保存
           </button>
         );
       case "retry-publish":
         return (
-          <button className="button button--primary" onClick={() => void handlePublishDraft()} type="button">
+          <button
+            className="button button--primary"
+            onClick={() => void handlePublishDraft()}
+            type="button"
+          >
             重新发布
           </button>
         );
       case "retry-acquire":
       case "acquire":
         return canAcquire ? (
-          <button className="button button--ghost" onClick={() => void handleAcquireLock()} type="button">
+          <button
+            className="button button--ghost"
+            onClick={() => void handleAcquireLock()}
+            type="button"
+          >
             重新申请编辑
           </button>
         ) : null;
       case "retry-takeover":
       case "takeover":
         return canTakeover ? (
-          <button className="button button--primary" onClick={() => void handleTakeover()} type="button">
+          <button
+            className="button button--primary"
+            onClick={() => void handleTakeover()}
+            type="button"
+          >
             接管当前锁
           </button>
         ) : null;
       case "retry-discard":
         return (
-          <button className="button button--ghost" onClick={() => void handleDiscardDraft()} type="button">
+          <button
+            className="button button--ghost"
+            onClick={() => void handleDiscardDraft()}
+            type="button"
+          >
             重新丢弃
           </button>
         );
@@ -227,9 +244,7 @@ export function EditorWorkbenchWorkspace({
   }
 
   return (
-    <section
-      className={embedded ? "editor-workspace-embedded" : "page page--editor"}
-    >
+    <section className={embedded ? "editor-workspace-embedded" : "page page--editor"}>
       {editorNotice ? (
         <section className={`editor-recovery editor-recovery--${editorNotice.tone}`}>
           <div>
@@ -302,8 +317,10 @@ export function EditorWorkbenchWorkspace({
           mode={canvasMode}
           onBackgroundImageSizeChange={(backgroundImageSize) => {
             setDraftState((current) => {
-              const sameWidth = current.backgroundImageSize?.width === backgroundImageSize.width;
-              const sameHeight = current.backgroundImageSize?.height === backgroundImageSize.height;
+              const sameWidth =
+                current.backgroundImageSize?.width === backgroundImageSize.width;
+              const sameHeight =
+                current.backgroundImageSize?.height === backgroundImageSize.height;
               return sameWidth && sameHeight
                 ? current
                 : {
@@ -327,7 +344,9 @@ export function EditorWorkbenchWorkspace({
           devices={deviceCatalog}
           hotspot={selectedHotspot}
           layoutMetaText={draftState.layoutMetaText}
-          canMoveDown={selectedHotspotIndex > -1 && selectedHotspotIndex < orderedHotspots.length - 1}
+          canMoveDown={
+            selectedHotspotIndex > -1 && selectedHotspotIndex < orderedHotspots.length - 1
+          }
           canMoveUp={selectedHotspotIndex > 0}
           isUploadingBackground={isUploadingBackground}
           isUploadingHotspotIcon={isUploadingHotspotIcon}

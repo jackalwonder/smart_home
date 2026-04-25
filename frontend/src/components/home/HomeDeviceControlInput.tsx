@@ -22,9 +22,7 @@ export function HomeDeviceControlInput({
   const type = schema.value_type?.toUpperCase() ?? "NONE";
   if (type === "NONE") {
     return (
-      <p className="home-device-control-panel__hint">
-        这个动作不需要额外输入，直接执行即可。
-      </p>
+      <p className="home-device-control-panel__hint">这个动作不需要额外输入，直接执行即可。</p>
     );
   }
 
@@ -55,7 +53,7 @@ export function HomeDeviceControlInput({
       >
         <button
           aria-label="开启"
-          className={Boolean(value) ? "is-active" : ""}
+          className={value ? "is-active" : ""}
           onClick={() => onChange(true)}
           type="button"
         >
@@ -63,7 +61,7 @@ export function HomeDeviceControlInput({
         </button>
         <button
           aria-label="关闭"
-          className={!Boolean(value) ? "is-active" : ""}
+          className={!value ? "is-active" : ""}
           onClick={() => onChange(false)}
           type="button"
         >

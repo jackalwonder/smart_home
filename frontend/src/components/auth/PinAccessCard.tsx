@@ -96,7 +96,11 @@ export function PinAccessCard() {
           <h3>管理 PIN</h3>
           <p className="muted-copy">编辑设置、草稿和系统连接前，需要先验证管理 PIN。</p>
         </div>
-        <button className="button button--ghost" onClick={() => void refreshPinState()} type="button">
+        <button
+          className="button button--ghost"
+          onClick={() => void refreshPinState()}
+          type="button"
+        >
           刷新状态
         </button>
       </div>

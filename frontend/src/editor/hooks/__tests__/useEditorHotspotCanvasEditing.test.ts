@@ -48,8 +48,7 @@ function createCanvasHarness(options?: {
   const historyCalls: Array<{ label: string; groupKey?: string }> = [];
   const setSelectedHotspotId = vi.fn(
     (value: string | null | ((current: string | null) => string | null)) => {
-      selectedHotspotId =
-        typeof value === "function" ? value(selectedHotspotId) : value;
+      selectedHotspotId = typeof value === "function" ? value(selectedHotspotId) : value;
     },
   );
   const updateDraftStateWithHistory = vi.fn(
@@ -81,10 +80,7 @@ function createCanvasHarness(options?: {
 
 function positionsById(draftState: EditorDraftState) {
   return Object.fromEntries(
-    draftState.hotspots.map((hotspot) => [
-      hotspot.id,
-      { x: hotspot.x, y: hotspot.y },
-    ]),
+    draftState.hotspots.map((hotspot) => [hotspot.id, { x: hotspot.x, y: hotspot.y }]),
   );
 }
 
@@ -165,8 +161,9 @@ describe("useEditorHotspotCanvasEditing", () => {
   });
 
   it("does not mutate draft state when editing is disabled", () => {
-    const { result, updateDraftStateWithHistory, setSelectedHotspotId } =
-      createCanvasHarness({ canEdit: false });
+    const { result, updateDraftStateWithHistory, setSelectedHotspotId } = createCanvasHarness({
+      canEdit: false,
+    });
 
     act(() => {
       result.current.nudgeSelectedHotspot("right");

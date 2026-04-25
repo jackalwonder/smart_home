@@ -100,7 +100,10 @@ export function mapEditorViewModel(input: {
     .map((hotspot, index) => ({
       id: asString(hotspot.hotspot_id ?? `draft-hotspot-${index}`),
       label: asString(
-        hotspot.display_name ?? hotspot.device_id ?? hotspot.entity_id ?? `Hotspot ${index + 1}`,
+        hotspot.display_name ??
+          hotspot.device_id ??
+          hotspot.entity_id ??
+          `Hotspot ${index + 1}`,
       ),
       deviceId: asString(hotspot.device_id ?? hotspot.entity_id ?? ""),
       x: asNumber(hotspot.x),

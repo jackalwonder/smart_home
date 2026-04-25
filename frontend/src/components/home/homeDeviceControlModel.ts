@@ -1,8 +1,5 @@
 import { normalizeApiError } from "../../api/httpClient";
-import {
-  DeviceControlResultDto,
-  DeviceControlSchemaItemDto,
-} from "../../api/types";
+import { DeviceControlResultDto, DeviceControlSchemaItemDto } from "../../api/types";
 import { HomeHotspotViewModel } from "../../view-models/home";
 
 export function makeRequestId(deviceId: string) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { saveSettings } from "../../api/settingsApi";
 import { normalizeApiError } from "../../api/httpClient";
+import type { SettingsDto } from "../../api/types";
 import { appStore } from "../../store/useAppStore";
 import type { PolicyEntryDraftType } from "../../components/settings/StructuredPolicyEditor";
 import {
@@ -13,7 +14,7 @@ import {
 
 interface UseSettingsDraftOptions {
   onSaved: () => Promise<void>;
-  settingsData: Record<string, unknown> | null;
+  settingsData: SettingsDto | null;
   terminalId?: string | null;
 }
 
@@ -24,14 +25,12 @@ export function useSettingsDraft({
 }: UseSettingsDraftOptions) {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [settingsDraft, setSettingsDraft] = useState(() =>
-    createSettingsDraft(null),
+  const [settingsDraft, setSettingsDraft] = useState(() => createSettingsDraft(null));
+  const [draftSourceSettingsVersion, setDraftSourceSettingsVersion] = useState<string | null>(
+    null,
   );
-  const [draftSourceSettingsVersion, setDraftSourceSettingsVersion] = useState<
-    string | null
-  >(null);
 
-  function applySettingsDraftFromData(data: Record<string, unknown>) {
+  function applySettingsDraftFromData(data: SettingsDto) {
     setSettingsDraft(createSettingsDraft(data));
     setDraftSourceSettingsVersion(getSettingsVersion(data));
   }
@@ -104,9 +103,7 @@ export function useSettingsDraft({
   function removeFavoriteDraft(index: number) {
     setSettingsDraft((current) => ({
       ...current,
-      favorites: current.favorites.filter(
-        (_, favoriteIndex) => favoriteIndex !== index,
-      ),
+      favorites: current.favorites.filter((_, favoriteIndex) => favoriteIndex !== index),
     }));
   }
 
@@ -171,9 +168,7 @@ export function useSettingsDraft({
       ...current,
       page: {
         ...current.page,
-        [policy]: current.page[policy].filter(
-          (_, entryIndex) => entryIndex !== index,
-        ),
+        [policy]: current.page[policy].filter((_, entryIndex) => entryIndex !== index),
       },
     }));
   }
@@ -216,18 +211,14 @@ export function useSettingsDraft({
     setIsSaving(true);
     try {
       const response = await saveSettings({
-        settings_version:
-          (settingsData.settings_version as string | null | undefined) ?? null,
+        settings_version: (settingsData.settings_version as string | null | undefined) ?? null,
         page_settings: {
           room_label_mode: settingsDraft.page.roomLabelMode,
           homepage_display_policy: materializePolicyEntries(
             settingsDraft.page.homepageDisplayPolicy,
             "首页展示策略",
           ),
-          icon_policy: materializePolicyEntries(
-            settingsDraft.page.iconPolicy,
-            "图标策略",
-          ),
+          icon_policy: materializePolicyEntries(settingsDraft.page.iconPolicy, "图标策略"),
           layout_preference: materializePolicyEntries(
             settingsDraft.page.layoutPreference,
             "布局偏好",
@@ -235,19 +226,13 @@ export function useSettingsDraft({
         },
         function_settings: {
           music_enabled: settingsDraft.function.musicEnabled,
-          low_battery_threshold: Number(
-            settingsDraft.function.lowBatteryThreshold,
-          ),
-          offline_threshold_seconds: Number(
-            settingsDraft.function.offlineThresholdSeconds,
-          ),
+          low_battery_threshold: Number(settingsDraft.function.lowBatteryThreshold),
+          offline_threshold_seconds: Number(settingsDraft.function.offlineThresholdSeconds),
           favorite_limit: Number(settingsDraft.function.favoriteLimit),
           quick_entry_policy: {
             favorites: settingsDraft.function.quickEntryFavorites,
           },
-          auto_home_timeout_seconds: Number(
-            settingsDraft.function.autoHomeTimeoutSeconds,
-          ),
+          auto_home_timeout_seconds: Number(settingsDraft.function.autoHomeTimeoutSeconds),
           position_device_thresholds: {
             closed_max: Number(settingsDraft.function.closedMax),
             opened_min: Number(settingsDraft.function.openedMin),
@@ -263,9 +248,7 @@ export function useSettingsDraft({
               : index,
           })),
       });
-      setSaveMessage(
-        `保存完成，settings_version 已更新为 ${response.settings_version}。`,
-      );
+      setSaveMessage(`保存完成，settings_version 已更新为 ${response.settings_version}。`);
       await onSaved();
     } catch (error) {
       appStore.setSettingsError(normalizeApiError(error).message);

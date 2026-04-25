@@ -1,18 +1,12 @@
 import type { SettingsSectionViewModel } from "../../view-models/settings";
-import {
-  formatCount,
-  type RuntimeCard,
-} from "../../settings/runtimeOverview";
+import { formatCount, type RuntimeCard } from "../../settings/runtimeOverview";
 
 interface SettingsRuntimeOverviewProps {
   backupCount: number;
   pinActive: boolean;
   runtimeCards: RuntimeCard[];
   selectedFavoriteCount: number;
-  onSelectSection: (
-    nextSection: SettingsSectionViewModel["key"],
-    targetId?: string,
-  ) => void;
+  onSelectSection: (nextSection: SettingsSectionViewModel["key"], targetId?: string) => void;
 }
 
 export function SettingsRuntimeOverview({

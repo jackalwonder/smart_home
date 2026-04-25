@@ -15,14 +15,9 @@ interface UseDeviceHomeEntryOptions {
   onCatalogChanged: () => Promise<void>;
 }
 
-export function useDeviceHomeEntry({
-  onCatalogChanged,
-}: UseDeviceHomeEntryOptions) {
-  const [homeEntryBusyDeviceId, setHomeEntryBusyDeviceId] = useState<
-    string | null
-  >(null);
-  const [homeEntryFeedback, setHomeEntryFeedback] =
-    useState<HomeEntryFeedback>(null);
+export function useDeviceHomeEntry({ onCatalogChanged }: UseDeviceHomeEntryOptions) {
+  const [homeEntryBusyDeviceId, setHomeEntryBusyDeviceId] = useState<string | null>(null);
+  const [homeEntryFeedback, setHomeEntryFeedback] = useState<HomeEntryFeedback>(null);
 
   const updateHomeEntry = useCallback(
     async (device: DeviceListItemDto, action: HomeEntryAction) => {
@@ -40,8 +35,7 @@ export function useDeviceHomeEntry({
         const settings = await fetchSettings();
         const favorites = normalizeFavorites(settings);
         const alreadySelected = favorites.some(
-          (favorite) =>
-            favorite.device_id === device.device_id && favorite.selected,
+          (favorite) => favorite.device_id === device.device_id && favorite.selected,
         );
 
         if (action === "add" && alreadySelected) {
@@ -60,16 +54,10 @@ export function useDeviceHomeEntry({
           return;
         }
 
-        const nextFavorites = buildNextFavorites(
-          settings,
-          device.device_id,
-          action,
-        );
+        const nextFavorites = buildNextFavorites(settings, device.device_id, action);
         await saveSettings(buildSettingsSaveInput(settings, nextFavorites));
         const refreshedSettings = await fetchSettings();
-        appStore.setSettingsData(
-          refreshedSettings as unknown as Record<string, unknown>,
-        );
+        appStore.setSettingsData(refreshedSettings);
         await onCatalogChanged();
         setHomeEntryFeedback({
           tone: "success",

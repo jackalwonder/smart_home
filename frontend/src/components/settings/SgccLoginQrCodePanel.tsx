@@ -1,8 +1,5 @@
 import { SgccLoginQrCodeStatusDto } from "../../api/types";
-import {
-  formatSettingsStatus,
-  getSettingsStatusTone,
-} from "../../settings/statusFormat";
+import { formatSettingsStatus, getSettingsStatusTone } from "../../settings/statusFormat";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface SgccLoginQrCodePanelProps {
@@ -146,11 +143,7 @@ export function SgccLoginQrCodePanel({
 
       <div className="sgcc-login-qrcode">
         {imageUrl ? (
-          <img
-            alt="国家电网登录二维码"
-            className="sgcc-login-qrcode__image"
-            src={imageUrl}
-          />
+          <img alt="国家电网登录二维码" className="sgcc-login-qrcode__image" src={imageUrl} />
         ) : (
           <div className="sgcc-login-qrcode__empty">
             {status?.message ?? "等待 sgcc_electricity 生成二维码"}
@@ -161,7 +154,8 @@ export function SgccLoginQrCodePanel({
             页面会自动轮询最新二维码；只有需要重新扫码时，才需要重新生成二维码。
           </p>
           <p className="settings-module-card__note">
-            新二维码通常需要等待密码登录重试失败后才会出现，可能需要几分钟；出现后请尽快用国家电网 App 扫码。
+            新二维码通常需要等待密码登录重试失败后才会出现，可能需要几分钟；出现后请尽快用国家电网
+            App 扫码。
           </p>
         </div>
       </div>

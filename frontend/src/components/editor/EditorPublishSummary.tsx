@@ -32,8 +32,8 @@ export function EditorPublishSummary({
           {errorMessage
             ? errorMessage
             : totalChanges
-            ? "发布前请确认以下草稿变化。"
-            : "当前草稿与本次编辑开始时的内容一致。"}
+              ? "发布前请确认以下草稿变化。"
+              : "当前草稿与本次编辑开始时的内容一致。"}
         </p>
       </div>
       {items.length ? (

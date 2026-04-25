@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  acceptDeviceControl,
-  fetchDeviceControlResult,
-} from "../../api/deviceControlsApi";
+import { acceptDeviceControl, fetchDeviceControlResult } from "../../api/deviceControlsApi";
 import { fetchDeviceDetail } from "../../api/devicesApi";
 import {
   DeviceControlSchemaItemDto,
@@ -153,7 +150,7 @@ export function HomeClusterControlModal({
         [detail.device_id]:
           result.execution_status === "SUCCESS"
             ? "设备已完成控制"
-            : result.error_message ?? "设备尚未返回成功确认",
+            : (result.error_message ?? "设备尚未返回成功确认"),
       }));
     } catch (nextError) {
       setMessages((current) => ({
@@ -221,13 +218,13 @@ export function HomeClusterControlModal({
                 : detail?.control_schema.find(isTemperatureSchema);
             const rangeIndex =
               cluster === "lights"
-                ? detail?.control_schema.findIndex(isBrightnessSchema) ?? -1
-                : detail?.control_schema.findIndex(isTemperatureSchema) ?? -1;
+                ? (detail?.control_schema.findIndex(isBrightnessSchema) ?? -1)
+                : (detail?.control_schema.findIndex(isTemperatureSchema) ?? -1);
             const modeSchema =
               cluster === "climate" ? detail?.control_schema.find(isModeSchema) : undefined;
             const modeIndex =
               cluster === "climate"
-                ? detail?.control_schema.findIndex(isModeSchema) ?? -1
+                ? (detail?.control_schema.findIndex(isModeSchema) ?? -1)
                 : -1;
             const rangeKey =
               detail && rangeSchema && rangeIndex >= 0
@@ -262,7 +259,8 @@ export function HomeClusterControlModal({
 
                 {(cluster === "offline" || cluster === "battery") && !detail ? (
                   <p className="home-cluster-modal__device-note">
-                    {(item.alert_badges ?? []).map((badge) => badge.text).join("，") || "待进一步检查"}
+                    {(item.alert_badges ?? []).map((badge) => badge.text).join("，") ||
+                      "待进一步检查"}
                   </p>
                 ) : null}
 
@@ -281,7 +279,9 @@ export function HomeClusterControlModal({
                       disabled={Boolean(
                         pending[`${detail.device_id}:${schemaId(powerSchema, powerIndex)}`],
                       )}
-                      onClick={() => void submitControl(detail, powerSchema, powerIndex, false)}
+                      onClick={() =>
+                        void submitControl(detail, powerSchema, powerIndex, false)
+                      }
                       type="button"
                     >
                       关闭
@@ -348,14 +348,15 @@ export function HomeClusterControlModal({
                   </div>
                 ) : null}
 
-                {modeSchema && detail && modeKey && Array.isArray(modeSchema.allowed_values) ? (
+                {modeSchema &&
+                detail &&
+                modeKey &&
+                Array.isArray(modeSchema.allowed_values) ? (
                   <div className="home-cluster-modal__device-modes">
                     {modeSchema.allowed_values.slice(0, 4).map((option) => (
                       <button
                         key={String(option)}
-                        className={
-                          values[modeKey] === option ? "is-active" : ""
-                        }
+                        className={values[modeKey] === option ? "is-active" : ""}
                         onClick={() => {
                           setValues((current) => ({ ...current, [modeKey]: option }));
                           void submitControl(detail, modeSchema, modeIndex, option);

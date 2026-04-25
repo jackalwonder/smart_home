@@ -188,10 +188,7 @@ export function IconPolicySection({ entries, onSetPolicyValue }: PolicySectionPr
   );
 }
 
-export function LayoutPreferenceSection({
-  entries,
-  onSetPolicyValue,
-}: PolicySectionProps) {
+export function LayoutPreferenceSection({ entries, onSetPolicyValue }: PolicySectionProps) {
   return (
     <section className="policy-preset-panel">
       <div className="policy-preset-panel__header">

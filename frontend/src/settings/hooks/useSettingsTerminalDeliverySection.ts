@@ -35,10 +35,7 @@ export function useSettingsTerminalDeliverySection({
       { label: "终端目录", value: `${delivery.directory.length} 台` },
       {
         label: "目标终端",
-        value:
-          selectedTerminal?.terminal_name ??
-          selectedTerminal?.terminal_code ??
-          "-",
+        value: selectedTerminal?.terminal_name ?? selectedTerminal?.terminal_code ?? "-",
       },
       {
         label: "详情面板",
@@ -53,10 +50,7 @@ export function useSettingsTerminalDeliverySection({
       { label: "终端目录", value: `${delivery.directory.length} 台` },
       {
         label: "目标终端",
-        value:
-          selectedTerminal?.terminal_name ??
-          selectedTerminal?.terminal_code ??
-          "-",
+        value: selectedTerminal?.terminal_name ?? selectedTerminal?.terminal_code ?? "-",
       },
       {
         label: "激活凭据",

@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-import json
-import math
 from dataclasses import dataclass
 from typing import Any
 
 from src.infrastructure.ha.HaControlGateway import HaControlCommand, HaControlGateway
-from src.repositories.base.control.DeviceControlRequestRepository import (
-    DeviceControlResultUpdate,
-    DeviceControlRequestRepository,
-    NewDeviceControlRequestRow,
+from src.modules.device_control.services.command.DeviceControlIdempotency import (
+    has_same_request_semantics,
 )
+from src.modules.device_control.services.command.DeviceControlLifecycleWriter import (
+    DeviceControlLifecycleWriter,
+)
+from src.modules.device_control.services.command.DeviceControlPayloadValidator import (
+    DeviceControlPayloadValidator,
+    ValidatedControlPayload,
+)
+from src.repositories.base.control.DeviceControlRequestRepository import DeviceControlRequestRepository
 from src.repositories.base.control.DeviceControlTransitionRepository import (
     DeviceControlTransitionRepository,
-    NewDeviceControlTransitionRow,
 )
 from src.repositories.base.devices.DeviceControlSchemaRepository import (
     DeviceControlSchemaRepository,
@@ -23,14 +26,12 @@ from src.repositories.base.devices.DeviceRuntimeStateRepository import (
     DeviceRuntimeStateRepository,
 )
 from src.repositories.base.realtime.WsEventOutboxRepository import (
-    NewWsEventOutboxRow,
     WsEventOutboxRepository,
 )
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.kernel.Clock import Clock
 from src.shared.kernel.EventIdGenerator import EventIdGenerator
-from src.shared.kernel.RepoContext import RepoContext
 from src.shared.kernel.UnitOfWork import UnitOfWork
 
 
@@ -58,17 +59,6 @@ class DeviceControlAcceptedView:
     result_query_path: str
 
 
-@dataclass(frozen=True)
-class ValidatedControlPayload:
-    payload: dict[str, Any]
-    schema_target_scope: str | None
-    schema_target_key: str | None
-
-
-def _stable_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-
-
 class DeviceControlCommandService:
     def __init__(
         self,
@@ -82,6 +72,8 @@ class DeviceControlCommandService:
         ha_control_gateway: HaControlGateway,
         event_id_generator: EventIdGenerator,
         clock: Clock,
+        payload_validator: DeviceControlPayloadValidator | None = None,
+        lifecycle_writer: DeviceControlLifecycleWriter | None = None,
     ) -> None:
         self._unit_of_work = unit_of_work
         self._device_repository = device_repository
@@ -93,6 +85,13 @@ class DeviceControlCommandService:
         self._ha_control_gateway = ha_control_gateway
         self._event_id_generator = event_id_generator
         self._clock = clock
+        self._payload_validator = payload_validator or DeviceControlPayloadValidator()
+        self._lifecycle_writer = lifecycle_writer or DeviceControlLifecycleWriter(
+            device_control_request_repository=device_control_request_repository,
+            device_control_transition_repository=device_control_transition_repository,
+            ws_event_outbox_repository=ws_event_outbox_repository,
+            event_id_generator=event_id_generator,
+        )
 
     def _validate_payload_shape(
         self,
@@ -100,142 +99,7 @@ class DeviceControlCommandService:
         payload: dict[str, Any],
         control_schemas: list,
     ) -> ValidatedControlPayload:
-        matching_schemas = [schema for schema in control_schemas if schema.action_type == action_type]
-        if not matching_schemas:
-            raise AppError(
-                ErrorCode.UNSUPPORTED_ACTION,
-                "action_type is not supported by this device",
-                details={"action_type": action_type},
-            )
-
-        requested_target_scope = payload.get("target_scope")
-        requested_target_key = payload.get("target_key")
-        matched_schema = None
-
-        if requested_target_scope is not None or requested_target_key is not None:
-            for schema in matching_schemas:
-                if (
-                    schema.target_scope == requested_target_scope
-                    and schema.target_key == requested_target_key
-                ):
-                    matched_schema = schema
-                    break
-            if matched_schema is None:
-                raise AppError(
-                    ErrorCode.UNSUPPORTED_TARGET,
-                    "control target is not supported by this device",
-                    details={
-                        "action_type": action_type,
-                        "target_scope": requested_target_scope,
-                        "target_key": requested_target_key,
-                    },
-                )
-        elif len(matching_schemas) == 1:
-            matched_schema = matching_schemas[0]
-        else:
-            raise AppError(
-                ErrorCode.UNSUPPORTED_TARGET,
-                "target_scope and target_key are required for this action",
-                details={"action_type": action_type},
-            )
-
-        value = payload.get("value")
-        unit = payload.get("unit")
-        if unit is not None and matched_schema.unit is None:
-            raise AppError(
-                ErrorCode.INVALID_PARAMS,
-                "payload unit is not supported by this action",
-                details={"fields": [{"field": "payload.unit", "reason": "unsupported"}]},
-            )
-        if unit is not None and matched_schema.unit is not None and unit != matched_schema.unit:
-            raise AppError(
-                ErrorCode.VALUE_OUT_OF_RANGE,
-                "payload unit does not match schema unit",
-                details={
-                    "expected_unit": matched_schema.unit,
-                    "actual_unit": unit,
-                },
-            )
-
-        value_type = matched_schema.value_type or "NONE"
-        if value_type == "NONE":
-            if value is not None:
-                raise AppError(
-                    ErrorCode.INVALID_PARAMS,
-                    "payload value must be null for this action",
-                    details={"fields": [{"field": "payload.value", "reason": "must_be_null"}]},
-                )
-        elif value_type == "BOOLEAN":
-            if not isinstance(value, bool):
-                raise AppError(
-                    ErrorCode.INVALID_PARAMS,
-                    "payload value must be boolean",
-                    details={"fields": [{"field": "payload.value", "reason": "invalid_type"}]},
-                )
-        elif value_type == "ENUM":
-            allowed_values = matched_schema.allowed_values_json or []
-            if value not in allowed_values:
-                raise AppError(
-                    ErrorCode.VALUE_OUT_OF_RANGE,
-                    "payload value is outside allowed values",
-                    details={
-                        "allowed_values": allowed_values,
-                        "actual_value": value,
-                    },
-                )
-        elif value_type == "NUMBER":
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise AppError(
-                    ErrorCode.INVALID_PARAMS,
-                    "payload value must be numeric",
-                    details={"fields": [{"field": "payload.value", "reason": "invalid_type"}]},
-                )
-            number_value = float(value)
-            value_range = matched_schema.value_range_json or {}
-            minimum = value_range.get("min")
-            maximum = value_range.get("max")
-            step = value_range.get("step")
-            if minimum is not None and number_value < float(minimum):
-                raise AppError(
-                    ErrorCode.VALUE_OUT_OF_RANGE,
-                    "payload value is below minimum range",
-                    details={"min": minimum, "actual_value": number_value},
-                )
-            if maximum is not None and number_value > float(maximum):
-                raise AppError(
-                    ErrorCode.VALUE_OUT_OF_RANGE,
-                    "payload value exceeds maximum range",
-                    details={"max": maximum, "actual_value": number_value},
-                )
-            if step not in (None, 0) and minimum is not None:
-                distance = (number_value - float(minimum)) / float(step)
-                if not math.isclose(distance, round(distance), abs_tol=1e-6):
-                    raise AppError(
-                        ErrorCode.VALUE_OUT_OF_RANGE,
-                        "payload value does not match schema step",
-                        details={"step": step, "actual_value": number_value},
-                    )
-        else:
-            raise AppError(
-                ErrorCode.INVALID_PARAMS,
-                "schema value_type is unsupported",
-                details={"value_type": value_type},
-            )
-
-        return ValidatedControlPayload(
-            payload={
-                "target_scope": requested_target_scope
-                if requested_target_scope is not None
-                else matched_schema.target_scope,
-                "target_key": requested_target_key
-                if requested_target_key is not None
-                else matched_schema.target_key,
-                "value": value,
-                "unit": unit if unit is not None else matched_schema.unit,
-            },
-            schema_target_scope=matched_schema.target_scope,
-            schema_target_key=matched_schema.target_key,
-        )
+        return self._payload_validator.validate(action_type, payload, control_schemas)
 
     async def accept(self, input: DeviceControlCommandInput) -> DeviceControlAcceptedView:
         existing = await self._device_control_request_repository.find_by_request_id(
@@ -244,7 +108,6 @@ class DeviceControlCommandService:
         )
         validated_payload = None
         if existing is not None:
-            same_semantics = False
             if existing.device_id == input.device_id and existing.action_type == input.action_type:
                 control_schemas = await self._device_control_schema_repository.list_by_device_id(
                     input.device_id
@@ -254,9 +117,14 @@ class DeviceControlCommandService:
                     input.payload,
                     control_schemas,
                 )
-                same_semantics = _stable_json(existing.payload_json) == _stable_json(
-                    validated_payload.payload
+                same_semantics = has_same_request_semantics(
+                    existing=existing,
+                    device_id=input.device_id,
+                    action_type=input.action_type,
+                    payload=validated_payload.payload,
                 )
+            else:
+                same_semantics = False
             if not same_semantics:
                 raise AppError(
                     ErrorCode.REQUEST_ID_CONFLICT,
@@ -302,56 +170,16 @@ class DeviceControlCommandService:
         now_iso = self._clock.now().isoformat()
 
         async def _transaction(tx: Any):
-            inserted = await self._device_control_request_repository.insert(
-                NewDeviceControlRequestRow(
-                    home_id=input.home_id,
-                    request_id=input.request_id,
-                    device_id=input.device_id,
-                    action_type=input.action_type,
-                    payload_json=validated_payload.payload,
-                    client_ts=input.client_ts,
-                    acceptance_status="ACCEPTED",
-                    confirmation_type="ACK_DRIVEN",
-                    execution_status="PENDING",
-                    timeout_seconds=30,
-                ),
-                ctx=RepoContext(tx=tx),
+            return await self._lifecycle_writer.insert_accepted(
+                tx=tx,
+                home_id=input.home_id,
+                request_id=input.request_id,
+                device_id=input.device_id,
+                action_type=input.action_type,
+                payload_json=validated_payload.payload,
+                client_ts=input.client_ts,
+                occurred_at=now_iso,
             )
-
-            await self._device_control_transition_repository.insert(
-                NewDeviceControlTransitionRow(
-                    control_request_id=inserted.id,
-                    from_status=None,
-                    to_status="PENDING",
-                    reason="REQUEST_ACCEPTED",
-                    error_code=None,
-                    payload_json={"request_id": input.request_id},
-                ),
-                ctx=RepoContext(tx=tx),
-            )
-
-            await self._ws_event_outbox_repository.insert(
-                NewWsEventOutboxRow(
-                    home_id=input.home_id,
-                    event_id=self._event_id_generator.next_event_id(),
-                    event_type="device_state_changed",
-                    change_domain="DEVICE_STATE",
-                    snapshot_required=False,
-                    payload_json={
-                        "related_request_id": input.request_id,
-                        "device_id": input.device_id,
-                        "confirmation_type": inserted.confirmation_type,
-                        "execution_status": inserted.execution_status,
-                        "runtime_state": None,
-                        "error_code": None,
-                        "error_message": None,
-                    },
-                    occurred_at=now_iso,
-                ),
-                ctx=RepoContext(tx=tx),
-            )
-
-            return inserted
 
         inserted = await self._unit_of_work.run_in_transaction(_transaction)
 
@@ -363,48 +191,17 @@ class DeviceControlCommandService:
             error_message: str,
         ) -> None:
             async def _transaction_failed(tx: Any):
-                await self._device_control_request_repository.update_execution_result(
-                    DeviceControlResultUpdate(
-                        home_id=input.home_id,
-                        request_id=input.request_id,
-                        execution_status="FAILED",
-                        final_runtime_state_json=None,
-                        error_code=error_code,
-                        error_message=error_message,
-                        completed_at=completed_at,
-                    ),
-                    ctx=RepoContext(tx=tx),
-                )
-                await self._device_control_transition_repository.insert(
-                    NewDeviceControlTransitionRow(
-                        control_request_id=inserted.id,
-                        from_status="PENDING",
-                        to_status="FAILED",
-                        reason=reason,
-                        error_code=error_code,
-                        payload_json={"request_id": input.request_id},
-                    ),
-                    ctx=RepoContext(tx=tx),
-                )
-                await self._ws_event_outbox_repository.insert(
-                    NewWsEventOutboxRow(
-                        home_id=input.home_id,
-                        event_id=self._event_id_generator.next_event_id(),
-                        event_type="device_state_changed",
-                        change_domain="DEVICE_STATE",
-                        snapshot_required=False,
-                        payload_json={
-                            "related_request_id": input.request_id,
-                            "device_id": input.device_id,
-                            "confirmation_type": inserted.confirmation_type,
-                            "execution_status": "FAILED",
-                            "runtime_state": None,
-                            "error_code": error_code,
-                            "error_message": error_message,
-                        },
-                        occurred_at=completed_at,
-                    ),
-                    ctx=RepoContext(tx=tx),
+                await self._lifecycle_writer.mark_failed(
+                    tx=tx,
+                    control_request_id=inserted.id,
+                    home_id=input.home_id,
+                    request_id=input.request_id,
+                    device_id=input.device_id,
+                    confirmation_type=inserted.confirmation_type,
+                    completed_at=completed_at,
+                    reason=reason,
+                    error_code=error_code,
+                    error_message=error_message,
                 )
 
             await self._unit_of_work.run_in_transaction(_transaction_failed)
@@ -453,48 +250,14 @@ class DeviceControlCommandService:
         completed_at = self._clock.now().isoformat()
 
         async def _mark_succeeded(tx: Any):
-            await self._device_control_request_repository.update_execution_result(
-                DeviceControlResultUpdate(
-                    home_id=input.home_id,
-                    request_id=input.request_id,
-                    execution_status="SUCCESS",
-                    final_runtime_state_json=None,
-                    error_code=None,
-                    error_message=None,
-                    completed_at=completed_at,
-                ),
-                ctx=RepoContext(tx=tx),
-            )
-            await self._device_control_transition_repository.insert(
-                NewDeviceControlTransitionRow(
-                    control_request_id=inserted.id,
-                    from_status="PENDING",
-                    to_status="SUCCESS",
-                    reason="HA_ACKNOWLEDGED",
-                    error_code=None,
-                    payload_json={"request_id": input.request_id},
-                ),
-                ctx=RepoContext(tx=tx),
-            )
-            await self._ws_event_outbox_repository.insert(
-                NewWsEventOutboxRow(
-                    home_id=input.home_id,
-                    event_id=self._event_id_generator.next_event_id(),
-                    event_type="device_state_changed",
-                    change_domain="DEVICE_STATE",
-                    snapshot_required=False,
-                    payload_json={
-                        "related_request_id": input.request_id,
-                        "device_id": input.device_id,
-                        "confirmation_type": inserted.confirmation_type,
-                        "execution_status": "SUCCESS",
-                        "runtime_state": None,
-                        "error_code": None,
-                        "error_message": None,
-                    },
-                    occurred_at=completed_at,
-                ),
-                ctx=RepoContext(tx=tx),
+            await self._lifecycle_writer.mark_succeeded(
+                tx=tx,
+                control_request_id=inserted.id,
+                home_id=input.home_id,
+                request_id=input.request_id,
+                device_id=input.device_id,
+                confirmation_type=inserted.confirmation_type,
+                completed_at=completed_at,
             )
 
         await self._unit_of_work.run_in_transaction(_mark_succeeded)

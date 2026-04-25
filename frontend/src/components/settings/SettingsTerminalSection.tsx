@@ -11,7 +11,9 @@ interface SettingsTerminalSectionProps {
   bootstrapTokenAuditLoading: boolean;
   bootstrapTokenAudits: ComponentProps<typeof TerminalBootstrapTokenPanel>["audits"];
   bootstrapTokenCreateBusy: boolean;
-  bootstrapTokenDirectory: ComponentProps<typeof TerminalBootstrapTokenPanel>["availableTerminals"];
+  bootstrapTokenDirectory: ComponentProps<
+    typeof TerminalBootstrapTokenPanel
+  >["availableTerminals"];
   bootstrapTokenFeedback: ComponentProps<typeof TerminalBootstrapTokenPanel>["message"];
   bootstrapTokenLoading: boolean;
   bootstrapTokenReveal: ComponentProps<typeof TerminalBootstrapTokenPanel>["revealedToken"];
@@ -27,7 +29,9 @@ interface SettingsTerminalSectionProps {
   pairingClaimFeedback: ComponentProps<typeof TerminalPairingClaimPanel>["feedback"];
   pairingCodeInput: string;
   pinActive: boolean;
-  selectedBootstrapTerminal: ComponentProps<typeof TerminalDeliveryOverviewPanel>["selectedTerminal"];
+  selectedBootstrapTerminal: ComponentProps<
+    typeof TerminalDeliveryOverviewPanel
+  >["selectedTerminal"];
   selectedBootstrapTerminalId: string;
   setPairingCodeInput: (value: string) => void;
   setSelectedBootstrapTerminalId: (value: string) => void;

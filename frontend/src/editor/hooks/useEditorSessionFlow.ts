@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  createEditorSession,
-  fetchEditorDraft,
-} from "../../api/editorApi";
+import { createEditorSession, fetchEditorDraft } from "../../api/editorApi";
 import { normalizeApiError } from "../../api/httpClient";
 import {
   asDetailRecord,
@@ -38,8 +35,7 @@ export function useEditorSessionFlow({
   resetSelection,
   terminalId,
 }: UseEditorSessionFlowOptions) {
-  const [editorNotice, setEditorNotice] =
-    useState<EditorNoticeState | null>(null);
+  const [editorNotice, setEditorNotice] = useState<EditorNoticeState | null>(null);
   const handledRealtimeEventIdRef = useRef<string | null>(null);
 
   function showEditorNotice(input: EditorNoticeState) {
@@ -123,10 +119,7 @@ export function useEditorSessionFlow({
     return { lease, draft };
   }
 
-  async function handleEditorActionError(
-    error: unknown,
-    action: EditorActionKind,
-  ) {
+  async function handleEditorActionError(error: unknown, action: EditorActionKind) {
     const apiError = normalizeApiError(error);
 
     if (apiError.code === "VERSION_CONFLICT") {
@@ -147,20 +140,14 @@ export function useEditorSessionFlow({
       });
       showEditorNotice({
         tone: "warning",
-        title:
-          action === "publish"
-            ? "发布前草稿版本已更新"
-            : "保存前草稿版本已更新",
+        title: action === "publish" ? "发布前草稿版本已更新" : "保存前草稿版本已更新",
         detail: formatVersionConflictDetail(apiError.details, action),
         actions: [action === "publish" ? "retry-publish" : "retry-save"],
       });
       return;
     }
 
-    if (
-      apiError.code === "DRAFT_LOCK_LOST" ||
-      apiError.code === "DRAFT_LOCK_TAKEN_OVER"
-    ) {
+    if (apiError.code === "DRAFT_LOCK_LOST" || apiError.code === "DRAFT_LOCK_TAKEN_OVER") {
       const activeLease = asDetailRecord(apiError.details?.active_lease);
       const activeLeaseId = asDetailString(activeLease?.lease_id);
       const activeTerminalId = asDetailString(activeLease?.terminal_id);
@@ -326,8 +313,7 @@ export function useEditorSessionFlow({
 
     const takeoverEvent = pendingEvents.find(
       (event): event is DraftTakenOverEvent =>
-        isDraftTakenOverEvent(event) &&
-        event.payload.previous_terminal_id === terminalId,
+        isDraftTakenOverEvent(event) && event.payload.previous_terminal_id === terminalId,
     );
 
     if (takeoverEvent) {
@@ -388,16 +374,14 @@ export function useEditorSessionFlow({
           lockStatus: "LOCKED_BY_OTHER",
         });
         setLockConflictNotice(correlatedTakeoverEvent.payload.new_terminal_id);
-        void refreshDraft(correlatedTakeoverEvent.payload.new_lease_id).catch(
-          (error) => {
-            showEditorNotice({
-              tone: "error",
-              title: "刷新草稿失败",
-              detail: normalizeApiError(error).message,
-              actions: ["refresh"],
-            });
-          },
-        );
+        void refreshDraft(correlatedTakeoverEvent.payload.new_lease_id).catch((error) => {
+          showEditorNotice({
+            tone: "error",
+            title: "刷新草稿失败",
+            detail: normalizeApiError(error).message,
+            actions: ["refresh"],
+          });
+        });
         return;
       }
 
@@ -436,8 +420,7 @@ export function useEditorSessionFlow({
     }
 
     const versionConflictEvent = pendingEvents.find(
-      (event): event is VersionConflictDetectedEvent =>
-        isVersionConflictDetectedEvent(event),
+      (event): event is VersionConflictDetectedEvent => isVersionConflictDetectedEvent(event),
     );
 
     if (versionConflictEvent) {

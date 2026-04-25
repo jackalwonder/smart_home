@@ -8,10 +8,7 @@ import {
   type EditorDraftStateUpdater,
 } from "../editorDraftState";
 import { type EditorNoticeState } from "../editorWorkbenchNotices";
-import {
-  buildDeviceHotspotId,
-  getNextHotspotPosition,
-} from "./editorHotspotEditingHelpers";
+import { buildDeviceHotspotId, getNextHotspotPosition } from "./editorHotspotEditingHelpers";
 
 export type EditorHotspotField =
   | "label"
@@ -29,9 +26,7 @@ interface UseEditorHotspotCommandsOptions {
   draftState: EditorDraftState;
   selectedHotspot: EditorHotspotViewModel | null;
   selectedHotspotId: string | null;
-  setBatchSelectedHotspotIds: (
-    updater: (current: string[]) => string[],
-  ) => void;
+  setBatchSelectedHotspotIds: (updater: (current: string[]) => string[]) => void;
   setSelectedHotspotId: (
     value: string | null | ((current: string | null) => string | null),
   ) => void;
@@ -113,9 +108,7 @@ export function useEditorHotspotCommands({
         return {
           ...current,
           hotspots:
-            field === "structureOrder"
-              ? resequenceHotspots(nextHotspots)
-              : nextHotspots,
+            field === "structureOrder" ? resequenceHotspots(nextHotspots) : nextHotspots,
         };
       },
       "修改热点属性",
@@ -170,9 +163,7 @@ export function useEditorHotspotCommands({
       (current) => ({
         ...current,
         hotspots: current.hotspots.map((hotspot) =>
-          hotspot.id === selectedHotspotId
-            ? { ...hotspot, isVisible: visible }
-            : hotspot,
+          hotspot.id === selectedHotspotId ? { ...hotspot, isVisible: visible } : hotspot,
         ),
       }),
       "切换热点显示",
@@ -284,21 +275,16 @@ export function useEditorHotspotCommands({
     }
 
     const deletedHotspotId = selectedHotspotId;
-    updateDraftStateWithHistory(
-      (current) => {
-        const nextHotspots = resequenceHotspots(
-          current.hotspots.filter((hotspot) => hotspot.id !== deletedHotspotId),
-        );
-        return {
-          ...current,
-          hotspots: nextHotspots,
-        };
-      },
-      "删除热点",
-    );
-    setSelectedHotspotId((current) =>
-      current === deletedHotspotId ? null : current,
-    );
+    updateDraftStateWithHistory((current) => {
+      const nextHotspots = resequenceHotspots(
+        current.hotspots.filter((hotspot) => hotspot.id !== deletedHotspotId),
+      );
+      return {
+        ...current,
+        hotspots: nextHotspots,
+      };
+    }, "删除热点");
+    setSelectedHotspotId((current) => (current === deletedHotspotId ? null : current));
     setBatchSelectedHotspotIds((current) =>
       current.filter((hotspotId) => hotspotId !== deletedHotspotId),
     );
@@ -309,35 +295,30 @@ export function useEditorHotspotCommands({
       return;
     }
 
-    updateDraftStateWithHistory(
-      (current) => {
-        const ordered = sortHotspots(current.hotspots);
-        const currentIndex = ordered.findIndex(
-          (hotspot) => hotspot.id === selectedHotspotId,
-        );
-        if (currentIndex === -1) {
-          return current;
-        }
+    updateDraftStateWithHistory((current) => {
+      const ordered = sortHotspots(current.hotspots);
+      const currentIndex = ordered.findIndex((hotspot) => hotspot.id === selectedHotspotId);
+      if (currentIndex === -1) {
+        return current;
+      }
 
-        const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-        if (targetIndex < 0 || targetIndex >= ordered.length) {
-          return current;
-        }
+      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= ordered.length) {
+        return current;
+      }
 
-        const next = [...ordered];
-        const [moved] = next.splice(currentIndex, 1);
-        next.splice(targetIndex, 0, moved);
+      const next = [...ordered];
+      const [moved] = next.splice(currentIndex, 1);
+      next.splice(targetIndex, 0, moved);
 
-        return {
-          ...current,
-          hotspots: next.map((hotspot, index) => ({
-            ...hotspot,
-            structureOrder: index,
-          })),
-        };
-      },
-      "调整热点排序",
-    );
+      return {
+        ...current,
+        hotspots: next.map((hotspot, index) => ({
+          ...hotspot,
+          structureOrder: index,
+        })),
+      };
+    }, "调整热点排序");
   }
 
   return {

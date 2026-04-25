@@ -158,8 +158,12 @@ describe("useSettingsTerminalDeliverySection", () => {
       await result.current.loadDetails();
     });
 
-    expect(mockedTerminalBootstrapTokensApi.fetchTerminalBootstrapTokenDirectory).not.toHaveBeenCalled();
-    expect(mockedTerminalBootstrapTokensApi.fetchTerminalBootstrapTokenAudits).not.toHaveBeenCalled();
+    expect(
+      mockedTerminalBootstrapTokensApi.fetchTerminalBootstrapTokenDirectory,
+    ).not.toHaveBeenCalled();
+    expect(
+      mockedTerminalBootstrapTokensApi.fetchTerminalBootstrapTokenAudits,
+    ).not.toHaveBeenCalled();
     expect(result.current.directory).toEqual([]);
     expect(result.current.audits).toEqual([]);
     expect(result.current.selectedTerminal).toBeNull();

@@ -88,11 +88,7 @@ export function compactJson(value: unknown): string {
   if (value === null || value === undefined) {
     return "-";
   }
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   return JSON.stringify(value, null, 2);
@@ -245,25 +241,19 @@ export function formatEntityRole(value: string | null | undefined) {
   return labels[normalized] ?? (value || "-");
 }
 
-export function normalizeFavorites(
-  settings: SettingsDto,
-): SettingsSaveInput["favorites"] {
+export function normalizeFavorites(settings: SettingsDto): SettingsSaveInput["favorites"] {
   return (settings.favorites ?? []).map((favorite, index) => ({
     device_id: favorite.device_id,
     selected: favorite.selected ?? true,
     favorite_order:
-      typeof favorite.favorite_order === "number"
-        ? favorite.favorite_order
-        : index,
+      typeof favorite.favorite_order === "number" ? favorite.favorite_order : index,
   }));
 }
 
 export function getNextFavoriteOrder(favorites: SettingsSaveInput["favorites"]) {
   const orders = favorites
     .map((favorite, index) =>
-      typeof favorite.favorite_order === "number"
-        ? favorite.favorite_order
-        : index,
+      typeof favorite.favorite_order === "number" ? favorite.favorite_order : index,
     )
     .filter((order) => Number.isFinite(order));
   return orders.length ? Math.max(...orders) + 1 : 0;
@@ -286,17 +276,14 @@ export function buildSettingsSaveInput(
     },
     function_settings: {
       low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
-      offline_threshold_seconds:
-        functionSettings?.offline_threshold_seconds ?? 300,
+      offline_threshold_seconds: functionSettings?.offline_threshold_seconds ?? 300,
       quick_entry_policy: functionSettings?.quick_entry_policy ?? {
         favorites: true,
       },
       music_enabled: functionSettings?.music_enabled ?? true,
       favorite_limit: functionSettings?.favorite_limit ?? 8,
-      auto_home_timeout_seconds:
-        functionSettings?.auto_home_timeout_seconds ?? 30,
-      position_device_thresholds:
-        functionSettings?.position_device_thresholds ?? {},
+      auto_home_timeout_seconds: functionSettings?.auto_home_timeout_seconds ?? 30,
+      position_device_thresholds: functionSettings?.position_device_thresholds ?? {},
     },
     favorites,
   };
@@ -338,14 +325,10 @@ export function filterDevicesByOfflineStatus(
   return devices;
 }
 
-export function buildCatalogStats(
-  devices: DeviceListItemDto[],
-): DeviceCatalogStats {
+export function buildCatalogStats(devices: DeviceListItemDto[]): DeviceCatalogStats {
   const onlineCount = devices.filter((device) => !device.is_offline).length;
   const offlineCount = devices.length - onlineCount;
-  const readonlyCount = devices.filter(
-    (device) => device.is_readonly_device,
-  ).length;
+  const readonlyCount = devices.filter((device) => device.is_readonly_device).length;
   const homeEntryCount = devices.filter((device) => device.is_favorite).length;
   return {
     onlineCount,

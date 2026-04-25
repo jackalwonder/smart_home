@@ -16,12 +16,9 @@ const realtimeSchemaPath = resolve(backendDir, "realtime.schema.json");
 const apiOutputPath = resolve(frontendDir, "src", "api", "types.generated.ts");
 const realtimeOutputPath = resolve(frontendDir, "src", "ws", "realtime.generated.ts");
 const openapiTypescriptPackageJson = require.resolve("openapi-typescript/package.json");
-const openapiTypescriptCli = resolve(
-  dirname(openapiTypescriptPackageJson),
-  "bin",
-  "cli.js",
-);
-const jsonSchemaToTypescriptPackageJson = require.resolve("json-schema-to-typescript/package.json");
+const openapiTypescriptCli = resolve(dirname(openapiTypescriptPackageJson), "bin", "cli.js");
+const jsonSchemaToTypescriptPackageJson =
+  require.resolve("json-schema-to-typescript/package.json");
 const jsonSchemaToTypescriptCli = resolve(
   dirname(jsonSchemaToTypescriptPackageJson),
   "dist",

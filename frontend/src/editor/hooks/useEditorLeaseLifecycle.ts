@@ -35,9 +35,7 @@ export function useEditorLeaseLifecycle({
   const [isTakingOver, setIsTakingOver] = useState(false);
 
   const canAcquire =
-    pinActive &&
-    editor.lockStatus !== "GRANTED" &&
-    editor.lockStatus !== "LOCKED_BY_OTHER";
+    pinActive && editor.lockStatus !== "GRANTED" && editor.lockStatus !== "LOCKED_BY_OTHER";
   const canTakeover =
     pinActive && editor.lockStatus === "LOCKED_BY_OTHER" && Boolean(editor.leaseId);
 

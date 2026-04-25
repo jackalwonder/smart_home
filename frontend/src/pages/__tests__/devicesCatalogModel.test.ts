@@ -69,9 +69,7 @@ describe("devices catalog model", () => {
     const devices = [baseDevice, offlineDevice];
 
     expect(filterDevicesByOfflineStatus(devices, "ONLINE")).toEqual([baseDevice]);
-    expect(filterDevicesByOfflineStatus(devices, "OFFLINE")).toEqual([
-      offlineDevice,
-    ]);
+    expect(filterDevicesByOfflineStatus(devices, "OFFLINE")).toEqual([offlineDevice]);
     expect(buildCatalogStats(devices)).toEqual({
       homeEntryCount: 1,
       offlineCount: 1,

@@ -33,7 +33,8 @@ export function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[
   if (Array.isArray(value)) {
     return value
       .map((entry, index) => {
-        const record = entry && typeof entry === "object" ? entry as Record<string, unknown> : null;
+        const record =
+          entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
         const key = asString(record?.key ?? `quick-${index}`);
         return {
           key,
@@ -44,7 +45,8 @@ export function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[
       .filter((action) => action.key !== "favorites");
   }
 
-  const record = value && typeof value === "object" ? value as Record<string, unknown> : null;
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : null;
   if (!record) {
     return [];
   }

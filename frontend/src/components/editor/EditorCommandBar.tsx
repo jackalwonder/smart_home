@@ -57,7 +57,9 @@ export function EditorCommandBar({
 }: EditorCommandBarProps) {
   return (
     <header
-      className={embedded ? "panel editor-command-bar is-embedded" : "panel editor-command-bar"}
+      className={
+        embedded ? "panel editor-command-bar is-embedded" : "panel editor-command-bar"
+      }
     >
       <div className="editor-command-bar__intro">
         <span className="card-eyebrow">工作台</span>
@@ -97,10 +99,20 @@ export function EditorCommandBar({
         >
           {saveBusy ? "保存中..." : "保存草稿"}
         </button>
-        <button className="button button--ghost" disabled={!canUndo} onClick={onUndo} type="button">
+        <button
+          className="button button--ghost"
+          disabled={!canUndo}
+          onClick={onUndo}
+          type="button"
+        >
           撤销
         </button>
-        <button className="button button--ghost" disabled={!canRedo} onClick={onRedo} type="button">
+        <button
+          className="button button--ghost"
+          disabled={!canRedo}
+          onClick={onRedo}
+          type="button"
+        >
           重做
         </button>
         <button

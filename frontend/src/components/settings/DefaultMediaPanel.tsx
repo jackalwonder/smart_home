@@ -89,9 +89,7 @@ export function DefaultMediaPanel({
           onChange={(event) => onSelectDeviceId(event.target.value)}
           value={selectedDeviceId}
         >
-          <option value="">
-            {loadingCandidates ? "正在加载设备..." : "请选择一个设备"}
-          </option>
+          <option value="">{loadingCandidates ? "正在加载设备..." : "请选择一个设备"}</option>
           {availableDevices.map((device) => (
             <option key={device.device_id} value={device.device_id}>
               {`${device.display_name} · ${formatDeviceType(device.device_type)}`}

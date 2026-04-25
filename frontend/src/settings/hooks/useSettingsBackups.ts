@@ -6,26 +6,18 @@ import {
   restoreBackup,
 } from "../../api/backupsApi";
 import { normalizeApiError } from "../../api/httpClient";
-import type {
-  BackupListItemDto,
-  BackupRestoreAuditItemDto,
-} from "../../api/types";
+import type { BackupListItemDto, BackupRestoreAuditItemDto } from "../../api/types";
 
 interface UseSettingsBackupsOptions {
   canEdit: boolean;
   onBackupRestored: () => Promise<void>;
 }
 
-export function useSettingsBackups({
-  canEdit,
-  onBackupRestored,
-}: UseSettingsBackupsOptions) {
+export function useSettingsBackups({ canEdit, onBackupRestored }: UseSettingsBackupsOptions) {
   const [items, setItems] = useState<BackupListItemDto[]>([]);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [restoreAudits, setRestoreAudits] = useState<BackupRestoreAuditItemDto[]>(
-    [],
-  );
+  const [restoreAudits, setRestoreAudits] = useState<BackupRestoreAuditItemDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);

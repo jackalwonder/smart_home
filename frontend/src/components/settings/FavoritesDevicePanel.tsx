@@ -36,9 +36,7 @@ export function FavoritesDevicePanel({
                 <span>设备 ID</span>
                 <input
                   className="control-input"
-                  onChange={(event) =>
-                    onUpdateFavorite(index, "deviceId", event.target.value)
-                  }
+                  onChange={(event) => onUpdateFavorite(index, "deviceId", event.target.value)}
                   placeholder="从设备页复制设备 ID"
                   value={favorite.deviceId}
                 />
@@ -80,11 +78,7 @@ export function FavoritesDevicePanel({
           </p>
         )}
         <div className="badge-row">
-          <button
-            className="button button--ghost"
-            onClick={onAddFavorite}
-            type="button"
-          >
+          <button className="button button--ghost" onClick={onAddFavorite} type="button">
             手动添加设备 ID
           </button>
           <Link className="button button--ghost" to="/devices">

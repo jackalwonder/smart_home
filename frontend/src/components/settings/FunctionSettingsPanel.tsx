@@ -25,10 +25,7 @@ interface FunctionSettingsPanelProps {
   ) => void;
 }
 
-export function FunctionSettingsPanel({
-  draft,
-  onChange,
-}: FunctionSettingsPanelProps) {
+export function FunctionSettingsPanel({ draft, onChange }: FunctionSettingsPanelProps) {
   return (
     <SettingsModuleCard
       description="这里控制首页入口显示规则、告警阈值以及自动返回逻辑。设备加入首页后，在首页入口管理里排序。"
@@ -47,9 +44,7 @@ export function FunctionSettingsPanel({
         <label className="toggle-field toggle-field--panel">
           <input
             checked={draft.quickEntryFavorites}
-            onChange={(event) =>
-              onChange("quickEntryFavorites", event.target.checked)
-            }
+            onChange={(event) => onChange("quickEntryFavorites", event.target.checked)}
             type="checkbox"
           />
           <span>首页显示常用设备入口</span>
@@ -58,9 +53,7 @@ export function FunctionSettingsPanel({
           <span>低电量阈值</span>
           <input
             className="control-input"
-            onChange={(event) =>
-              onChange("lowBatteryThreshold", event.target.value)
-            }
+            onChange={(event) => onChange("lowBatteryThreshold", event.target.value)}
             type="number"
             value={draft.lowBatteryThreshold}
           />
@@ -69,9 +62,7 @@ export function FunctionSettingsPanel({
           <span>离线判定秒数</span>
           <input
             className="control-input"
-            onChange={(event) =>
-              onChange("offlineThresholdSeconds", event.target.value)
-            }
+            onChange={(event) => onChange("offlineThresholdSeconds", event.target.value)}
             type="number"
             value={draft.offlineThresholdSeconds}
           />
@@ -89,9 +80,7 @@ export function FunctionSettingsPanel({
           <span>自动回首页秒数</span>
           <input
             className="control-input"
-            onChange={(event) =>
-              onChange("autoHomeTimeoutSeconds", event.target.value)
-            }
+            onChange={(event) => onChange("autoHomeTimeoutSeconds", event.target.value)}
             type="number"
             value={draft.autoHomeTimeoutSeconds}
           />

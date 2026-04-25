@@ -4,11 +4,7 @@ import { getAccessToken } from "../auth/accessToken";
 import { appStore } from "../store/useAppStore";
 import { WsClientMessage, WsEvent } from "./types";
 
-type RealtimeConnectionStatus =
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "disconnected";
+type RealtimeConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 interface ConnectOptions {
   session: SessionModel;
@@ -81,11 +77,7 @@ class WsClient {
     this.reconnectTimer = null;
   }
 
-  private async handleMessage(
-    socket: WebSocket,
-    options: ConnectOptions,
-    rawData: string,
-  ) {
+  private async handleMessage(socket: WebSocket, options: ConnectOptions, rawData: string) {
     if (this.socket !== socket) {
       return;
     }

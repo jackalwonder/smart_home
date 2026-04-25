@@ -89,10 +89,7 @@ describe("homeHotspotControlModel", () => {
 
   it("keeps detail mode scoped to the anchor device", () => {
     const candidates = buildTargetCandidates(
-      [
-        device({ device_id: "device-1" }),
-        device({ device_id: "device-2" }),
-      ],
+      [device({ device_id: "device-1" }), device({ device_id: "device-2" })],
       hotspot({ deviceId: "device-1" }),
       "detail",
     );
@@ -104,9 +101,9 @@ describe("homeHotspotControlModel", () => {
   it("maps kind and schema labels for compact controls", () => {
     expect(deviceKind("media_player")).toBe("media");
     expect(kindTitle("lighting", "group")).toBe("常用灯光");
-    expect(schemaTitle(schema({ target_key: "target_temperature", value_type: "NUMBER" }))).toBe(
-      "目标温度",
-    );
+    expect(
+      schemaTitle(schema({ target_key: "target_temperature", value_type: "NUMBER" })),
+    ).toBe("目标温度");
     expect(schemaTitle(schema({ target_key: "brightness", value_type: "INT" }))).toBe("亮度");
   });
 

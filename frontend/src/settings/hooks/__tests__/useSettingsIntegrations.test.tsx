@@ -69,7 +69,8 @@ const systemConnectionsResponse = {
 } as unknown as SystemConnectionsEnvelopeDto;
 
 function device(
-  overrides: Partial<DeviceListItemDto> & Pick<DeviceListItemDto, "device_id" | "display_name">,
+  overrides: Partial<DeviceListItemDto> &
+    Pick<DeviceListItemDto, "device_id" | "display_name">,
 ): DeviceListItemDto {
   return {
     device_type: "sensor",
@@ -81,9 +82,7 @@ function device(
 
 function renderIntegrations(canEdit = true) {
   const onSettingsReload = vi.fn().mockResolvedValue(undefined);
-  const hook = renderHook(() =>
-    useSettingsIntegrations({ canEdit, onSettingsReload }),
-  );
+  const hook = renderHook(() => useSettingsIntegrations({ canEdit, onSettingsReload }));
 
   return { ...hook, onSettingsReload };
 }

@@ -2,13 +2,8 @@ import {
   type PolicyEntryDraft,
   type PolicyEntryDraftType,
 } from "../components/settings/StructuredPolicyEditor";
-import {
-  asArray,
-  asBoolean,
-  asNumber,
-  asRecord,
-  asString,
-} from "../view-models/utils";
+import type { JsonObject, JsonValue, SettingsDto } from "../api/types";
+import { asArray, asBoolean, asNumber, asRecord, asString } from "../view-models/utils";
 
 export interface SettingsDraftState {
   page: {
@@ -83,8 +78,8 @@ export function createPolicyEntries(value: unknown): PolicyEntryDraft[] {
 export function materializePolicyEntries(
   entries: PolicyEntryDraft[],
   field: string,
-): Record<string, unknown> {
-  return entries.reduce<Record<string, unknown>>((result, entry) => {
+): JsonObject {
+  return entries.reduce<JsonObject>((result, entry) => {
     const key = entry.key.trim();
     if (!key) {
       return result;
@@ -106,7 +101,7 @@ export function materializePolicyEntries(
 
     if (entry.type === "json") {
       try {
-        result[key] = JSON.parse(entry.value || "{}");
+        result[key] = JSON.parse(entry.value || "{}") as JsonValue;
       } catch {
         throw new Error(`${field} "${key}" must be valid JSON.`);
       }
@@ -118,9 +113,7 @@ export function materializePolicyEntries(
   }, {});
 }
 
-export function createSettingsDraft(
-  data: Record<string, unknown> | null,
-): SettingsDraftState {
+export function createSettingsDraft(data: SettingsDto | null): SettingsDraftState {
   const page = asRecord(data?.page_settings);
   const functionSettings = asRecord(data?.function_settings);
   const quickEntryPolicy = asRecord(functionSettings?.quick_entry_policy);
@@ -135,9 +128,7 @@ export function createSettingsDraft(
     },
     function: {
       musicEnabled: asBoolean(functionSettings?.music_enabled),
-      lowBatteryThreshold: String(
-        asNumber(functionSettings?.low_battery_threshold, 20),
-      ),
+      lowBatteryThreshold: String(asNumber(functionSettings?.low_battery_threshold, 20)),
       offlineThresholdSeconds: String(
         asNumber(functionSettings?.offline_threshold_seconds, 90),
       ),
@@ -149,7 +140,7 @@ export function createSettingsDraft(
       closedMax: String(asNumber(thresholds?.closed_max, 5)),
       openedMin: String(asNumber(thresholds?.opened_min, 95)),
     },
-    favorites: asArray<Record<string, unknown>>(data?.favorites).map(
+    favorites: asArray<NonNullable<SettingsDto["favorites"]>[number]>(data?.favorites).map(
       (favorite, index) => ({
         deviceId: asString(favorite.device_id ?? ""),
         selected: asBoolean(favorite.selected, true),
@@ -159,9 +150,7 @@ export function createSettingsDraft(
   };
 }
 
-export function getSettingsVersion(
-  data: Record<string, unknown> | null,
-): string | null {
+export function getSettingsVersion(data: SettingsDto | null): string | null {
   const value = data?.settings_version;
   return typeof value === "string" && value.trim() ? value : null;
 }

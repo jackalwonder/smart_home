@@ -135,9 +135,7 @@ export function BackupManagementPanel({
   onRestoreBackup,
 }: BackupManagementPanelProps) {
   const [pendingRestoreId, setPendingRestoreId] = useState<string | null>(null);
-  const pendingRestore = backups.find(
-    (backup) => backup.backup_id === pendingRestoreId,
-  );
+  const pendingRestore = backups.find((backup) => backup.backup_id === pendingRestoreId);
 
   return (
     <SettingsModuleCard
@@ -175,9 +173,7 @@ export function BackupManagementPanel({
         </div>
       </div>
 
-      {canEdit ? null : (
-        <p className="inline-error">创建或恢复备份前，请先验证管理 PIN。</p>
-      )}
+      {canEdit ? null : <p className="inline-error">创建或恢复备份前，请先验证管理 PIN。</p>}
       {message ? <p className="inline-success">{message}</p> : null}
 
       <div className="backup-list" aria-label="备份列表">
@@ -188,15 +184,10 @@ export function BackupManagementPanel({
                 <strong>{formatShortId(backup.backup_id)}</strong>
                 <span>{backup.note || "无备注"}</span>
               </div>
-              <div
-                className="backup-snapshot"
-                aria-label={`快照摘要 ${backup.backup_id}`}
-              >
+              <div className="backup-snapshot" aria-label={`快照摘要 ${backup.backup_id}`}>
                 <div className="backup-snapshot__header">
                   <strong>快照摘要</strong>
-                  <span>
-                    {formatSnapshotStatus(backup.summary.snapshot_status)}
-                  </span>
+                  <span>{formatSnapshotStatus(backup.summary.snapshot_status)}</span>
                 </div>
                 <dl className="backup-snapshot__grid">
                   <div>
@@ -230,10 +221,8 @@ export function BackupManagementPanel({
                     <dt>包含内容</dt>
                     <dd>
                       页面设置 {backup.summary.has_page_settings ? "有" : "无"}
-                      ，功能设置{" "}
-                      {backup.summary.has_function_settings ? "有" : "无"}
-                      ，背景图{" "}
-                      {backup.summary.has_background_asset ? "有" : "无"}
+                      ，功能设置 {backup.summary.has_function_settings ? "有" : "无"}
+                      ，背景图 {backup.summary.has_background_asset ? "有" : "无"}
                     </dd>
                   </div>
                 </dl>
@@ -264,8 +253,7 @@ export function BackupManagementPanel({
                       恢复会生成新的设置和布局版本。快照设置版本{" "}
                       {pendingRestore.summary.settings_version ?? "-"}，当前{" "}
                       {pendingRestore.comparison.current_settings_version ?? "-"}；
-                      快照布局版本{" "}
-                      {pendingRestore.summary.layout_version ?? "-"}，当前{" "}
+                      快照布局版本 {pendingRestore.summary.layout_version ?? "-"}，当前{" "}
                       {pendingRestore.comparison.current_layout_version ?? "-"}。
                     </p>
                   </div>
@@ -287,9 +275,7 @@ export function BackupManagementPanel({
                       }}
                       type="button"
                     >
-                      {restoreBusyId === pendingRestore.backup_id
-                        ? "恢复中..."
-                        : "确认恢复"}
+                      {restoreBusyId === pendingRestore.backup_id ? "恢复中..." : "确认恢复"}
                     </button>
                   </div>
                 </div>
@@ -305,9 +291,7 @@ export function BackupManagementPanel({
                   onClick={() => setPendingRestoreId(backup.backup_id)}
                   type="button"
                 >
-                  {restoreBusyId === backup.backup_id
-                    ? "恢复中..."
-                    : "准备恢复"}
+                  {restoreBusyId === backup.backup_id ? "恢复中..." : "准备恢复"}
                 </button>
               )}
             </div>
@@ -323,9 +307,7 @@ export function BackupManagementPanel({
         <div className="backup-audit__header">
           <div>
             <h4>恢复历史</h4>
-            <p className="muted-copy">
-              按最近恢复时间查看审计记录和恢复后的版本。
-            </p>
+            <p className="muted-copy">按最近恢复时间查看审计记录和恢复后的版本。</p>
           </div>
           <button
             className="button button--ghost"

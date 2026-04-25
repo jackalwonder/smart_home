@@ -1,8 +1,5 @@
 import { EditorDraftDiffDto } from "../api/types";
-import {
-  parseLayoutMetaText,
-  type EditorDraftState,
-} from "../editor/editorDraftState";
+import { parseLayoutMetaText, type EditorDraftState } from "../editor/editorDraftState";
 import { type ImageSize, hasImageSize } from "../types/image";
 import { EditorHotspotViewModel } from "../view-models/editor";
 
@@ -17,10 +14,15 @@ export interface EditorPublishSummaryViewModel {
   totalChanges: number;
 }
 
-export function normalizeImageSize(value: {
-  width?: number | null;
-  height?: number | null;
-} | null | undefined): ImageSize | null {
+export function normalizeImageSize(
+  value:
+    | {
+        width?: number | null;
+        height?: number | null;
+      }
+    | null
+    | undefined,
+): ImageSize | null {
   if (!value) {
     return null;
   }
@@ -68,7 +70,9 @@ function normalizeForComparison(value: unknown): unknown {
 
 function formatHotspotList(hotspots: EditorHotspotViewModel[]) {
   const names = hotspots.slice(0, 3).map((hotspot) => hotspot.label || hotspot.id);
-  return hotspots.length > 3 ? `${names.join("、")} 等 ${hotspots.length} 个` : names.join("、");
+  return hotspots.length > 3
+    ? `${names.join("、")} 等 ${hotspots.length} 个`
+    : names.join("、");
 }
 
 export function buildLocalPublishSummary(
@@ -94,7 +98,10 @@ export function buildLocalPublishSummary(
     if (!previous) {
       continue;
     }
-    if (Math.abs(hotspot.x - previous.x) > 0.0005 || Math.abs(hotspot.y - previous.y) > 0.0005) {
+    if (
+      Math.abs(hotspot.x - previous.x) > 0.0005 ||
+      Math.abs(hotspot.y - previous.y) > 0.0005
+    ) {
       moved.push(hotspot);
     }
     if (hotspot.label !== previous.label) {

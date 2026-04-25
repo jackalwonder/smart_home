@@ -9,9 +9,7 @@ import {
   type EditorDraftState,
 } from "../editorDraftState";
 
-function makeHotspot(
-  overrides: Partial<EditorHotspotViewModel> = {},
-): EditorHotspotViewModel {
+function makeHotspot(overrides: Partial<EditorHotspotViewModel> = {}): EditorHotspotViewModel {
   return {
     id: "hotspot-1",
     label: "Kitchen light",
@@ -52,11 +50,7 @@ describe("editorDraftState", () => {
       "second",
       "third",
     ]);
-    expect(hotspots.map((hotspot) => hotspot.id)).toEqual([
-      "third",
-      "first",
-      "second",
-    ]);
+    expect(hotspots.map((hotspot) => hotspot.id)).toEqual(["third", "first", "second"]);
 
     expect(resequenceHotspots(hotspots)).toEqual([
       expect.objectContaining({ id: "first", structureOrder: 0 }),
@@ -97,8 +91,7 @@ describe("editorDraftState", () => {
   it("builds draft diff input with normalized hotspot labels and save payloads", () => {
     const input = buildDraftDiffInput(
       makeDraftState({
-        layoutMetaText:
-          '{"theme":"night","hotspot_labels":{"stale":"Stale label"}}',
+        layoutMetaText: '{"theme":"night","hotspot_labels":{"stale":"Stale label"}}',
         hotspots: [
           makeHotspot({
             id: "empty-label",

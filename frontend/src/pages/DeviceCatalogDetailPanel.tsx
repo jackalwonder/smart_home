@@ -47,9 +47,7 @@ export function DeviceCatalogDetailPanel({
         </button>
       </div>
       {detailError ? <p className="inline-error">{detailError}</p> : null}
-      {detailLoading ? (
-        <p className="muted-copy">正在读取设备详情...</p>
-      ) : null}
+      {detailLoading ? <p className="muted-copy">正在读取设备详情...</p> : null}
       {selectedDevice ? (
         <div className="devices-detail-drawer__body">
           {selectedDeviceCatalog ? (
@@ -83,16 +81,12 @@ export function DeviceCatalogDetailPanel({
             </div>
             <div>
               <dt>聚合状态</dt>
-              <dd>
-                {formatDeviceStatus(selectedDevice.runtime_state?.aggregated_state)}
-              </dd>
+              <dd>{formatDeviceStatus(selectedDevice.runtime_state?.aggregated_state)}</dd>
             </div>
             <div>
               <dt>最近更新</dt>
               <dd>
-                {formatDeviceTimestamp(
-                  selectedDevice.runtime_state?.last_state_update_at,
-                )}
+                {formatDeviceTimestamp(selectedDevice.runtime_state?.last_state_update_at)}
               </dd>
             </div>
             <div>
@@ -123,9 +117,7 @@ export function DeviceCatalogDetailPanel({
               <div>
                 <dt>首页候选</dt>
                 <dd>
-                  {selectedDeviceCatalog
-                    ? getHomeEntryLabel(selectedDeviceCatalog)
-                    : "-"}
+                  {selectedDeviceCatalog ? getHomeEntryLabel(selectedDeviceCatalog) : "-"}
                 </dd>
               </div>
             </dl>
@@ -172,9 +164,7 @@ export function DeviceCatalogDetailPanel({
                 ))}
               </div>
             ) : (
-              <p className="muted-copy">
-                当前设备没有 Home Assistant 实体映射。
-              </p>
+              <p className="muted-copy">当前设备没有 Home Assistant 实体映射。</p>
             )}
           </section>
 

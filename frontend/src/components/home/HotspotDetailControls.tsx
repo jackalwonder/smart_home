@@ -43,7 +43,10 @@ function DetailControl({
   setControlValue,
   submitSchema,
   values,
-}: Omit<HotspotDetailControlsProps, "activeHotspot" | "loading" | "primaryCandidate" | "primaryDetail"> & {
+}: Omit<
+  HotspotDetailControlsProps,
+  "activeHotspot" | "loading" | "primaryCandidate" | "primaryDetail"
+> & {
   detail: DeviceDetailDto;
   schema: DeviceControlSchemaItemDto;
   schemaIndex: number;
@@ -226,7 +229,9 @@ export function HotspotDetailControls({
           </span>
           <div>
             <strong>{primaryDetail?.display_name ?? primaryCandidate.displayName}</strong>
-            <small>{primaryDetail?.room_name ?? primaryCandidate.roomName ?? "未分配房间"}</small>
+            <small>
+              {primaryDetail?.room_name ?? primaryCandidate.roomName ?? "未分配房间"}
+            </small>
           </div>
           <em>{stateLabel}</em>
         </div>

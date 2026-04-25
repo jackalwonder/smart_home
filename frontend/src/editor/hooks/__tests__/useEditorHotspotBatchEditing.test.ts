@@ -73,10 +73,7 @@ function createBatchHarness(options?: {
 
 function positionsById(draftState: EditorDraftState) {
   return Object.fromEntries(
-    draftState.hotspots.map((hotspot) => [
-      hotspot.id,
-      { x: hotspot.x, y: hotspot.y },
-    ]),
+    draftState.hotspots.map((hotspot) => [hotspot.id, { x: hotspot.x, y: hotspot.y }]),
   );
 }
 

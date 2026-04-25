@@ -1,8 +1,5 @@
 import { EnergyDto } from "../../api/types";
-import {
-  formatSettingsStatus,
-  getSettingsStatusTone,
-} from "../../settings/statusFormat";
+import { formatSettingsStatus, getSettingsStatusTone } from "../../settings/statusFormat";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 export type EnergyEntityMapKey =
@@ -123,10 +120,7 @@ function extractEntitySuffix(entityId: string | null | undefined) {
   return match?.[1] ?? null;
 }
 
-function resolveEntitySuffix(
-  energy: EnergyDto | null,
-  draft: EnergyBindingDraft,
-) {
+function resolveEntitySuffix(energy: EnergyDto | null, draft: EnergyBindingDraft) {
   const source =
     energy?.entity_map?.balance ??
     energy?.entity_map?.monthly_usage ??
@@ -165,7 +159,8 @@ function resolveEnergyTaskSteps(
   sgccLatestAccountTimestamp: string | null,
 ) {
   const bindingStatus = energy?.binding_status ?? "UNBOUND";
-  const latestSourceAt = energy?.source_updated_at ?? energy?.system_updated_at ?? energy?.updated_at;
+  const latestSourceAt =
+    energy?.source_updated_at ?? energy?.system_updated_at ?? energy?.updated_at;
   return [
     {
       label: "国网数据",
@@ -190,7 +185,12 @@ function resolveEnergyTaskSteps(
     },
     {
       label: "最近刷新",
-      tone: energy?.refresh_status === "FAILED" ? "danger" : latestSourceAt ? "success" : "neutral",
+      tone:
+        energy?.refresh_status === "FAILED"
+          ? "danger"
+          : latestSourceAt
+            ? "success"
+            : "neutral",
       value:
         energy?.refresh_status === "FAILED"
           ? formatStatus(energy)
@@ -278,7 +278,7 @@ export function EnergyBindingPanel({
           <input
             className="control-input"
             disabled={!canEdit || saveBusy || clearBusy}
-          onChange={(event) => onChangeAccountId(event.target.value)}
+            onChange={(event) => onChangeAccountId(event.target.value)}
             placeholder="填写国网户号或实体后缀"
             value={draft.accountId}
           />
@@ -293,8 +293,8 @@ export function EnergyBindingPanel({
         </label>
       </div>
       <p className="settings-module-card__note">
-        常规情况下只需要绑定国网账号并刷新能耗；实体映射保留给需要手动对齐
-        Home Assistant 传感器的场景。
+        常规情况下只需要绑定国网账号并刷新能耗；实体映射保留给需要手动对齐 Home Assistant
+        传感器的场景。
       </p>
 
       <details className="settings-advanced-fields">

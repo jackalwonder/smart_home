@@ -38,10 +38,7 @@ function clampPosition(value: number) {
   return Math.min(Math.max(value, 0), 1);
 }
 
-function getCanvasCoordinates(
-  container: HTMLDivElement,
-  event: PointerEvent<HTMLElement>,
-) {
+function getCanvasCoordinates(container: HTMLDivElement, event: PointerEvent<HTMLElement>) {
   const rect = container.getBoundingClientRect();
   return {
     x: clampPosition((event.clientX - rect.left) / rect.width),
@@ -77,7 +74,10 @@ export function EditorSelectionLayer({
     const minY = Math.min(marquee.startY, marquee.currentY);
     const maxY = Math.max(marquee.startY, marquee.currentY);
     const selectedIds = hotspots
-      .filter((hotspot) => hotspot.x >= minX && hotspot.x <= maxX && hotspot.y >= minY && hotspot.y <= maxY)
+      .filter(
+        (hotspot) =>
+          hotspot.x >= minX && hotspot.x <= maxX && hotspot.y >= minY && hotspot.y <= maxY,
+      )
       .map((hotspot) => hotspot.id);
     onReplaceBatchSelection(selectedIds);
     setMarquee(null);
@@ -155,7 +155,9 @@ export function EditorSelectionLayer({
             onPointerDown={(event) => {
               event.stopPropagation();
               const preserveBatch =
-                batchSelectedSet.has(hotspot.id) && batchSelectedSet.size > 1 && !event.shiftKey;
+                batchSelectedSet.has(hotspot.id) &&
+                batchSelectedSet.size > 1 &&
+                !event.shiftKey;
               onSelectHotspot(
                 hotspot.id,
                 event.shiftKey ? { toggleBatch: true } : { preserveBatch },
@@ -211,10 +213,8 @@ export function EditorSelectionLayer({
                     y: clampPosition(initial.y + deltaY),
                   };
                 })
-                .filter(
-                  (
-                    update,
-                  ): update is { hotspotId: string; x: number; y: number } => Boolean(update),
+                .filter((update): update is { hotspotId: string; x: number; y: number } =>
+                  Boolean(update),
                 );
 
               if (updates.length > 1) {

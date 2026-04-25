@@ -151,13 +151,8 @@ export function buildSettingsRuntimeCards(input: {
     ? input.mediaState.display_name
     : formatSettingsStatus(input.mediaState?.binding_status ?? "MEDIA_UNSET", "media");
   const sgccOverviewCopy = getSgccOverviewCopy(input.sgccLoginQrCode);
-  const energyOverviewCopy = getEnergyOverviewCopy(
-    input.energyState,
-    input.sgccLoginQrCode,
-  );
-  const backupReadyCount = input.backupItems.filter(
-    (item) => item.status === "READY",
-  ).length;
+  const energyOverviewCopy = getEnergyOverviewCopy(input.energyState, input.sgccLoginQrCode);
+  const backupReadyCount = input.backupItems.filter((item) => item.status === "READY").length;
   const terminalStatus = input.terminalTokenConfigured ? "已准备" : "待生成";
 
   return [
@@ -189,10 +184,7 @@ export function buildSettingsRuntimeCards(input: {
       section: "integrations",
       status: mediaStatus,
       targetId: "settings-module-media",
-      tone: getSettingsStatusTone(
-        input.mediaState?.binding_status ?? "MEDIA_UNSET",
-        "media",
-      ),
+      tone: getSettingsStatusTone(input.mediaState?.binding_status ?? "MEDIA_UNSET", "media"),
     },
     {
       actionLabel: sgccOverviewCopy.actionLabel,

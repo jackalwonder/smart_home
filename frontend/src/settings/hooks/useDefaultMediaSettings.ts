@@ -1,16 +1,9 @@
 import { useState } from "react";
 import { fetchDevices } from "../../api/devicesApi";
 import { normalizeApiError } from "../../api/httpClient";
-import {
-  bindDefaultMedia,
-  fetchDefaultMedia,
-  unbindDefaultMedia,
-} from "../../api/mediaApi";
+import { bindDefaultMedia, fetchDefaultMedia, unbindDefaultMedia } from "../../api/mediaApi";
 import type { DefaultMediaDto, DeviceListItemDto } from "../../api/types";
-import {
-  IntegrationHookOptions,
-  isMediaCandidateDevice,
-} from "./settingsIntegrationModels";
+import { IntegrationHookOptions, isMediaCandidateDevice } from "./settingsIntegrationModels";
 
 export function useDefaultMediaSettings({
   canEdit,
@@ -42,9 +35,7 @@ export function useDefaultMediaSettings({
       const preferredCandidates = candidates.filter(isMediaCandidateDevice);
       const nextCandidates = (
         preferredCandidates.length ? preferredCandidates : candidates
-      ).sort((left, right) =>
-        left.display_name.localeCompare(right.display_name, "zh-CN"),
-      );
+      ).sort((left, right) => left.display_name.localeCompare(right.display_name, "zh-CN"));
       setMediaCandidates(nextCandidates);
     } catch (error) {
       setMediaMessage(normalizeApiError(error).message);

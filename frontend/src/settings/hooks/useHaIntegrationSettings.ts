@@ -13,15 +13,17 @@ import {
 } from "./settingsIntegrationModels";
 
 export function useHaIntegrationSettings({ canEdit }: IntegrationHookOptions) {
-  const [systemDraft, setSystemDraft] = useState<SystemConnectionDraftState>(
-    () => createSystemDraft(null),
+  const [systemDraft, setSystemDraft] = useState<SystemConnectionDraftState>(() =>
+    createSystemDraft(null),
   );
   const [systemMessage, setSystemMessage] = useState<string | null>(null);
   const [systemSaveBusy, setSystemSaveBusy] = useState(false);
   const [systemTestBusy, setSystemTestBusy] = useState(false);
   const [systemSyncBusy, setSystemSyncBusy] = useState(false);
 
-  function applySystemConnection(response: Awaited<ReturnType<typeof fetchSystemConnections>>) {
+  function applySystemConnection(
+    response: Awaited<ReturnType<typeof fetchSystemConnections>>,
+  ) {
     setSystemDraft((current) => createSystemDraft(response, current));
   }
 

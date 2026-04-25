@@ -193,9 +193,7 @@ export function TerminalBootstrapTokenPanel({
           onChange={(event) => onSelectTerminalId(event.target.value)}
           value={selectedTerminalId}
         >
-          <option value="">
-            {loading ? "正在加载终端..." : "请选择一个终端"}
-          </option>
+          <option value="">{loading ? "正在加载终端..." : "请选择一个终端"}</option>
           {availableTerminals.map((terminal) => (
             <option key={terminal.terminal_id} value={terminal.terminal_id}>
               {`${terminal.terminal_name} (${terminal.terminal_code})`}
@@ -344,7 +342,9 @@ export function TerminalBootstrapTokenPanel({
         <div className="backup-audit__header">
           <div>
             <h4>最近签发记录</h4>
-            <p className="muted-copy">按时间查看最近的生成与重置动作，方便排查终端激活问题。</p>
+            <p className="muted-copy">
+              按时间查看最近的生成与重置动作，方便排查终端激活问题。
+            </p>
           </div>
           <button
             className="button button--ghost"

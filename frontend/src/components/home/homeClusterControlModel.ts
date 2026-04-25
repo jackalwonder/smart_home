@@ -82,7 +82,7 @@ export function isModeSchema(schema: DeviceControlSchemaItemDto) {
 export function formatRuntimeState(detail: DeviceDetailDto | DeviceListItemDto) {
   const value =
     "runtime_state" in detail
-      ? detail.runtime_state?.aggregated_state ?? detail.status
+      ? (detail.runtime_state?.aggregated_state ?? detail.status)
       : detail.status;
   const normalized = normalizeKeyword(typeof value === "string" ? value : "");
   if (detail.is_offline) {
@@ -230,12 +230,16 @@ export function filterClusterDevices(
     case "lights":
       return devices.filter((device) => {
         const source = normalizeKeyword(device.device_type);
-        return source.includes("light") || source.includes("lamp") || source.includes("switch");
+        return (
+          source.includes("light") || source.includes("lamp") || source.includes("switch")
+        );
       });
     case "climate":
       return devices.filter((device) => {
         const source = normalizeKeyword(device.device_type);
-        return source.includes("climate") || source.includes("air") || source.includes("fridge");
+        return (
+          source.includes("climate") || source.includes("air") || source.includes("fridge")
+        );
       });
     case "battery":
       return devices.filter((device) => (device.alert_badges ?? []).length > 0);

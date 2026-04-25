@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import type { HomeOverviewDto } from "../../api/types";
 import { useAppStore } from "../../store/useAppStore";
 import { TopNavTabs } from "./TopNavTabs";
 import { SystemStatusIcons } from "./SystemStatusIcons";
@@ -15,21 +16,11 @@ function formatNow(date: Date) {
   };
 }
 
-function resolveWeatherDataStatus(homeData: Record<string, unknown> | null) {
+function resolveWeatherDataStatus(homeData: HomeOverviewDto | null) {
   if (!homeData) {
     return null;
   }
-
-  const sidebar = homeData.sidebar;
-  const weather =
-    sidebar && typeof sidebar === "object"
-      ? (sidebar as { weather?: unknown }).weather
-      : null;
-  const weatherCacheMode =
-    weather && typeof weather === "object"
-      ? (weather as { cache_mode?: unknown }).cache_mode
-      : undefined;
-  const cacheMode = weatherCacheMode ?? homeData.cache_mode;
+  const cacheMode = homeData.sidebar?.weather?.cache_mode ?? homeData.cache_mode;
 
   if (typeof cacheMode !== "boolean") {
     return null;
@@ -72,7 +63,8 @@ export function ControlTopBar() {
           : "HA Waiting";
   const weatherDataStatus = resolveWeatherDataStatus(home.data);
   const isHomeRoute = location.pathname === "/";
-  const isHomeEditing = isHomeRoute && new URLSearchParams(location.search).get("edit") === "1";
+  const isHomeEditing =
+    isHomeRoute && new URLSearchParams(location.search).get("edit") === "1";
 
   function openHomeEditor() {
     if (!pin.active) {

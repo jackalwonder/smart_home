@@ -1,5 +1,13 @@
 import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
-import { asArray, asBoolean, asNumber, asOptionalString, asRecord, asString, formatDateTime } from "./utils";
+import {
+  asArray,
+  asBoolean,
+  asNumber,
+  asOptionalString,
+  asRecord,
+  asString,
+  formatDateTime,
+} from "./utils";
 import {
   deriveHotspotGlyph,
   deriveHotspotTone,
@@ -96,7 +104,9 @@ export function mapHomeOverviewViewModel(
 
   const media: HomeMediaViewModel = {
     bindingStatus: translateServiceStatus(asOptionalString(musicCard?.binding_status)),
-    availabilityStatus: translateServiceStatus(asOptionalString(musicCard?.availability_status)),
+    availabilityStatus: translateServiceStatus(
+      asOptionalString(musicCard?.availability_status),
+    ),
     deviceId: asOptionalString(musicCard?.device_id),
     displayName: asString(musicCard?.display_name ?? "家庭媒体"),
     playState: translateServiceStatus(asOptionalString(musicCard?.play_state)),

@@ -37,9 +37,7 @@ export function formatDeviceControlBadge(device: DeviceListItemDto) {
   return device.is_readonly_device ? "在线 · 只读" : "在线 · 可控";
 }
 
-export function deviceListItemToHotspot(
-  device: DeviceListItemDto,
-): HomeHotspotViewModel {
+export function deviceListItemToHotspot(device: DeviceListItemDto): HomeHotspotViewModel {
   return {
     id: `cluster-${device.device_id}`,
     deviceId: device.device_id,

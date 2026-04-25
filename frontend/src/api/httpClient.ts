@@ -32,7 +32,7 @@ export async function apiRequest<T>(input: string, init?: ApiRequestOptions): Pr
     headers,
   });
 
-  let envelope: ApiEnvelope<T> | null = null;
+  let envelope: ApiEnvelope<T>;
   try {
     envelope = (await response.json()) as ApiEnvelope<T>;
   } catch {

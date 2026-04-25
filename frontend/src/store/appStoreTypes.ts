@@ -1,4 +1,4 @@
-import type { SessionModel } from "../api/types";
+import type { EditorDraftDto, HomeOverviewDto, SessionModel, SettingsDto } from "../api/types";
 import type { WsEvent, WsEventType } from "../ws/types";
 
 export type AsyncStatus = "idle" | "loading" | "success" | "error";
@@ -27,15 +27,17 @@ export interface RealtimeState {
 
 export interface HomeState {
   status: AsyncStatus;
-  data: Record<string, unknown> | null;
+  data: HomeOverviewDto | null;
   error: string | null;
 }
 
 export interface SettingsState {
   status: AsyncStatus;
-  data: Record<string, unknown> | null;
+  data: SettingsDto | null;
   error: string | null;
 }
+
+export type EditorDraftLayoutDto = NonNullable<EditorDraftDto["layout"]>;
 
 export interface EditorState {
   status: AsyncStatus;
@@ -45,7 +47,7 @@ export interface EditorState {
   heartbeatIntervalSeconds: number | null;
   lockedByTerminalId: string | null;
   draftStatus: AsyncStatus;
-  draft: Record<string, unknown> | null;
+  draft: EditorDraftLayoutDto | null;
   draftVersion: string | null;
   baseLayoutVersion: string | null;
   readonly: boolean;

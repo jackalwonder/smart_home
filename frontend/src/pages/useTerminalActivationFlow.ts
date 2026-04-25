@@ -20,10 +20,7 @@ import {
 
 interface UseTerminalActivationFlowOptions {
   loading: boolean;
-  onActivate: (
-    bootstrapToken: string,
-    mode: TerminalActivationEntryMode,
-  ) => Promise<void>;
+  onActivate: (bootstrapToken: string, mode: TerminalActivationEntryMode) => Promise<void>;
   successState: TerminalActivationSuccessState | null;
   terminalId: string;
 }
@@ -39,17 +36,12 @@ export function useTerminalActivationFlow({
   const [localError, setLocalError] = useState<string | null>(null);
   const [pairingError, setPairingError] = useState<string | null>(null);
   const [pairingBusy, setPairingBusy] = useState(false);
-  const [pairingSession, setPairingSession] =
-    useState<TerminalPairingIssueDto | null>(null);
+  const [pairingSession, setPairingSession] = useState<TerminalPairingIssueDto | null>(null);
   const [pairingStatus, setPairingStatus] =
     useState<TerminalPairingPollDto["status"]>("PENDING");
   const [pairingClaimedAt, setPairingClaimedAt] = useState<string | null>(null);
-  const [pairingTokenExpiresAt, setPairingTokenExpiresAt] = useState<string | null>(
-    null,
-  );
-  const [refreshCooldownUntil, setRefreshCooldownUntil] = useState<number | null>(
-    null,
-  );
+  const [pairingTokenExpiresAt, setPairingTokenExpiresAt] = useState<string | null>(null);
+  const [refreshCooldownUntil, setRefreshCooldownUntil] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const scanInputRef = useRef<HTMLTextAreaElement | null>(null);
 

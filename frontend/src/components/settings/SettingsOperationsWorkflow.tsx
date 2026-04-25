@@ -1,9 +1,6 @@
 import type { SettingsSectionViewModel } from "../../view-models/settings";
 
-export type SettingsTaskFlowKey =
-  | "new-terminal"
-  | "replace-terminal"
-  | "backup-restore";
+export type SettingsTaskFlowKey = "new-terminal" | "replace-terminal" | "backup-restore";
 
 interface SettingsTaskFlowStep {
   title: string;
@@ -39,12 +36,7 @@ const LEGACY_SECTION_KEY_MAP = new Map<string, SettingsSectionViewModel["key"]>(
   ["delivery", "terminal"],
 ]);
 
-const LEGACY_HOME_SECTION_KEYS = new Set([
-  "favorites",
-  "home-advanced",
-  "page",
-  "function",
-]);
+const LEGACY_HOME_SECTION_KEYS = new Set(["favorites", "home-advanced", "page", "function"]);
 
 const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
   {
@@ -57,8 +49,7 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
     steps: [
       {
         title: "确认系统已就绪",
-        description:
-          "如需现场排障，先检查 Home Assistant、能耗和默认媒体等系统连接。",
+        description: "如需现场排障，先检查 Home Assistant、能耗和默认媒体等系统连接。",
         sectionKey: "integrations",
       },
       {
@@ -68,8 +59,7 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
       },
       {
         title: "交付激活凭据",
-        description:
-          "生成并交付一次性激活凭据，优先使用二维码，其次激活链接或激活码。",
+        description: "生成并交付一次性激活凭据，优先使用二维码，其次激活链接或激活码。",
         sectionKey: "terminal",
       },
     ],
@@ -84,8 +74,7 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
     steps: [
       {
         title: "核对目标终端",
-        description:
-          "先在终端与权限里确认当前待恢复的终端身份，避免把凭据发错设备。",
+        description: "先在终端与权限里确认当前待恢复的终端身份，避免把凭据发错设备。",
         sectionKey: "terminal",
       },
       {
@@ -95,8 +84,7 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
       },
       {
         title: "必要时复查系统连接",
-        description:
-          "终端重新上线后，如发现联动异常，可回到系统连接检查外部服务状态。",
+        description: "终端重新上线后，如发现联动异常，可回到系统连接检查外部服务状态。",
         sectionKey: "integrations",
       },
     ],
@@ -116,14 +104,12 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
       },
       {
         title: "执行恢复",
-        description:
-          "对目标备份执行恢复，记录新的 settings_version 与 layout_version。",
+        description: "对目标备份执行恢复，记录新的 settings_version 与 layout_version。",
         sectionKey: "backup",
       },
       {
         title: "恢复后复核",
-        description:
-          "恢复完成后，可回到接入配置或终端与权限确认现场状态是否已经回稳。",
+        description: "恢复完成后，可回到接入配置或终端与权限确认现场状态是否已经回稳。",
         sectionKey: "integrations",
       },
     ],
@@ -131,10 +117,7 @@ const SETTINGS_TASK_FLOWS: SettingsTaskFlowDefinition[] = [
 ];
 
 export function getSettingsTaskFlow(flowKey: SettingsTaskFlowKey) {
-  return (
-    SETTINGS_TASK_FLOWS.find((flow) => flow.key === flowKey) ??
-    SETTINGS_TASK_FLOWS[0]
-  );
+  return SETTINGS_TASK_FLOWS.find((flow) => flow.key === flowKey) ?? SETTINGS_TASK_FLOWS[0];
 }
 
 export function normalizeSettingsSectionKey(
@@ -177,27 +160,19 @@ export function SettingsOperationsWorkflow({
   sections,
 }: SettingsOperationsWorkflowProps) {
   const activeFlowConfig = getSettingsTaskFlow(activeFlow);
-  const sectionLabels = new Map(
-    sections.map((section) => [section.key, section.label]),
-  );
+  const sectionLabels = new Map(sections.map((section) => [section.key, section.label]));
 
   return (
-    <section
-      className="utility-card settings-task-flow"
-      aria-label="现场任务流"
-    >
+    <section className="utility-card settings-task-flow" aria-label="现场任务流">
       <div className="settings-task-flow__header">
         <div>
           <span className="card-eyebrow">现场任务流</span>
           <h3>按场景进入，不用自己拼操作顺序</h3>
           <p className="muted-copy">
-            把“接入配置 / 终端与权限 /
-            备份恢复”还原成现场真正会遇到的三个任务入口。
+            把“接入配置 / 终端与权限 / 备份恢复”还原成现场真正会遇到的三个任务入口。
           </p>
         </div>
-        <p className="settings-task-flow__summary">
-          {activeFlowConfig.outcome}
-        </p>
+        <p className="settings-task-flow__summary">{activeFlowConfig.outcome}</p>
       </div>
 
       <div className="settings-task-flow__cards">
@@ -220,10 +195,7 @@ export function SettingsOperationsWorkflow({
         ))}
       </div>
 
-      <ol
-        className="settings-task-flow__steps"
-        aria-label={`${activeFlowConfig.title}步骤`}
-      >
+      <ol className="settings-task-flow__steps" aria-label={`${activeFlowConfig.title}步骤`}>
         {activeFlowConfig.steps.map((step, index) => (
           <li
             className={
@@ -234,9 +206,7 @@ export function SettingsOperationsWorkflow({
             key={`${activeFlowConfig.key}-${step.title}`}
           >
             <div className="settings-task-flow__step-copy">
-              <span className="settings-task-flow__step-index">
-                {index + 1}
-              </span>
+              <span className="settings-task-flow__step-index">{index + 1}</span>
               <div>
                 <strong>{step.title}</strong>
                 <p>{step.description}</p>

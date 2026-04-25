@@ -45,12 +45,14 @@ function makeDraftResponse(overrides: Partial<EditorDraftDto> = {}): EditorDraft
   };
 }
 
-function renderSessionHook(options: {
-  onApplied?: () => Promise<void> | void;
-  onExit?: () => void;
-  onOpenAdvancedSettings?: () => void;
-  pinActive?: boolean;
-} = {}) {
+function renderSessionHook(
+  options: {
+    onApplied?: () => Promise<void> | void;
+    onExit?: () => void;
+    onOpenAdvancedSettings?: () => void;
+    pinActive?: boolean;
+  } = {},
+) {
   return renderHook(() =>
     useHomeStageEditorSession({
       onApplied: options.onApplied ?? vi.fn(),
@@ -154,16 +156,16 @@ describe("useHomeStageEditorSession", () => {
     });
 
     expect(mockedEditorApi.heartbeatEditorSession).toHaveBeenCalledWith("lease-1");
-    expect(appStore.getSnapshot().editor.leaseExpiresAt).toBe(
-      "2026-04-24T12:01:00Z",
-    );
+    expect(appStore.getSnapshot().editor.leaseExpiresAt).toBe("2026-04-24T12:01:00Z");
   });
 
   it("keeps conflict save failures in the light editor warning state", async () => {
-    mockedEditorApi.saveEditorDraft.mockRejectedValueOnce(new ApiError({
-      code: "VERSION_CONFLICT",
-      message: "version conflict",
-    }));
+    mockedEditorApi.saveEditorDraft.mockRejectedValueOnce(
+      new ApiError({
+        code: "VERSION_CONFLICT",
+        message: "version conflict",
+      }),
+    );
     const { result } = renderSessionHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 

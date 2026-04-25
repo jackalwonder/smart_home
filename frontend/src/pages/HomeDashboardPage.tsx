@@ -48,8 +48,9 @@ export function HomeDashboardPage() {
   const [devices, setDevices] = useState<DeviceListItemDto[]>([]);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<HomeClusterKey | null>(null);
-  const [selectedHotspotModal, setSelectedHotspotModal] =
-    useState<HotspotModalState | null>(null);
+  const [selectedHotspotModal, setSelectedHotspotModal] = useState<HotspotModalState | null>(
+    null,
+  );
   const [climatePickerOpen, setClimatePickerOpen] = useState(false);
   const [pendingHotspotControls, setPendingHotspotControls] = useState<
     Record<string, boolean>
@@ -76,7 +77,7 @@ export function HomeDashboardPage() {
         if (!active) {
           return;
         }
-        appStore.setHomeData(overview as unknown as Record<string, unknown>);
+        appStore.setHomeData(overview);
         setDevices(deviceDirectory.items ?? []);
       } catch (error) {
         if (!active) {
@@ -262,7 +263,8 @@ export function HomeDashboardPage() {
             <span className="card-eyebrow">首页轻编辑</span>
             <strong>请先在设置页验证管理 PIN</strong>
             <p className="muted-copy">
-              总览轻编辑只负责舞台和热点的即时调整。验证管理 PIN 后，就可以直接回到总览页编辑首页。
+              总览轻编辑只负责舞台和热点的即时调整。验证管理 PIN
+              后，就可以直接回到总览页编辑首页。
             </p>
           </div>
           <div className="badge-row">

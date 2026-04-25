@@ -96,9 +96,7 @@ export function HomeCommandStage({
   });
   const onlineHotspots = hotspots.filter((hotspot) => !hotspot.isOffline).length;
   const runningHotspots = countRunningHotspots(hotspots);
-  const { label: connectionLabel, tone: connectionTone } = connectionCopy(
-    connectionStatus,
-  );
+  const { label: connectionLabel, tone: connectionTone } = connectionCopy(connectionStatus);
 
   useEffect(() => {
     if (hasImageSize(backgroundImageSize)) {
@@ -129,8 +127,7 @@ export function HomeCommandStage({
 
       const outgoingItem = currentFeedItems[0] ?? null;
       const incomingItems = nextFeedItems.filter(
-        (nextItem) =>
-          !currentFeedItems.some((currentItem) => currentItem.id === nextItem.id),
+        (nextItem) => !currentFeedItems.some((currentItem) => currentItem.id === nextItem.id),
       );
 
       if (
@@ -139,9 +136,7 @@ export function HomeCommandStage({
         outgoingItem &&
         incomingItems.length > 0
       ) {
-        const retainedItems = currentFeedItems.filter(
-          (item) => item.id !== outgoingItem.id,
-        );
+        const retainedItems = currentFeedItems.filter((item) => item.id !== outgoingItem.id);
         const transitionalItems = [...retainedItems, ...incomingItems];
 
         setFadingFeedItemId(outgoingItem.id);
@@ -203,7 +198,9 @@ export function HomeCommandStage({
                 <div className="home-command-stage__empty">
                   <span className="card-eyebrow">户型图待发布</span>
                   <strong>发布首页舞台前，先完成户型图和热点布点。</strong>
-                  <p>在设置里的首页高级设置上传户型图，再回到总览轻编辑放置常用设备热点。发布后，这里会展示可直接操作的家庭现场。</p>
+                  <p>
+                    在设置里的首页高级设置上传户型图，再回到总览轻编辑放置常用设备热点。发布后，这里会展示可直接操作的家庭现场。
+                  </p>
                 </div>
               </div>
             )}
@@ -256,7 +253,6 @@ export function HomeCommandStage({
               </div>
             </section>
           ) : null}
-
         </div>
       </div>
     </section>

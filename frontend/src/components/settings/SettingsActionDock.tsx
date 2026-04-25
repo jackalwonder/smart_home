@@ -35,8 +35,7 @@ export function SettingsActionDock({
         <span className="card-eyebrow">操作区</span>
         <h3>{isCompact ? "发布首页更改" : "保存首页设置"}</h3>
         <p className="muted-copy">
-          首页草稿版本 {version}。
-          {pinRequired ? "保存前需要管理 PIN。" : "当前允许直接保存。"}
+          首页草稿版本 {version}。{pinRequired ? "保存前需要管理 PIN。" : "当前允许直接保存。"}
         </p>
       </div>
       <div className="settings-action-dock__meta">

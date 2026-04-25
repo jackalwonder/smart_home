@@ -8,11 +8,11 @@ export function hasImageSize(
 ): value is { width: number; height: number } {
   return Boolean(
     value &&
-      typeof value.width === "number" &&
-      typeof value.height === "number" &&
-      Number.isFinite(value.width) &&
-      Number.isFinite(value.height) &&
-      value.width > 0 &&
-      value.height > 0,
+    typeof value.width === "number" &&
+    typeof value.height === "number" &&
+    Number.isFinite(value.width) &&
+    Number.isFinite(value.height) &&
+    value.width > 0 &&
+    value.height > 0,
   );
 }

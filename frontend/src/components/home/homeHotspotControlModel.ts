@@ -4,10 +4,7 @@ import {
   DeviceListItemDto,
 } from "../../api/types";
 import { HomeHotspotViewModel } from "../../view-models/home";
-import {
-  isPowerControlSchema,
-  normalizeControlKeyword,
-} from "./deviceControlHelpers";
+import { isPowerControlSchema, normalizeControlKeyword } from "./deviceControlHelpers";
 
 export type HotspotControlMode = "detail" | "group";
 

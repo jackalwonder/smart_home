@@ -202,9 +202,7 @@ describe("HomeDashboardPage", () => {
     fireEvent.click(airConditionerButton!);
 
     await waitFor(() => {
-      expect(screen.getByTestId("hotspot-control-modal").textContent).toBe(
-        "detail:客厅空调",
-      );
+      expect(screen.getByTestId("hotspot-control-modal").textContent).toBe("detail:客厅空调");
     });
   });
 

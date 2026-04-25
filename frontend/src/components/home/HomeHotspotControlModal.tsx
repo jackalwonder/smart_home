@@ -55,11 +55,7 @@ export function HomeHotspotControlModal({
       ].join(" ")}
       role="dialog"
     >
-      <div
-        aria-hidden="true"
-        className="home-cluster-modal__backdrop"
-        onClick={onClose}
-      />
+      <div aria-hidden="true" className="home-cluster-modal__backdrop" onClick={onClose} />
       <section
         className={[
           "home-cluster-modal__panel",
@@ -86,10 +82,9 @@ export function HomeHotspotControlModal({
               <h3>{kindTitle(control.anchorKind, mode)}</h3>
               <p>
                 {mode === "detail"
-                  ? control.primaryDetail?.display_name ??
-                    control.primaryCandidate.displayName
-                  : control.primaryCandidate.roomName ??
-                    activeHotspot.deviceTypeLabel}
+                  ? (control.primaryDetail?.display_name ??
+                    control.primaryCandidate.displayName)
+                  : (control.primaryCandidate.roomName ?? activeHotspot.deviceTypeLabel)}
               </p>
             </div>
           </div>
@@ -104,9 +99,7 @@ export function HomeHotspotControlModal({
                   : "在线"
                 : `${control.onlineCount} 在线`}
             </span>
-            <span>
-              {control.loading ? "读取中" : `${control.controllableCount} 可控`}
-            </span>
+            <span>{control.loading ? "读取中" : `${control.controllableCount} 可控`}</span>
           </div>
           <button
             aria-label="关闭弹窗"

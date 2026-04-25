@@ -55,9 +55,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    linear-gradient(90deg, rgba(7, 18, 30, 0.94), rgba(4, 6, 12, 0.98)),
-    var(--bg);
+  background: linear-gradient(90deg, rgba(7, 18, 30, 0.94), rgba(4, 6, 12, 0.98)), var(--bg);
   color: var(--text);
 }
 

@@ -24,7 +24,12 @@ export function resolveAssetImageUrl(value: string | null | undefined) {
     return withRequestContext(`/api/v1/page-assets/floorplan/${source}/file`);
   }
 
-  if (source.startsWith("http://") || source.startsWith("https://") || source.startsWith("data:") || source.startsWith("blob:")) {
+  if (
+    source.startsWith("http://") ||
+    source.startsWith("https://") ||
+    source.startsWith("data:") ||
+    source.startsWith("blob:")
+  ) {
     return source;
   }
 
@@ -56,7 +61,12 @@ export function resolveHotspotIconUrl(value: string | null | undefined) {
     return withRequestContext(`/api/v1/page-assets/hotspot-icons/${source}/file`);
   }
 
-  if (source.startsWith("http://") || source.startsWith("https://") || source.startsWith("data:") || source.startsWith("blob:")) {
+  if (
+    source.startsWith("http://") ||
+    source.startsWith("https://") ||
+    source.startsWith("data:") ||
+    source.startsWith("blob:")
+  ) {
     return source;
   }
 

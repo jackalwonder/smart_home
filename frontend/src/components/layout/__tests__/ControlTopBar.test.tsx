@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import type { SessionModel } from "../../../api/types";
+import type { HomeOverviewDto, SessionModel } from "../../../api/types";
 import { appStore } from "../../../store/useAppStore";
 import { ControlTopBar } from "../ControlTopBar";
 
@@ -33,9 +33,10 @@ function setReadySession() {
     sidebar: {
       weather: {
         cache_mode: false,
+        fetched_at: "2026-04-14T10:00:00Z",
       },
     },
-  });
+  } as HomeOverviewDto);
 }
 
 afterEach(() => {

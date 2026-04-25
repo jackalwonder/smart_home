@@ -23,9 +23,8 @@ const ACTIVATION_SUCCESS_HOLD_MS = 2200;
 export function AppBootstrap({ children }: PropsWithChildren) {
   const [activationRequired, setActivationRequired] = useState(false);
   const [activationLoading, setActivationLoading] = useState(false);
-  const [activationSuccess, setActivationSuccess] = useState<TerminalActivationSuccessState | null>(
-    null,
-  );
+  const [activationSuccess, setActivationSuccess] =
+    useState<TerminalActivationSuccessState | null>(null);
 
   const completeSession = useCallback(
     async (
@@ -152,10 +151,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
     };
   }, [completeSession, finishActivation, setBootError]);
 
-  async function handleActivate(
-    bootstrapToken: string,
-    mode: TerminalActivationEntryMode,
-  ) {
+  async function handleActivate(bootstrapToken: string, mode: TerminalActivationEntryMode) {
     setActivationLoading(true);
     appStore.setSessionLoading();
     try {

@@ -31,9 +31,7 @@ describe("runtimeOverview", () => {
       description: "已发现 2 个账号，最新数据 4月24日 09:05。二维码状态只作为扫码文件明细。",
     });
 
-    expect(
-      getSgccOverviewCopy({ phase: "QR_READY" } as SgccLoginQrCodeStatusDto),
-    ).toEqual({
+    expect(getSgccOverviewCopy({ phase: "QR_READY" } as SgccLoginQrCodeStatusDto)).toEqual({
       actionLabel: "去扫码",
       description: "二维码可扫码，请用国家电网 App 完成登录确认。",
     });
@@ -69,10 +67,7 @@ describe("runtimeOverview", () => {
 
   it("builds runtime cards from integration, backup, and terminal state", () => {
     const cards = buildSettingsRuntimeCards({
-      backupItems: [
-        { status: "READY" },
-        { status: "FAILED" },
-      ] as BackupListItemDto[],
+      backupItems: [{ status: "READY" }, { status: "FAILED" }] as BackupListItemDto[],
       energyState: {
         binding_status: "BOUND",
         refresh_status: "SUCCESS",

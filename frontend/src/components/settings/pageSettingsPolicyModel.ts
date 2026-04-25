@@ -33,11 +33,7 @@ export function findEntry(entries: PolicyEntryDraft[], key: string) {
   return entries.find((entry) => entry.key === key) ?? null;
 }
 
-export function getBoolean(
-  entries: PolicyEntryDraft[],
-  key: string,
-  fallback = false,
-) {
+export function getBoolean(entries: PolicyEntryDraft[], key: string, fallback = false) {
   const entry = findEntry(entries, key);
   if (!entry) {
     return fallback;
@@ -49,10 +45,7 @@ export function getString(entries: PolicyEntryDraft[], key: string, fallback = "
   return findEntry(entries, key)?.value ?? fallback;
 }
 
-export function getUnknownEntries(
-  entries: PolicyEntryDraft[],
-  knownKeys: readonly string[],
-) {
+export function getUnknownEntries(entries: PolicyEntryDraft[], knownKeys: readonly string[]) {
   return entries.filter((entry) => !knownKeys.includes(entry.key));
 }
 

@@ -114,7 +114,9 @@ export function SystemConnectionPanel({
           <input
             className="control-input"
             onChange={(event) => onChange("accessToken", event.target.value)}
-            placeholder={draft.authConfigured ? "当前已配置令牌，如需更换可重新输入。" : "粘贴访问令牌"}
+            placeholder={
+              draft.authConfigured ? "当前已配置令牌，如需更换可重新输入。" : "粘贴访问令牌"
+            }
             type="password"
             value={draft.accessToken}
           />

@@ -23,13 +23,7 @@ function friendlyValue(value: string) {
   }
 }
 
-function FieldList({
-  fields,
-  title,
-}: {
-  fields: HomeModuleField[];
-  title: string;
-}) {
+function FieldList({ fields, title }: { fields: HomeModuleField[]; title: string }) {
   const displayFields = fields.slice(0, 3);
   const primaryValue = friendlyValue(displayFields[0]?.value ?? "-");
 
@@ -51,10 +45,7 @@ function FieldList({
   );
 }
 
-export function MediaEnergyCard({
-  mediaFields,
-  energyFields,
-}: MediaEnergyCardProps) {
+export function MediaEnergyCard({ mediaFields, energyFields }: MediaEnergyCardProps) {
   return (
     <section className="utility-card media-energy-card">
       <div className="media-energy-card__header">
