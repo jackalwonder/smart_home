@@ -1,554 +1,78 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback } from "react";
 import { Link } from "react-router-dom";
-import { fetchDeviceDetail, fetchDevices, fetchRooms } from "../api/devicesApi";
-import { normalizeApiError } from "../api/httpClient";
-import { fetchSettings, saveSettings } from "../api/settingsApi";
-import {
-  DeviceControlSchemaItemDto,
-  DeviceDetailDto,
-  DeviceEntityLinkDto,
-  DeviceListItemDto,
-  RoomListItemDto,
-  SettingsDto,
-  SettingsSaveInput,
-} from "../api/types";
-import { appStore } from "../store/useAppStore";
-
-type OfflineFilter = "ALL" | "ONLINE" | "OFFLINE";
-type HomeEntryAction = "add" | "remove";
-type HomeEntryFeedback = { tone: "success" | "error"; text: string } | null;
-
-function getStatusLabel(device: DeviceListItemDto): string {
-  if (device.is_offline) {
-    return "离线";
-  }
-  return formatDeviceStatus(device.status);
-}
-
-function getStatusTone(device: DeviceListItemDto): "online" | "offline" {
-  return device.is_offline ? "offline" : "online";
-}
-
-function getHomeEntryLabel(device: DeviceListItemDto): string {
-  if (device.is_favorite) {
-    return "已在首页";
-  }
-  if (device.is_favorite_candidate) {
-    return "可加入首页";
-  }
-  return device.favorite_exclude_reason || "不可加入首页";
-}
-
-function formatDeviceStatus(value: string | null | undefined): string {
-  const normalized = (value ?? "").trim().toLowerCase();
-  if (!normalized || normalized === "unknown") {
-    return "状态未知";
-  }
-  if (normalized === "online" || normalized === "active") {
-    return "在线";
-  }
-  if (normalized === "offline" || normalized === "unavailable") {
-    return "离线";
-  }
-  if (normalized === "smart") {
-    return "智能";
-  }
-  return value ?? "状态未知";
-}
-
-function formatDeviceType(value: string | null | undefined): string {
-  const normalized = (value ?? "").trim().toUpperCase();
-  const labels: Record<string, string> = {
-    CLIMATE: "温控",
-    FRIDGE: "冰箱",
-    LIGHT: "灯光",
-    MEDIA: "媒体",
-    POWER: "电源",
-    SCALE: "体脂秤",
-    SENSOR: "传感器",
-    SWITCH: "开关",
-  };
-  return labels[normalized] ?? (value ? value : "未分类");
-}
-
-function formatDeviceTimestamp(value: string | null | undefined) {
-  if (!value) {
-    return "-";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  const hour = String(parsed.getHours()).padStart(2, "0");
-  const minute = String(parsed.getMinutes()).padStart(2, "0");
-  return `${parsed.getMonth() + 1}月${parsed.getDate()}日 ${hour}:${minute}`;
-}
-
-function compactJson(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "-";
-  }
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return String(value);
-  }
-  return JSON.stringify(value, null, 2);
-}
-
-function formatShortId(value: string | null | undefined) {
-  if (!value) {
-    return "-";
-  }
-  return value.length > 12 ? `...${value.slice(-8)}` : value;
-}
-
-function getEntityLinks(detail: DeviceDetailDto): DeviceEntityLinkDto[] {
-  const links = detail.source_info.entity_links;
-  return Array.isArray(links) ? links : [];
-}
-
-function describeControlSchema(schema: DeviceControlSchemaItemDto) {
-  const target = formatControlTarget(schema);
-  const value = schema.allowed_values?.length
-    ? schema.allowed_values.map(formatControlOption).join("、")
-    : schema.value_range
-      ? formatControlRange(schema.value_range, schema.unit)
-      : formatControlValueType(schema.value_type);
-  return { target: target || "-", value };
-}
-
-function formatControlAction(value: string | null | undefined) {
-  const normalized = (value ?? "").toUpperCase();
-  const labels: Record<string, string> = {
-    EXECUTE_ACTION: "执行动作",
-    RESET: "重置",
-    SET_BRIGHTNESS: "调节亮度",
-    SET_MODE: "切换模式",
-    SET_TEMPERATURE: "设置温度",
-    TOGGLE: "开关切换",
-    TOGGLE_POWER: "开关切换",
-    TURN_OFF: "关闭",
-    TURN_ON: "开启",
-  };
-  return labels[normalized] ?? (value ? value.replaceAll("_", " ") : "控制项");
-}
-
-function formatControlTarget(schema: DeviceControlSchemaItemDto) {
-  const source = `${schema.target_scope ?? ""} ${schema.target_key ?? ""}`.toLowerCase();
-  const scope = (schema.target_scope ?? "").toUpperCase();
-  const targetKey = (schema.target_key ?? "").toLowerCase();
-  if (source.includes("fridge") || source.includes("refrigerator")) {
-    return "冷藏室温度";
-  }
-  if (source.includes("freezer") || source.includes("freeze")) {
-    return "冷冻室温度";
-  }
-  if (source.includes("temperature") || source.includes("temp")) {
-    return "温度";
-  }
-  if (source.includes("brightness")) {
-    return "亮度";
-  }
-  if (source.includes("mode")) {
-    return "模式";
-  }
-  if (source.includes("power") || source.includes("switch")) {
-    return "开关";
-  }
-  if (scope === "PRIMARY") {
-    return "主操作";
-  }
-  if (targetKey.startsWith("button.") || targetKey.includes(".button.")) {
-    return "设备动作";
-  }
-  if (schema.target_scope || schema.target_key) {
-    return "设备控制";
-  }
-  return "设备控制";
-}
-
-function formatControlOption(value: unknown) {
-  const normalized = String(value).toLowerCase();
-  const labels: Record<string, string> = {
-    auto: "自动",
-    boost: "速冷",
-    holiday: "假日",
-    manual: "手动",
-    none: "无需输入",
-    off: "关闭",
-    on: "开启",
-    smart: "智能",
-    super_cool: "速冷",
-    super_freeze: "速冻",
-  };
-  return labels[normalized] ?? String(value);
-}
-
-function formatControlValueType(value: string | null | undefined) {
-  const normalized = (value ?? "").toUpperCase();
-  const labels: Record<string, string> = {
-    BOOLEAN: "开关值",
-    FLOAT: "数字",
-    INTEGER: "整数",
-    NONE: "无需输入",
-    NUMBER: "数字",
-    STRING: "文本",
-  };
-  return labels[normalized] ?? (value ? value.replaceAll("_", " ") : "无需输入");
-}
-
-function formatControlRange(value: unknown, unit?: string | null) {
-  if (!value || typeof value !== "object") {
-    return compactJson(value);
-  }
-  const range = value as { min?: unknown; max?: unknown; step?: unknown };
-  const min = range.min ?? "-";
-  const max = range.max ?? "-";
-  const step = range.step ? `，步进 ${range.step}` : "";
-  return `${min} 到 ${max}${unit ? ` ${unit}` : ""}${step}`;
-}
-
-function formatEntityDomain(value: string | null | undefined) {
-  const normalized = (value ?? "").toLowerCase();
-  const labels: Record<string, string> = {
-    binary_sensor: "二元传感器",
-    button: "按钮动作",
-    climate: "温控",
-    event: "事件",
-    light: "灯光",
-    media_player: "媒体播放器",
-    notify: "通知动作",
-    number: "数值控制",
-    select: "选项控制",
-    sensor: "传感器",
-    switch: "开关",
-  };
-  return labels[normalized] ?? (value || "-");
-}
-
-function formatEntityRole(value: string | null | undefined) {
-  const normalized = (value ?? "").toLowerCase();
-  const labels: Record<string, string> = {
-    alert: "事件通知",
-    battery: "电量",
-    mode: "模式",
-    power: "开关",
-    primary: "主实体",
-    primary_control: "主控制",
-    secondary_control: "辅助控制",
-    status: "状态",
-    temperature: "温度",
-  };
-  return labels[normalized] ?? (value || "-");
-}
-
-function normalizeFavorites(
-  settings: SettingsDto,
-): SettingsSaveInput["favorites"] {
-  return (settings.favorites ?? []).map((favorite, index) => ({
-    device_id: favorite.device_id,
-    selected: favorite.selected ?? true,
-    favorite_order:
-      typeof favorite.favorite_order === "number"
-        ? favorite.favorite_order
-        : index,
-  }));
-}
-
-function getNextFavoriteOrder(favorites: SettingsSaveInput["favorites"]) {
-  const orders = favorites
-    .map((favorite, index) =>
-      typeof favorite.favorite_order === "number"
-        ? favorite.favorite_order
-        : index,
-    )
-    .filter((order) => Number.isFinite(order));
-  return orders.length ? Math.max(...orders) + 1 : 0;
-}
-
-function buildSettingsSaveInput(
-  settings: SettingsDto,
-  favorites: SettingsSaveInput["favorites"],
-): SettingsSaveInput {
-  const pageSettings = settings.page_settings;
-  const functionSettings = settings.function_settings;
-
-  return {
-    settings_version: settings.settings_version ?? null,
-    page_settings: {
-      room_label_mode: pageSettings?.room_label_mode ?? "ROOM_NAME",
-      homepage_display_policy: pageSettings?.homepage_display_policy ?? {},
-      icon_policy: pageSettings?.icon_policy ?? {},
-      layout_preference: pageSettings?.layout_preference ?? {},
-    },
-    function_settings: {
-      low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
-      offline_threshold_seconds:
-        functionSettings?.offline_threshold_seconds ?? 300,
-      quick_entry_policy: functionSettings?.quick_entry_policy ?? {
-        favorites: true,
-      },
-      music_enabled: functionSettings?.music_enabled ?? true,
-      favorite_limit: functionSettings?.favorite_limit ?? 8,
-      auto_home_timeout_seconds:
-        functionSettings?.auto_home_timeout_seconds ?? 30,
-      position_device_thresholds:
-        functionSettings?.position_device_thresholds ?? {},
-    },
-    favorites,
-  };
-}
-
-function buildNextFavorites(
-  settings: SettingsDto,
-  deviceId: string,
-  action: HomeEntryAction,
-) {
-  const favorites = normalizeFavorites(settings).filter(
-    (favorite) => favorite.device_id !== deviceId,
-  );
-
-  if (action === "remove") {
-    return favorites;
-  }
-
-  return [
-    ...favorites,
-    {
-      device_id: deviceId,
-      selected: true,
-      favorite_order: getNextFavoriteOrder(favorites),
-    },
-  ];
-}
+import { DeviceListItemDto } from "../api/types";
+import { DeviceCatalogDetailPanel } from "./DeviceCatalogDetailPanel";
+import { DeviceCatalogList } from "./DeviceCatalogList";
+import { HomeEntryAction, OfflineFilter } from "./devicesCatalogModel";
+import { useDeviceHomeEntry } from "./useDeviceHomeEntry";
+import { useDevicesCatalog } from "./useDevicesCatalog";
 
 export function DevicesCatalogPage() {
-  const [rooms, setRooms] = useState<RoomListItemDto[]>([]);
-  const [devices, setDevices] = useState<DeviceListItemDto[]>([]);
-  const [keywordInput, setKeywordInput] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [roomFilter, setRoomFilter] = useState("");
-  const [offlineFilter, setOfflineFilter] = useState<OfflineFilter>("ALL");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
-  const [totalFromServer, setTotalFromServer] = useState(0);
-  const [selectedDevice, setSelectedDevice] = useState<DeviceDetailDto | null>(
-    null,
-  );
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [homeEntryBusyDeviceId, setHomeEntryBusyDeviceId] = useState<
-    string | null
-  >(null);
-  const [homeEntryFeedback, setHomeEntryFeedback] =
-    useState<HomeEntryFeedback>(null);
+  const catalog = useDevicesCatalog();
+  const homeEntry = useDeviceHomeEntry({
+    onCatalogChanged: () => catalog.loadCatalog(catalog.keyword, catalog.roomFilter),
+  });
 
-  async function loadCatalog(
-    nextKeyword = keyword,
-    nextRoomFilter = roomFilter,
-  ) {
-    setLoading(true);
-    setError(null);
-    try {
-      const [roomsResponse, devicesResponse] = await Promise.all([
-        fetchRooms(),
-        fetchDevices({
-          room_id: nextRoomFilter || undefined,
-          keyword: nextKeyword || undefined,
-          page: 1,
-          page_size: 200,
-        }),
-      ]);
-      setRooms(roomsResponse.rooms);
-      setDevices(devicesResponse.items);
-      setTotalFromServer(devicesResponse.page_info.total);
-      setLastLoadedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
-    } catch (requestError) {
-      setError(normalizeApiError(requestError).message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const renderHomeEntryAction = useCallback(
+    (device: DeviceListItemDto) => {
+      const isBusy = homeEntry.homeEntryBusyDeviceId === device.device_id;
 
-  useEffect(() => {
-    void loadCatalog();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function openDeviceDetail(deviceId: string) {
-    setDetailLoading(true);
-    setDetailError(null);
-    try {
-      const detail = await fetchDeviceDetail(deviceId);
-      setSelectedDevice(detail);
-    } catch (requestError) {
-      setDetailError(normalizeApiError(requestError).message);
-    } finally {
-      setDetailLoading(false);
-    }
-  }
-
-  async function updateHomeEntry(
-    device: DeviceListItemDto,
-    action: HomeEntryAction,
-  ) {
-    if (action === "add" && !device.is_favorite_candidate) {
-      setHomeEntryFeedback({
-        tone: "error",
-        text: device.favorite_exclude_reason || "当前设备不可加入首页。",
-      });
-      return;
-    }
-
-    setHomeEntryBusyDeviceId(device.device_id);
-    setHomeEntryFeedback(null);
-    try {
-      const settings = await fetchSettings();
-      const favorites = normalizeFavorites(settings);
-      const alreadySelected = favorites.some(
-        (favorite) =>
-          favorite.device_id === device.device_id && favorite.selected,
-      );
-
-      if (action === "add" && alreadySelected) {
-        setHomeEntryFeedback({
-          tone: "success",
-          text: `${device.display_name} 已在首页，可到设置里调整排序。`,
-        });
-        return;
+      if (device.is_favorite) {
+        return (
+          <button
+            className="button button--ghost devices-table__action"
+            disabled={isBusy}
+            onClick={() =>
+              void homeEntry.updateHomeEntry(device, "remove" satisfies HomeEntryAction)
+            }
+            type="button"
+          >
+            {isBusy ? "处理中..." : "移出首页"}
+          </button>
+        );
       }
 
-      if (action === "remove" && !alreadySelected) {
-        setHomeEntryFeedback({
-          tone: "success",
-          text: `${device.display_name} 当前不在首页。`,
-        });
-        return;
+      if (device.is_favorite_candidate) {
+        return (
+          <button
+            className="button button--primary devices-table__action"
+            disabled={isBusy}
+            onClick={() =>
+              void homeEntry.updateHomeEntry(device, "add" satisfies HomeEntryAction)
+            }
+            type="button"
+          >
+            {isBusy ? "处理中..." : "加入首页"}
+          </button>
+        );
       }
 
-      const nextFavorites = buildNextFavorites(
-        settings,
-        device.device_id,
-        action,
-      );
-      await saveSettings(buildSettingsSaveInput(settings, nextFavorites));
-      const refreshedSettings = await fetchSettings();
-      appStore.setSettingsData(
-        refreshedSettings as unknown as Record<string, unknown>,
-      );
-      await loadCatalog(keyword, roomFilter);
-      setHomeEntryFeedback({
-        tone: "success",
-        text:
-          action === "add"
-            ? `${device.display_name} 已加入首页，可到设置里调整排序。`
-            : `${device.display_name} 已移出首页。`,
-      });
-    } catch (requestError) {
-      setHomeEntryFeedback({
-        tone: "error",
-        text: normalizeApiError(requestError).message,
-      });
-    } finally {
-      setHomeEntryBusyDeviceId(null);
-    }
-  }
-
-  const visibleDevices = useMemo(() => {
-    if (offlineFilter === "ONLINE") {
-      return devices.filter((device) => !device.is_offline);
-    }
-    if (offlineFilter === "OFFLINE") {
-      return devices.filter((device) => device.is_offline);
-    }
-    return devices;
-  }, [devices, offlineFilter]);
-
-  const stats = useMemo(() => {
-    const onlineCount = visibleDevices.filter(
-      (device) => !device.is_offline,
-    ).length;
-    const offlineCount = visibleDevices.length - onlineCount;
-    const readonlyCount = visibleDevices.filter(
-      (device) => device.is_readonly_device,
-    ).length;
-    const homeEntryCount = visibleDevices.filter(
-      (device) => device.is_favorite,
-    ).length;
-    return {
-      onlineCount,
-      offlineCount,
-      readonlyCount,
-      homeEntryCount,
-    };
-  }, [visibleDevices]);
-  const selectedDeviceCatalog = useMemo(
-    () =>
-      selectedDevice
-        ? (devices.find(
-            (device) => device.device_id === selectedDevice.device_id,
-          ) ?? null)
-        : null,
-    [devices, selectedDevice],
-  );
-
-  function renderHomeEntryAction(device: DeviceListItemDto) {
-    const isBusy = homeEntryBusyDeviceId === device.device_id;
-
-    if (device.is_favorite) {
       return (
         <button
           className="button button--ghost devices-table__action"
-          disabled={isBusy}
-          onClick={() => void updateHomeEntry(device, "remove")}
+          disabled
+          title={device.favorite_exclude_reason || "当前设备不可加入首页"}
           type="button"
         >
-          {isBusy ? "处理中..." : "移出首页"}
+          不可加入
         </button>
       );
-    }
-
-    if (device.is_favorite_candidate) {
-      return (
-        <button
-          className="button button--primary devices-table__action"
-          disabled={isBusy}
-          onClick={() => void updateHomeEntry(device, "add")}
-          type="button"
-        >
-          {isBusy ? "处理中..." : "加入首页"}
-        </button>
-      );
-    }
-
-    return (
-      <button
-        className="button button--ghost devices-table__action"
-        disabled
-        title={device.favorite_exclude_reason || "当前设备不可加入首页"}
-        type="button"
-      >
-        不可加入
-      </button>
-    );
-  }
+    },
+    [homeEntry],
+  );
 
   return (
     <section className="page page--devices">
-      {error ? <p className="inline-error">{error}</p> : null}
-      {homeEntryFeedback ? (
+      {catalog.error ? <p className="inline-error">{catalog.error}</p> : null}
+      {homeEntry.homeEntryFeedback ? (
         <p
           className={
-            homeEntryFeedback.tone === "error"
+            homeEntry.homeEntryFeedback.tone === "error"
               ? "inline-error"
               : "inline-success"
           }
         >
-          {homeEntryFeedback.text}
+          {homeEntry.homeEntryFeedback.text}
         </p>
       ) : null}
 
@@ -561,37 +85,36 @@ export function DevicesCatalogPage() {
           </p>
         </div>
         <div className="badge-row">
-          <span className="state-chip">{`目录总数 ${totalFromServer}`}</span>
-          <span className="state-chip">{`在线 ${stats.onlineCount}`}</span>
-          <span className="state-chip">{`离线 ${stats.offlineCount}`}</span>
-          <span className="state-chip">{`只读 ${stats.readonlyCount}`}</span>
-          <span className="state-chip">{`已在首页 ${stats.homeEntryCount}`}</span>
+          <span className="state-chip">{`目录总数 ${catalog.totalFromServer}`}</span>
+          <span className="state-chip">{`在线 ${catalog.stats.onlineCount}`}</span>
+          <span className="state-chip">{`离线 ${catalog.stats.offlineCount}`}</span>
+          <span className="state-chip">{`只读 ${catalog.stats.readonlyCount}`}</span>
+          <span className="state-chip">{`已在首页 ${catalog.stats.homeEntryCount}`}</span>
         </div>
         <div className="devices-header__controls">
           <label className="form-field">
             <span>关键词</span>
             <input
               className="control-input"
-              onChange={(event) => setKeywordInput(event.target.value)}
+              onChange={(event) => catalog.setKeywordInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  setKeyword(keywordInput.trim());
-                  void loadCatalog(keywordInput.trim(), roomFilter);
+                  catalog.runSearch();
                 }
               }}
               placeholder="设备名 / 原始名"
-              value={keywordInput}
+              value={catalog.keywordInput}
             />
           </label>
           <label className="form-field">
             <span>房间</span>
             <select
               className="control-input"
-              onChange={(event) => setRoomFilter(event.target.value)}
-              value={roomFilter}
+              onChange={(event) => catalog.setRoomFilter(event.target.value)}
+              value={catalog.roomFilter}
             >
               <option value="">全部房间</option>
-              {rooms.map((room) => (
+              {catalog.rooms.map((room) => (
                 <option key={room.room_id} value={room.room_id}>
                   {room.room_name}
                 </option>
@@ -603,9 +126,9 @@ export function DevicesCatalogPage() {
             <select
               className="control-input"
               onChange={(event) =>
-                setOfflineFilter(event.target.value as OfflineFilter)
+                catalog.setOfflineFilter(event.target.value as OfflineFilter)
               }
-              value={offlineFilter}
+              value={catalog.offlineFilter}
             >
               <option value="ALL">全部</option>
               <option value="ONLINE">仅在线</option>
@@ -615,31 +138,21 @@ export function DevicesCatalogPage() {
           <div className="devices-header__actions">
             <button
               className="button button--ghost"
-              onClick={() => {
-                const nextKeyword = keywordInput.trim();
-                setKeyword(nextKeyword);
-                void loadCatalog(nextKeyword, roomFilter);
-              }}
+              onClick={catalog.runSearch}
               type="button"
             >
               查询目录
             </button>
             <button
               className="button button--ghost"
-              onClick={() => {
-                setKeywordInput("");
-                setKeyword("");
-                setRoomFilter("");
-                setOfflineFilter("ALL");
-                void loadCatalog("", "");
-              }}
+              onClick={catalog.resetFilters}
               type="button"
             >
               清空筛选
             </button>
             <button
               className="button button--primary"
-              onClick={() => void loadCatalog(keyword, roomFilter)}
+              onClick={catalog.refreshCatalog}
               type="button"
             >
               刷新目录
@@ -651,228 +164,21 @@ export function DevicesCatalogPage() {
         </div>
       </header>
 
-      <section className="panel devices-table-panel">
-        <div className="devices-table-panel__meta">
-          <strong>目录明细</strong>
-          <span className="muted-copy">
-            {loading
-              ? "加载中..."
-              : `当前显示 ${visibleDevices.length} 条${lastLoadedAt ? ` · 最近加载 ${lastLoadedAt}` : ""}`}
-          </span>
-        </div>
-
-        {loading ? (
-          <p className="muted-copy">正在从后端读取设备目录...</p>
-        ) : visibleDevices.length ? (
-          <div className="devices-catalog-list">
-            {visibleDevices.map((device) => (
-              <article className="devices-catalog-card" key={device.device_id}>
-                <div className="devices-catalog-card__icon" aria-hidden="true">
-                  {formatDeviceType(device.device_type).slice(0, 1)}
-                </div>
-                <div className="devices-catalog-card__main">
-                  <div className="devices-catalog-card__title">
-                    <strong>{device.display_name}</strong>
-                    <span>{device.room_name || "未分配房间"}</span>
-                  </div>
-                  <div className="devices-catalog-card__meta">
-                    <span>{formatDeviceType(device.device_type)}</span>
-                    <span>{device.raw_name || "无原始名称"}</span>
-                  </div>
-                </div>
-                <div className="devices-catalog-card__status">
-                  <span className={`devices-status-chip is-${getStatusTone(device)}`}>
-                    {getStatusLabel(device)}
-                  </span>
-                  <small>{getHomeEntryLabel(device)}</small>
-                </div>
-                <div className="devices-table__action-group devices-catalog-card__actions">
-                  {renderHomeEntryAction(device)}
-                  <button
-                    className="button button--ghost devices-table__action"
-                    onClick={() => void openDeviceDetail(device.device_id)}
-                    type="button"
-                  >
-                    详情
-                  </button>
-                </div>
-                <details className="devices-catalog-card__technical">
-                  <summary>技术信息</summary>
-                  <span className="devices-table__mono">{device.device_id}</span>
-                </details>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="muted-copy">当前筛选条件下没有设备。</p>
-        )}
-      </section>
-      {selectedDevice || detailLoading || detailError ? (
-        <aside className="devices-detail-drawer" aria-label="设备详情">
-          <div className="devices-detail-drawer__header">
-            <div>
-              <span className="card-eyebrow">设备详情</span>
-              <h3>{selectedDevice?.display_name ?? "读取中"}</h3>
-            </div>
-            <button
-              className="button button--ghost"
-              onClick={() => {
-                setSelectedDevice(null);
-                setDetailError(null);
-              }}
-              type="button"
-            >
-              关闭
-            </button>
-          </div>
-          {detailError ? <p className="inline-error">{detailError}</p> : null}
-          {detailLoading ? (
-            <p className="muted-copy">正在读取设备详情...</p>
-          ) : null}
-          {selectedDevice ? (
-            <div className="devices-detail-drawer__body">
-              {selectedDeviceCatalog ? (
-                <section className="devices-home-entry-card">
-                  <div>
-                    <span className="card-eyebrow">首页入口</span>
-                    <strong>{getHomeEntryLabel(selectedDeviceCatalog)}</strong>
-                    <p className="muted-copy">
-                      设备页负责加入或移出首页；排序和显示规则仍在设置里调整。
-                    </p>
-                  </div>
-                  {renderHomeEntryAction(selectedDeviceCatalog)}
-                </section>
-              ) : null}
-              <dl className="field-grid">
-                <div>
-                  <dt>设备标识</dt>
-                  <dd>{formatShortId(selectedDevice.device_id)}</dd>
-                </div>
-                <div>
-                  <dt>房间</dt>
-                  <dd>{selectedDevice.room_name || "-"}</dd>
-                </div>
-                <div>
-                  <dt>类型</dt>
-                  <dd>{formatDeviceType(selectedDevice.device_type)}</dd>
-                </div>
-                <div>
-                  <dt>运行状态</dt>
-                  <dd>{formatDeviceStatus(selectedDevice.status)}</dd>
-                </div>
-                <div>
-                  <dt>聚合状态</dt>
-                  <dd>
-                    {formatDeviceStatus(selectedDevice.runtime_state?.aggregated_state)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>最近更新</dt>
-                  <dd>{formatDeviceTimestamp(selectedDevice.runtime_state?.last_state_update_at)}</dd>
-                </div>
-                <div>
-                  <dt>户型图热点</dt>
-                  <dd>
-                    {selectedDevice.editor_config?.hotspots?.length
-                      ? `${selectedDevice.editor_config.hotspots.length} 个`
-                      : "未布点"}
-                  </dd>
-                </div>
-              </dl>
-
-              <section className="devices-detail-section">
-                <h4>现场摘要</h4>
-                <dl className="field-grid">
-                  <div>
-                    <dt>可控能力</dt>
-                    <dd>{selectedDevice.control_schema.length} 项</dd>
-                  </div>
-                  <div>
-                    <dt>实体映射</dt>
-                    <dd>{getEntityLinks(selectedDevice).length} 个</dd>
-                  </div>
-                  <div>
-                    <dt>只读状态</dt>
-                    <dd>{selectedDeviceCatalog?.is_readonly_device ? "只读" : "可操作"}</dd>
-                  </div>
-                  <div>
-                    <dt>首页候选</dt>
-                    <dd>{selectedDeviceCatalog ? getHomeEntryLabel(selectedDeviceCatalog) : "-"}</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section className="devices-detail-section">
-                <h4>可控能力</h4>
-                {selectedDevice.control_schema.length ? (
-                  <div className="devices-detail-list">
-                    {selectedDevice.control_schema.map((schema, index) => {
-                      const described = describeControlSchema(schema);
-                      return (
-                        <div
-                          className="devices-detail-list__item"
-                          key={`${schema.action_type}-${schema.target_scope}-${schema.target_key}-${index}`}
-                        >
-                          <strong>{formatControlAction(schema.action_type)}</strong>
-                          <span>{`作用对象：${described.target}`}</span>
-                          <span>{`可选值：${described.value}`}</span>
-                          <span>
-                            {schema.is_quick_action ? "可作为快捷动作" : "在详情中操作"}
-                            {schema.requires_detail_entry
-                              ? " · 需要详情入口"
-                              : ""}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="muted-copy">当前设备没有可用控制项。</p>
-                )}
-              </section>
-
-              <section className="devices-detail-section">
-                <h4>Home Assistant 实体</h4>
-                {getEntityLinks(selectedDevice).length ? (
-                  <div className="devices-detail-list">
-                    {getEntityLinks(selectedDevice).map((entity) => (
-                      <div
-                        className="devices-detail-list__item"
-                        key={entity.entity_id}
-                      >
-                        <strong>{formatEntityDomain(entity.domain)}</strong>
-                        <span>{`实体标识：${formatShortId(entity.entity_id)}`}</span>
-                        <span>{`用途：${formatEntityRole(entity.entity_role)}${entity.is_primary ? " · 主实体" : ""}`}</span>
-                        <span>{`状态：${formatDeviceStatus(entity.state)} · ${entity.is_available === false ? "不可用" : "可用"}`}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="muted-copy">当前设备没有 Home Assistant 实体映射。</p>
-                )}
-              </section>
-
-              <details className="devices-detail-section devices-detail-section--technical">
-                <summary>技术诊断</summary>
-                <dl className="field-grid">
-                  <div>
-                    <dt>完整设备 ID</dt>
-                    <dd>{selectedDevice.device_id}</dd>
-                  </div>
-                  <div>
-                    <dt>原始类型</dt>
-                    <dd>{selectedDevice.device_type}</dd>
-                  </div>
-                </dl>
-                <h4>运行遥测</h4>
-                <pre>{compactJson(selectedDevice.runtime_state?.telemetry ?? {})}</pre>
-                <h4>来源信息</h4>
-                <pre>{compactJson(selectedDevice.source_info)}</pre>
-              </details>
-            </div>
-          ) : null}
-        </aside>
-      ) : null}
+      <DeviceCatalogList
+        devices={catalog.visibleDevices}
+        lastLoadedAt={catalog.lastLoadedAt}
+        loading={catalog.loading}
+        onOpenDetail={(deviceId) => void catalog.openDeviceDetail(deviceId)}
+        renderHomeEntryAction={renderHomeEntryAction}
+      />
+      <DeviceCatalogDetailPanel
+        detailError={catalog.detailError}
+        detailLoading={catalog.detailLoading}
+        onClose={catalog.closeDeviceDetail}
+        renderHomeEntryAction={renderHomeEntryAction}
+        selectedDevice={catalog.selectedDevice}
+        selectedDeviceCatalog={catalog.selectedDeviceCatalog}
+      />
     </section>
   );
 }
