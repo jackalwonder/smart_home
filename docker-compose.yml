@@ -9,7 +9,7 @@ services:
         VITE_TERMINAL_ID: ${VITE_TERMINAL_ID:-22222222-2222-2222-2222-222222222222}
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-25173}:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -58,7 +58,7 @@ services:
       ENERGY_UPSTREAM_WAIT_TIMEOUT_SECONDS: ${ENERGY_UPSTREAM_WAIT_TIMEOUT_SECONDS:-45}
       ENERGY_UPSTREAM_POLL_INTERVAL_SECONDS: ${ENERGY_UPSTREAM_POLL_INTERVAL_SECONDS:-5}
     ports:
-      - "${APP_PORT:-28000}:8000"
+      - "${APP_PORT:-8000}:8000"
     volumes:
       - backend_storage:/app/backend/storage
       - ./deploy/sgcc_electricity:/app/backend/sgcc
@@ -84,7 +84,7 @@ services:
     environment:
       TZ: ${TZ:-Asia/Shanghai}
     ports:
-      - "${HOME_ASSISTANT_PORT:-28123}:8123"
+      - "${HOME_ASSISTANT_PORT:-8123}:8123"
     volumes:
       - ./deploy/homeassistant/config:/config
     healthcheck:
@@ -133,7 +133,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-smart_home}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smart_home}
     ports:
-      - "${POSTGRES_PORT:-15432}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -146,7 +146,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-16379}:6379"
+      - "${REDIS_PORT:-6379}:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data

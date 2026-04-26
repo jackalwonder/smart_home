@@ -870,7 +870,7 @@ export async function ensureEditorWritable(page: Page) {
   throw new Error("Editor did not reach a writable state in time");
 }
 
-export const DEFAULT_SMOKE_BASE_URL = "http://127.0.0.1:25173";
+export const DEFAULT_SMOKE_BASE_URL = "http://127.0.0.1:5173";
 export const SMOKE_BOOTSTRAP_TOKEN_STORAGE_KEY = BOOTSTRAP_TOKEN_STORAGE_KEY;
 
 export function formatSettingsVersion(value: string | null) {

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-API_BASE_URL = os.getenv("SOAK_API_BASE_URL", "http://127.0.0.1:28000").rstrip("/")
+API_BASE_URL = os.getenv("SOAK_API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 HOME_ID = os.getenv("SOAK_HOME_ID", "11111111-1111-1111-1111-111111111111")
 MANAGEMENT_TERMINAL_ID = os.getenv(
     "SOAK_MANAGEMENT_TERMINAL_ID",

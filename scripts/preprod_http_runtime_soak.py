@@ -14,8 +14,8 @@ from typing import Any
 import websockets
 
 
-API_BASE_URL = os.getenv("SOAK_API_BASE_URL", "http://127.0.0.1:28000").rstrip("/")
-WS_URL = os.getenv("SOAK_WS_URL", "ws://127.0.0.1:28000/ws")
+API_BASE_URL = os.getenv("SOAK_API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+WS_URL = os.getenv("SOAK_WS_URL", "ws://127.0.0.1:8000/ws")
 HOME_ID = os.getenv("SOAK_HOME_ID", "11111111-1111-1111-1111-111111111111")
 TERMINAL_ID = os.getenv("SOAK_TERMINAL_ID", "22222222-2222-2222-2222-222222222222")
 PIN = os.getenv("SOAK_PIN", "1234")
