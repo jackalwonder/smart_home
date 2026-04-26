@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import {
   expect,
   test,
@@ -38,6 +40,51 @@ export const WIDE_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAACElEQVR4nAMAAAAAAUgGidIAAAAASUVORK5CYII=",
   "base64",
 );
+
+function parseBooleanEnv(value: string | undefined): boolean {
+  return ["1", "true", "yes", "on"].includes((value ?? "").trim().toLowerCase());
+}
+
+function readRepoEnvValue(key: string): string | undefined {
+  const envFileCandidates = [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(process.cwd(), "..", ".env"),
+  ];
+
+  for (const envFilePath of envFileCandidates) {
+    if (!existsSync(envFilePath)) {
+      continue;
+    }
+
+    const envFile = readFileSync(envFilePath, "utf8");
+    for (const line of envFile.split(/\r?\n/)) {
+      const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (!match || match[1] !== key) {
+        continue;
+      }
+      const rawValue = match[2].trim().replace(/\s+#.*$/, "");
+      return rawValue.replace(/^(['"])(.*)\1$/, "$2");
+    }
+  }
+
+  return undefined;
+}
+
+export function isDevBypassTerminalActivationEnabled(): boolean {
+  const viteBypass = process.env.VITE_DEV_BYPASS_TERMINAL_ACTIVATION;
+  return parseBooleanEnv(
+    viteBypass !== undefined
+      ? viteBypass
+      : readRepoEnvValue("VITE_DEV_BYPASS_TERMINAL_ACTIVATION"),
+  );
+}
+
+export function skipTerminalActivationWhenDevBypassEnabled() {
+  test.skip(
+    isDevBypassTerminalActivationEnabled(),
+    "terminal activation page is bypassed when VITE_DEV_BYPASS_TERMINAL_ACTIVATION=true",
+  );
+}
 
 export function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

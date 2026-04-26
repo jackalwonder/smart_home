@@ -131,6 +131,12 @@ beforeEach(() => {
     lock_released: true,
     published: true,
   });
+  mockedEditorApi.takeoverEditorSession.mockResolvedValue({
+    taken_over: true,
+    new_lease_id: "lease-takeover",
+    lease_expires_at: "2026-04-24T12:03:00Z",
+    previous_terminal_id: "terminal-remote",
+  });
   mockedEditorApi.heartbeatEditorSession.mockResolvedValue({
     lease_id: "lease-1",
     lease_expires_at: "2026-04-24T12:02:00Z",
@@ -376,6 +382,98 @@ describe("useEditorSessionFlow", () => {
         tone: "error",
       }),
     );
+  });
+
+  it("does not reopen an editable session after publish updates the editor snapshot", async () => {
+    const resetSelection = vi.fn();
+    const options: Parameters<typeof useEditorSessionFlow>[0] = {
+      canEdit: true,
+      draftState,
+      editor: grantedEditor,
+      events: [],
+      pinActive: true,
+      pinSessionActive: true,
+      resetSelection,
+      terminalId: "terminal-1",
+    };
+    const { result, rerender } = renderHook(() => useEditorSessionFlow(options));
+
+    await waitFor(() => {
+      expect(mockedEditorApi.createEditorSession).toHaveBeenCalledOnce();
+    });
+    vi.clearAllMocks();
+
+    await act(async () => {
+      await result.current.handlePublishDraft();
+    });
+    expect(result.current.editorNotice?.title).toBe("草稿已发布");
+
+    options.editor = {
+      ...grantedEditor,
+      lockStatus: "READ_ONLY",
+      leaseId: null,
+      readonly: true,
+      draftVersion: "draft-published",
+      baseLayoutVersion: "layout-2",
+    };
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockedEditorApi.createEditorSession).not.toHaveBeenCalled();
+    expect(result.current.editorNotice?.title).toBe("草稿已发布");
+  });
+
+  it("keeps the takeover success notice when the editor snapshot changes", async () => {
+    const resetSelection = vi.fn();
+    const options: Parameters<typeof useEditorSessionFlow>[0] = {
+      canEdit: true,
+      draftState,
+      editor: grantedEditor,
+      events: [],
+      pinActive: true,
+      pinSessionActive: true,
+      resetSelection,
+      terminalId: "terminal-1",
+    };
+    const { result, rerender } = renderHook(() => useEditorSessionFlow(options));
+
+    await waitFor(() => {
+      expect(mockedEditorApi.createEditorSession).toHaveBeenCalledOnce();
+    });
+    vi.clearAllMocks();
+
+    options.editor = {
+      ...grantedEditor,
+      lockStatus: "LOCKED_BY_OTHER",
+      leaseId: "lease-remote",
+      lockedByTerminalId: "terminal-remote",
+      readonly: true,
+    };
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockedEditorApi.createEditorSession).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.handleTakeover();
+    });
+    expect(result.current.editorNotice?.title).toBe("已接管编辑租约");
+
+    options.editor = {
+      ...grantedEditor,
+      leaseId: "lease-takeover",
+    };
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockedEditorApi.createEditorSession).not.toHaveBeenCalled();
+    expect(result.current.editorNotice?.title).toBe("已接管编辑租约");
   });
 
   it("recovers draft takeover realtime events into locked-by-other state", async () => {

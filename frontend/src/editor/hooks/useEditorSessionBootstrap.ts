@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { fetchEditorDraft } from "../../api/editorApi";
 import { appStore } from "../../store/useAppStore";
 import type { EditorActionKind } from "../editorWorkbenchNotices";
@@ -20,10 +20,36 @@ export function useEditorSessionBootstrap({
   pinSessionActive,
   terminalId,
 }: UseEditorSessionBootstrapOptions) {
+  const handlersRef = useRef({
+    applyEditorDraft,
+    clearEditorFeedback,
+    handleEditorActionError,
+    openEditableSession,
+  });
+  const initializedKeyRef = useRef<string | null>(null);
+  const bootstrapKey = terminalId
+    ? `${terminalId}:${pinSessionActive ? "pin-active" : "pin-inactive"}`
+    : null;
+
   useEffect(() => {
-    if (!terminalId) {
+    handlersRef.current = {
+      applyEditorDraft,
+      clearEditorFeedback,
+      handleEditorActionError,
+      openEditableSession,
+    };
+  }, [applyEditorDraft, clearEditorFeedback, handleEditorActionError, openEditableSession]);
+
+  useEffect(() => {
+    if (!terminalId || !bootstrapKey) {
+      initializedKeyRef.current = null;
       return;
     }
+
+    if (initializedKeyRef.current === bootstrapKey) {
+      return;
+    }
+    initializedKeyRef.current = bootstrapKey;
 
     let active = true;
 
@@ -33,7 +59,7 @@ export function useEditorSessionBootstrap({
 
       try {
         if (pinSessionActive) {
-          await openEditableSession({ silent: true });
+          await handlersRef.current.openEditableSession({ silent: true });
           return;
         }
 
@@ -48,25 +74,18 @@ export function useEditorSessionBootstrap({
           heartbeatIntervalSeconds: null,
           lockedByTerminalId: null,
         });
-        applyEditorDraft(draft);
-        clearEditorFeedback();
+        handlersRef.current.applyEditorDraft(draft);
+        handlersRef.current.clearEditorFeedback();
       } catch (error) {
         if (!active) {
           return;
         }
-        await handleEditorActionError(error, "acquire");
+        await handlersRef.current.handleEditorActionError(error, "acquire");
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [
-    applyEditorDraft,
-    clearEditorFeedback,
-    handleEditorActionError,
-    openEditableSession,
-    pinSessionActive,
-    terminalId,
-  ]);
+  }, [bootstrapKey, pinSessionActive, terminalId]);
 }

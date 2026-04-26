@@ -17,9 +17,11 @@ import {
   TERMINAL_PAIRING_TEST,
   TERMINAL_ACTIVATION_ENTRY_TEST,
   TERMINAL_ACTIVATION_LANDING_TEST,
+  skipTerminalActivationWhenDevBypassEnabled,
 } from "./support/smokeHelpers";
 
 installSmokeBootstrapHook();
+skipTerminalActivationWhenDevBypassEnabled();
 
 test(TERMINAL_ACTIVATION_TEST, async ({ page }) => {
   const token = issueBootstrapToken(TERMINAL_ID);
