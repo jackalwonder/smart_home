@@ -4,14 +4,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from src.app.container import (
-    get_database,
-    get_energy_auto_refresh_service,
-    get_ha_realtime_sync_service,
-)
+from src.app.container import get_database
 from src.app.exception_handlers import register_exception_handlers
 from src.app.health_routes import check_redis as _check_redis
 from src.app.health_routes import register_health_routes
+from src.app.modules import start_app_modules, stop_app_modules
 from src.app.observability_middleware import register_observability_middleware
 from src.app.openapi_contract import attach_openapi_contract
 from src.app.router_registry import register_api_routes
@@ -21,11 +18,9 @@ from src.shared.observability import get_observability_metrics
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await get_ha_realtime_sync_service().start()
-    await get_energy_auto_refresh_service().start()
+    await start_app_modules()
     yield
-    await get_energy_auto_refresh_service().stop()
-    await get_ha_realtime_sync_service().stop()
+    await stop_app_modules()
     await get_database().dispose()
 
 

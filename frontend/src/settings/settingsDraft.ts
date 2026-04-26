@@ -114,8 +114,8 @@ export function materializePolicyEntries(
 }
 
 export function createSettingsDraft(data: SettingsDto | null): SettingsDraftState {
-  const page = asRecord(data?.page_settings);
-  const functionSettings = asRecord(data?.function_settings);
+  const page = data?.page_settings ?? null;
+  const functionSettings = data?.function_settings ?? null;
   const quickEntryPolicy = asRecord(functionSettings?.quick_entry_policy);
   const thresholds = asRecord(functionSettings?.position_device_thresholds);
 

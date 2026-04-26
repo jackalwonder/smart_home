@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { Link } from "react-router-dom";
-import { DeviceListItemDto } from "../api/types";
 import { DeviceCatalogDetailPanel } from "./DeviceCatalogDetailPanel";
 import { DeviceCatalogList } from "./DeviceCatalogList";
 import { HomeEntryAction, OfflineFilter } from "./devicesCatalogModel";
@@ -12,9 +11,10 @@ export function DevicesCatalogPage() {
   const homeEntry = useDeviceHomeEntry({
     onCatalogChanged: () => catalog.loadCatalog(catalog.keyword, catalog.roomFilter),
   });
+  type DeviceListItem = Parameters<typeof homeEntry.updateHomeEntry>[0];
 
   const renderHomeEntryAction = useCallback(
-    (device: DeviceListItemDto) => {
+    (device: DeviceListItem) => {
       const isBusy = homeEntry.homeEntryBusyDeviceId === device.device_id;
 
       if (device.is_favorite) {

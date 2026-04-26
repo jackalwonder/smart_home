@@ -5,7 +5,6 @@ import {
   asBoolean,
   asNumber,
   asOptionalString,
-  asRecord,
   asString,
   formatDateTime,
 } from "./utils";
@@ -40,18 +39,20 @@ export type * from "./homeTypes";
 export { homeFavoriteDeviceToHotspot } from "./homeCollections";
 
 export function mapHomeOverviewViewModel(value: HomeOverviewDto | null): HomeViewModel {
-  const stage = asRecord(value?.stage);
-  const sidebar = asRecord(value?.sidebar);
-  const summaryRecord = asRecord(sidebar?.summary);
-  const weather = asRecord(sidebar?.weather);
-  const musicCard = asRecord(sidebar?.music_card);
-  const energyRecord = asRecord(value?.energy_bar);
-  const timelineRecord = asRecord(sidebar?.datetime);
+  const stage = value?.stage;
+  const sidebar = value?.sidebar;
+  const summaryRecord = sidebar?.summary;
+  const weather = sidebar?.weather;
+  const musicCard = sidebar?.music_card;
+  const energyRecord = value?.energy_bar;
+  const timelineRecord = sidebar?.datetime;
   const formattedTime = formatDateTime(
     asOptionalString(timelineRecord?.current_time ?? sidebar?.datetime) ?? null,
   );
 
-  const hotspots = asArray<Record<string, unknown>>(stage?.hotspots).map((hotspot, index) => {
+  const hotspots = asArray<NonNullable<HomeOverviewDto["stage"]["hotspots"]>[number]>(
+    stage?.hotspots,
+  ).map((hotspot, index) => {
     const deviceType = asString(hotspot.device_type ?? "device");
     const status = asString(hotspot.status ?? "unknown");
     const isOffline = asBoolean(hotspot.is_offline);
@@ -92,9 +93,7 @@ export function mapHomeOverviewViewModel(value: HomeOverviewDto | null): HomeVie
     lowBatteryCount: asNumber(summaryRecord?.low_battery_count),
   };
 
-  const weatherCondition = translateWeatherCondition(
-    asOptionalString(weather?.condition ?? weather?.text),
-  );
+  const weatherCondition = translateWeatherCondition(asOptionalString(weather?.condition));
   const weatherTemperature = formatMetricValue(weather?.temperature, "°C");
   const humidity = formatMetricValue(weather?.humidity, "%");
   const precipitation = formatMetricValue(weather?.precipitation, "mm", "0 mm");

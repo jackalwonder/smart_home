@@ -1,5 +1,5 @@
 import type { SettingsDto } from "../api/types";
-import { asArray, asBoolean, asRecord, asString } from "./utils";
+import { asArray, asBoolean, asString } from "./utils";
 
 export interface SettingsSectionViewModel {
   key: "overview" | "integrations" | "home" | "terminal" | "backup";
@@ -21,8 +21,8 @@ export interface SettingsViewModel {
 }
 
 export function mapSettingsViewModel(value: SettingsDto | null): SettingsViewModel {
-  const system = asRecord(value?.system_settings_summary);
-  const favorites = asArray<Record<string, unknown>>(value?.favorites);
+  const system = value?.system_settings_summary;
+  const favorites = asArray<NonNullable<SettingsDto["favorites"]>[number]>(value?.favorites);
 
   return {
     version: asString(value?.settings_version ?? "settings_v1"),

@@ -307,8 +307,7 @@ export function isPolicyEnabled(
 }
 
 export function shouldShowFavoriteDevices(value: HomeOverviewDto | null) {
-  const uiPolicy = asRecord(value?.ui_policy);
-  const homepageDisplayPolicy = asRecord(uiPolicy?.homepage_display_policy);
+  const homepageDisplayPolicy = asRecord(value?.ui_policy?.homepage_display_policy);
   const quickEntries = asRecord(value?.quick_entries);
   return (
     isPolicyEnabled(homepageDisplayPolicy, "show_favorites") &&

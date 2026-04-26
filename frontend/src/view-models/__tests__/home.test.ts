@@ -107,6 +107,12 @@ describe("home overview view model", () => {
   it("maps typed stage and dynamic policy fixture fields without widening the adapter input", () => {
     const viewModel = mapHomeOverviewViewModel(
       overviewFixture({
+        quick_entries: {
+          energy: true,
+          favorites: true,
+          media: false,
+          scene: true,
+        },
         favorite_devices: [
           {
             device_id: "light-1",
@@ -119,6 +125,34 @@ describe("home overview view model", () => {
             status: "ONLINE",
           },
         ],
+        sidebar: {
+          ...baseOverviewFixture.sidebar,
+          weather: {
+            cache_mode: true,
+            condition: "rain",
+            fetched_at: "2026-04-26T10:00:00Z",
+            forecast: [
+              {
+                date: "2026-04-26",
+                condition: "rain",
+                temperature_max: 19,
+                temperature_min: 13,
+                precipitation: 2,
+              },
+              {
+                date: "2026-04-27",
+                condition: "cloudy",
+                high: 21,
+                low: 15,
+                precipitation_sum: 0,
+              },
+            ],
+            humidity: 75,
+            location_label: "上海",
+            precipitation: 2,
+            temperature: 18,
+          },
+        },
         stage: {
           hotspots: [
             {
@@ -150,5 +184,44 @@ describe("home overview view model", () => {
       statusLabel: "已开启",
     });
     expect(viewModel.showFavoriteDevices).toBe(true);
+    expect(viewModel.quickActions.map((action) => action.key)).toEqual(["energy", "scene"]);
+    expect(viewModel.timeline).toMatchObject({
+      weatherCondition: "降雨",
+      weatherDataStatus: "过时",
+      precipitation: "2 mm",
+    });
+    expect(viewModel.weatherTrend.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        key: "2026-04-26",
+        label: "今天",
+        high: "19°",
+        low: "13°",
+        precipitation: "2 mm",
+      }),
+      expect.objectContaining({
+        key: "2026-04-27",
+        label: "明天",
+        high: "21°",
+        low: "15°",
+        precipitation: "0 mm",
+      }),
+    ]);
+  });
+
+  it("maps typed quick entry arrays without exposing favorites", () => {
+    const viewModel = mapHomeOverviewViewModel(
+      overviewFixture({
+        quick_entries: [
+          { key: "favorites", title: "Favorites", badge_count: 99 },
+          { key: "devices", title: "设备总览", badge_count: 3 },
+          { key: "custom_panel", title: "自定义", badge_count: "新" },
+        ],
+      }),
+    );
+
+    expect(viewModel.quickActions).toEqual([
+      { key: "devices", title: "设备状态", badgeCount: "3" },
+      { key: "custom_panel", title: "自定义", badgeCount: "新" },
+    ]);
   });
 });

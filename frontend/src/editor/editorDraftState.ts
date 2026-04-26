@@ -1,4 +1,5 @@
 import { type ImageSize } from "../types/image";
+import type { JsonObject } from "../api/types";
 import { EditorHotspotViewModel } from "../view-models/editor";
 
 export interface EditorDraftState {
@@ -19,7 +20,7 @@ export const EMPTY_EDITOR_DRAFT_STATE: EditorDraftState = {
   hotspots: [],
 };
 
-export function stringifyLayoutMeta(value: Record<string, unknown>) {
+export function stringifyLayoutMeta(value: JsonObject) {
   return JSON.stringify(value ?? {}, null, 2);
 }
 
@@ -35,7 +36,7 @@ export function resequenceHotspots(hotspots: EditorHotspotViewModel[]) {
 }
 
 export function buildLayoutMetaWithHotspotLabels(
-  layoutMeta: Record<string, unknown>,
+  layoutMeta: JsonObject,
   hotspots: EditorHotspotViewModel[],
 ) {
   return {
@@ -87,7 +88,7 @@ export function areEditorDraftStatesEqual(left: EditorDraftState, right: EditorD
 export function parseLayoutMetaText(value: string) {
   const parsed = JSON.parse(value || "{}");
   return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-    ? (parsed as Record<string, unknown>)
+    ? (parsed as JsonObject)
     : {};
 }
 

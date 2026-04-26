@@ -1,4 +1,4 @@
-import type { DeviceListItemDto } from "../../api/types";
+import type { DeviceListItemDto, EditorDraftLayoutDto } from "../../api/types";
 import {
   resequenceHotspots,
   stringifyLayoutMeta,
@@ -120,7 +120,7 @@ export function filterUnplacedDevices(
 export function draftResponseToStageState(
   draft: {
     lock_status: string | null;
-    layout: Record<string, unknown> | null;
+    layout: EditorDraftLayoutDto | null;
     draft_version: string | null;
     base_layout_version: string | null;
     readonly: boolean;

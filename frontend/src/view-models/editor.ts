@@ -1,7 +1,7 @@
 import { formatRealtimeEvent } from "../ws/eventPresentation";
 import { WsEvent } from "../ws/types";
 import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
-import type { EditorDraftLayoutDto } from "../api/types";
+import type { EditorDraftLayoutDto, JsonObject } from "../api/types";
 import { asArray, asNumber, asOptionalString, asRecord, asString } from "./utils";
 import { type ImageSize } from "../types/image";
 
@@ -25,7 +25,7 @@ export interface EditorViewModel {
   backgroundAssetId: string | null;
   backgroundImageUrl: string | null;
   backgroundImageSize: ImageSize | null;
-  layoutMeta: Record<string, unknown>;
+  layoutMeta: JsonObject;
   modeLabel: string;
   helperText: string;
   eventRows: Array<{ id: string; title: string; subtitle: string }>;
@@ -44,6 +44,11 @@ function parseImageSize(value: unknown): ImageSize | null {
   }
 
   return { width, height };
+}
+
+function asJsonObject(value: unknown): JsonObject | null {
+  const record = asRecord(value);
+  return record ? (record as JsonObject) : null;
 }
 
 function translateLockStatus(value: string | null) {
@@ -158,7 +163,7 @@ export function mapEditorViewModel(input: {
     backgroundAssetId: asOptionalString(draft?.background_asset_id),
     backgroundImageUrl: asOptionalString(draft?.background_image_url),
     backgroundImageSize: parseImageSize(draft?.background_image_size),
-    layoutMeta: asRecord(draft?.layout_meta) ?? {},
+    layoutMeta: asJsonObject(draft?.layout_meta) ?? {},
     modeLabel,
     helperText,
     eventRows: input.events.slice(0, 8).map((event) => {

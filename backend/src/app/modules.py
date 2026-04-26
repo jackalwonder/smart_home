@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter
 
@@ -33,11 +34,55 @@ from src.modules.system_connections.controllers.SystemConnectionsController impo
     router as system_connections_router,
 )
 
+LifecycleHook = Callable[[], Awaitable[None]]
+HealthCheck = Callable[[], Awaitable[dict[str, Any]]]
+
 
 @dataclass(frozen=True)
 class AppModule:
     name: str
     routers: tuple[APIRouter, ...]
+    startup_hooks: tuple[LifecycleHook, ...] = ()
+    shutdown_hooks: tuple[LifecycleHook, ...] = ()
+    health_checks: tuple[HealthCheck, ...] = ()
+
+
+async def _start_ha_realtime_sync() -> None:
+    from src.app.container import get_ha_realtime_sync_service
+
+    await get_ha_realtime_sync_service().start()
+
+
+async def _stop_ha_realtime_sync() -> None:
+    from src.app.container import get_ha_realtime_sync_service
+
+    await get_ha_realtime_sync_service().stop()
+
+
+async def _start_energy_auto_refresh() -> None:
+    from src.app.container import get_energy_auto_refresh_service
+
+    await get_energy_auto_refresh_service().start()
+
+
+async def _stop_energy_auto_refresh() -> None:
+    from src.app.container import get_energy_auto_refresh_service
+
+    await get_energy_auto_refresh_service().stop()
+
+
+async def start_app_modules(modules: tuple[AppModule, ...] | None = None) -> None:
+    modules_to_start = APP_MODULES if modules is None else modules
+    for module in modules_to_start:
+        for hook in module.startup_hooks:
+            await hook()
+
+
+async def stop_app_modules(modules: tuple[AppModule, ...] | None = None) -> None:
+    modules_to_stop = APP_MODULES if modules is None else modules
+    for module in reversed(modules_to_stop):
+        for hook in reversed(module.shutdown_hooks):
+            await hook()
 
 
 APP_MODULES: tuple[AppModule, ...] = (
@@ -57,11 +102,18 @@ APP_MODULES: tuple[AppModule, ...] = (
     AppModule(
         name="system_connections",
         routers=(device_reload_router, system_connections_router),
+        startup_hooks=(_start_ha_realtime_sync,),
+        shutdown_hooks=(_stop_ha_realtime_sync,),
     ),
     AppModule(name="device_control", routers=(device_controls_router,)),
     AppModule(name="settings", routers=(settings_router,)),
     AppModule(name="editor", routers=(editor_router,)),
-    AppModule(name="energy", routers=(energy_router,)),
+    AppModule(
+        name="energy",
+        routers=(energy_router,),
+        startup_hooks=(_start_energy_auto_refresh,),
+        shutdown_hooks=(_stop_energy_auto_refresh,),
+    ),
     AppModule(name="media", routers=(media_router,)),
     AppModule(name="page_assets", routers=(page_assets_router,)),
     AppModule(name="backups", routers=(backups_router,)),

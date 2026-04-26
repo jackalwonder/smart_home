@@ -134,6 +134,46 @@ describe("settingsDraft", () => {
     });
   });
 
+  it("keeps typed settings draft fallbacks stable when backend sections are absent", () => {
+    const draft = createSettingsDraft(
+      settingsFixture({
+        favorites: [
+          {
+            device_id: "sensor.entry",
+            selected: false,
+            favorite_order: null,
+          },
+        ],
+        function_settings: null,
+        page_settings: null,
+      }),
+    );
+
+    expect(draft.page).toEqual({
+      roomLabelMode: "EDIT_ONLY",
+      homepageDisplayPolicy: [],
+      iconPolicy: [],
+      layoutPreference: [],
+    });
+    expect(draft.function).toEqual({
+      musicEnabled: false,
+      lowBatteryThreshold: "20",
+      offlineThresholdSeconds: "90",
+      favoriteLimit: "8",
+      quickEntryFavorites: true,
+      autoHomeTimeoutSeconds: "180",
+      closedMax: "5",
+      openedMin: "95",
+    });
+    expect(draft.favorites).toEqual([
+      {
+        deviceId: "sensor.entry",
+        selected: false,
+        favoriteOrder: "0",
+      },
+    ]);
+  });
+
   it("throws clear validation errors for invalid policy values", () => {
     expect(() =>
       materializePolicyEntries(

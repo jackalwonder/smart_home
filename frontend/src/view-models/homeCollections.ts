@@ -1,3 +1,4 @@
+import type { HomeOverviewDto } from "../api/types";
 import { asArray, asBoolean, asNumber, asString, labelize } from "./utils";
 import {
   deriveHotspotGlyph,
@@ -20,7 +21,15 @@ import {
   HomeTrendPointViewModel,
 } from "./homeTypes";
 
-export function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[] {
+type HomeQuickEntries = HomeOverviewDto["quick_entries"];
+type HomeFavoriteDeviceDto = NonNullable<HomeOverviewDto["favorite_devices"]>[number];
+type HomeWeatherForecastPoint = NonNullable<
+  NonNullable<HomeOverviewDto["sidebar"]["weather"]>["forecast"]
+>[number];
+
+export function normalizeQuickActions(
+  value: HomeQuickEntries | undefined,
+): HomeQuickActionViewModel[] {
   const titleMap: Record<string, string> = {
     favorites: "首页入口",
     scene: "快捷场景",
@@ -60,8 +69,10 @@ export function normalizeQuickActions(value: unknown): HomeQuickActionViewModel[
     }));
 }
 
-export function normalizeFavoriteDevices(value: unknown): HomeFavoriteDeviceViewModel[] {
-  return asArray<Record<string, unknown>>(value)
+export function normalizeFavoriteDevices(
+  value: HomeOverviewDto["favorite_devices"] | undefined,
+): HomeFavoriteDeviceViewModel[] {
+  return asArray<HomeFavoriteDeviceDto>(value)
     .map((device, index) => {
       const deviceType = asString(device.device_type ?? "device");
       const status = asString(device.status ?? "unknown");
@@ -95,9 +106,9 @@ export function normalizeFavoriteDevices(value: unknown): HomeFavoriteDeviceView
 export function makeWeatherTrend(
   temperature: string,
   condition: string,
-  forecastValue?: unknown,
+  forecastValue?: NonNullable<HomeOverviewDto["sidebar"]["weather"]>["forecast"],
 ): HomeTrendPointViewModel[] {
-  const forecast = asArray<Record<string, unknown>>(forecastValue)
+  const forecast = asArray<HomeWeatherForecastPoint>(forecastValue)
     .slice(0, 6)
     .map((point, index) => {
       const date = asString(point.date ?? point.time ?? "");

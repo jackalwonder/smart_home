@@ -4,6 +4,7 @@ import {
   areEditorDraftStatesEqual,
   buildDraftDiffInput,
   cloneEditorDraftState,
+  parseLayoutMetaText,
   resequenceHotspots,
   sortHotspots,
   type EditorDraftState,
@@ -147,5 +148,13 @@ describe("editorDraftState", () => {
         },
       ],
     });
+  });
+
+  it("parses editor layout meta as a typed JSON object and rejects arrays", () => {
+    expect(parseLayoutMetaText('{"theme":"night","grid":{"enabled":true}}')).toEqual({
+      theme: "night",
+      grid: { enabled: true },
+    });
+    expect(parseLayoutMetaText("[1,2,3]")).toEqual({});
   });
 });
