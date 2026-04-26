@@ -220,6 +220,7 @@ export type EditorDraftDto = RequireFields<
   Schema<"EditorDraftResponse">,
   "draft_version" | "base_layout_version" | "layout"
 >;
+export type EditorDraftLayoutDto = NonNullable<EditorDraftDto["layout"]>;
 
 export type EditorDraftSaveHotspotInput = Schema<"EditorDraftSaveHotspotRequestBody">;
 

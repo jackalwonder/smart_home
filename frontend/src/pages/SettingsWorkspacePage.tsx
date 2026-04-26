@@ -4,16 +4,11 @@ import { fetchSettings } from "../api/settingsApi";
 import { normalizeApiError } from "../api/httpClient";
 import { PinAccessCard } from "../components/auth/PinAccessCard";
 import { PageFrame } from "../components/layout/PageFrame";
-import { SettingsBackupSection } from "../components/settings/SettingsBackupSection";
 import { SettingsActionDock } from "../components/settings/SettingsActionDock";
 import { SettingsHeaderBar } from "../components/settings/SettingsHeaderBar";
-import { SettingsHomeSection } from "../components/settings/SettingsHomeSection";
-import { SettingsIntegrationsSection } from "../components/settings/SettingsIntegrationsSection";
 import { normalizeSettingsSectionKey } from "../components/settings/SettingsOperationsWorkflow";
 import { SettingsPinGate } from "../components/settings/SettingsPinGate";
-import { SettingsRuntimeOverview } from "../components/settings/SettingsRuntimeOverview";
 import { SettingsSideNav } from "../components/settings/SettingsSideNav";
-import { SettingsTerminalSection } from "../components/settings/SettingsTerminalSection";
 import { shouldShowSettingsActionDock } from "../components/settings/settingsPageUiRules";
 import { useSettingsBackupSection } from "../settings/hooks/useSettingsBackupSection";
 import { useSettingsDraft } from "../settings/hooks/useSettingsDraft";
@@ -23,6 +18,7 @@ import { useSgccLoginQrCode } from "../settings/hooks/useSgccLoginQrCode";
 import { buildSettingsRuntimeCards } from "../settings/runtimeOverview";
 import { appStore, useAppStore } from "../store/useAppStore";
 import { SettingsSectionViewModel, mapSettingsViewModel } from "../view-models/settings";
+import { SettingsSectionPanel } from "./SettingsWorkspaceSections";
 
 export function SettingsWorkspacePage() {
   const session = useAppStore((state) => state.session);
@@ -371,127 +367,125 @@ export function SettingsWorkspacePage() {
     setSearchParams(nextParams, { replace: true });
   }
 
-  const sectionPanel =
-    activeSection === "overview" ? (
-      <SettingsRuntimeOverview
-        backupCount={backupItems.length}
-        onSelectSection={handleSelectSection}
-        pinActive={pin.active}
-        runtimeCards={runtimeCards}
-        selectedFavoriteCount={selectedFavoriteCount}
-      />
-    ) : activeSection === "integrations" ? (
-      <SettingsIntegrationsSection
-        energyClearBusy={energyClearBusy}
-        energyDraft={energyDraft}
-        energyMessage={energyMessage}
-        energyRefreshBusy={energyRefreshBusy}
-        energySaveBusy={energySaveBusy}
-        energyState={energyState}
-        handleBindDefaultMedia={() => void handleBindDefaultMedia()}
-        handleBindSgccEnergyAccount={() => void handleBindSgccEnergyAccount()}
-        handleClearEnergyBinding={() => void handleClearEnergyBinding()}
-        handleRefreshEnergy={() => void handleRefreshEnergy()}
-        handleRegenerateSgccLoginQrCode={() => void handleRegenerateSgccLoginQrCode()}
-        handleSaveEnergyBinding={() => void handleSaveEnergyBinding()}
-        handleSaveSystemConnection={() => void handleSaveSystemConnection()}
-        handleSyncHomeAssistantDevices={() => void handleSyncHomeAssistantDevices()}
-        handleTestSystemConnection={(saved) => void handleTestSystemConnection(saved)}
-        handleUnbindDefaultMedia={() => void handleUnbindDefaultMedia()}
-        loadMediaState={() => void loadMediaState()}
-        loadSgccLoginQrCode={() => void loadSgccLoginQrCode()}
-        mediaBindBusy={mediaBindBusy}
-        mediaCandidateLoading={mediaCandidateLoading}
-        mediaCandidates={mediaCandidates}
-        mediaMessage={mediaMessage}
-        mediaState={mediaState}
-        mediaStatus={mediaStatus}
-        mediaUnbindBusy={mediaUnbindBusy}
-        pinActive={pin.active}
-        selectedMediaDeviceId={selectedMediaDeviceId}
-        setSelectedMediaDeviceId={setSelectedMediaDeviceId}
-        sgccLoginQrCode={sgccLoginQrCode}
-        sgccLoginQrCodeBindBusy={sgccLoginQrCodeBindBusy}
-        sgccLoginQrCodeImageUrl={sgccLoginQrCodeImageUrl}
-        sgccLoginQrCodeLoading={sgccLoginQrCodeLoading}
-        sgccLoginQrCodeMessage={sgccLoginQrCodeMessage}
-        sgccLoginQrCodeRegenerateBusy={sgccLoginQrCodeRegenerateBusy}
-        sgccStatus={sgccStatus}
-        systemDraft={systemDraft}
-        systemMessage={systemMessage}
-        systemSaveBusy={systemSaveBusy}
-        systemSyncBusy={systemSyncBusy}
-        systemTestBusy={systemTestBusy}
-        updateEnergyAccountId={updateEnergyAccountId}
-        updateEnergyEntity={updateEnergyEntity}
-        updateSystemDraft={updateSystemDraft}
-      />
-    ) : activeSection === "home" ? (
-      <SettingsHomeSection
-        addFavoriteDraft={addFavoriteDraft}
-        addPolicyDraft={addPolicyDraft}
-        removeFavoriteDraft={removeFavoriteDraft}
-        removePolicyDraft={removePolicyDraft}
-        saveMessage={saveMessage}
-        selectedFavoriteCount={selectedFavoriteCount}
-        setShowAdvancedEditor={setShowAdvancedEditor}
-        settingsDraft={settingsDraft}
-        showAdvancedEditor={showAdvancedEditor}
-        updateFavoriteDraft={updateFavoriteDraft}
-        updateFunctionDraft={updateFunctionDraft}
-        updatePageDraft={updatePageDraft}
-        updatePolicyDraft={updatePolicyDraft}
-        upsertPolicyDraft={upsertPolicyDraft}
-      />
-    ) : activeSection === "terminal" ? (
-      <SettingsTerminalSection
-        bootstrapActivationCode={bootstrapActivationCode}
-        bootstrapActivationLink={bootstrapActivationLink}
-        bootstrapTokenAuditLoading={bootstrapTokenAuditLoading}
-        bootstrapTokenAudits={bootstrapTokenAudits}
-        bootstrapTokenCreateBusy={bootstrapTokenCreateBusy}
-        bootstrapTokenDirectory={bootstrapTokenDirectory}
-        bootstrapTokenFeedback={bootstrapTokenFeedback}
-        bootstrapTokenLoading={bootstrapTokenLoading}
-        bootstrapTokenReveal={bootstrapTokenReveal}
-        bootstrapTokenState={bootstrapTokenState}
-        handleClaimPairingCode={() => void handleClaimPairingCode()}
-        handleCopyBootstrapActivationCode={() => void handleCopyBootstrapActivationCode()}
-        handleCopyBootstrapActivationLink={() => void handleCopyBootstrapActivationLink()}
-        handleCopyBootstrapToken={() => void handleCopyBootstrapToken()}
-        handleCreateOrResetBootstrapToken={() => void handleCreateOrResetBootstrapToken()}
-        loadBootstrapTokenAudits={() => void loadBootstrapTokenAudits()}
-        loadBootstrapTokenDirectory={() => void loadBootstrapTokenDirectory()}
-        pairingClaimBusy={pairingClaimBusy}
-        pairingClaimFeedback={pairingClaimFeedback}
-        pairingCodeInput={pairingCodeInput}
-        pinActive={pin.active}
-        selectedBootstrapTerminal={selectedBootstrapTerminal}
-        selectedBootstrapTerminalId={selectedBootstrapTerminalId}
-        setPairingCodeInput={setPairingCodeInput}
-        setSelectedBootstrapTerminalId={setSelectedBootstrapTerminalId}
-        setShowPinManager={setShowPinManager}
-        terminalStatus={terminalStatus}
-      />
-    ) : (
-      <SettingsBackupSection
-        backupAuditLoading={backupAuditLoading}
-        backupCreateBusy={backupCreateBusy}
-        backupItems={backupItems}
-        backupLoading={backupLoading}
-        backupMessage={backupMessage}
-        backupNote={backupNote}
-        backupReadyCount={backupReadyCount}
-        backupRestoreAudits={backupRestoreAudits}
-        backupRestoreBusyId={backupRestoreBusyId}
-        handleCreateBackup={() => void handleCreateBackup()}
-        handleRestoreBackup={(backup) => void handleRestoreBackup(backup)}
-        loadBackupRestoreAudits={() => void loadBackupRestoreAudits()}
-        loadBackups={() => void loadBackups()}
-        pinActive={pin.active}
-        setBackupNote={setBackupNote}
-      />
-    );
+  const sectionPanel = (
+    <SettingsSectionPanel
+      activeSection={activeSection}
+      backup={{
+        backupAuditLoading,
+        backupCreateBusy,
+        backupItems,
+        backupLoading,
+        backupMessage,
+        backupNote,
+        backupReadyCount,
+        backupRestoreAudits,
+        backupRestoreBusyId,
+        handleCreateBackup: () => void handleCreateBackup(),
+        handleRestoreBackup: (backup) => void handleRestoreBackup(backup),
+        loadBackupRestoreAudits: () => void loadBackupRestoreAudits(),
+        loadBackups: () => void loadBackups(),
+        pinActive: pin.active,
+        setBackupNote,
+      }}
+      home={{
+        addFavoriteDraft,
+        addPolicyDraft,
+        removeFavoriteDraft,
+        removePolicyDraft,
+        saveMessage,
+        selectedFavoriteCount,
+        setShowAdvancedEditor,
+        settingsDraft,
+        showAdvancedEditor,
+        updateFavoriteDraft,
+        updateFunctionDraft,
+        updatePageDraft,
+        updatePolicyDraft,
+        upsertPolicyDraft,
+      }}
+      integrations={{
+        energyClearBusy,
+        energyDraft,
+        energyMessage,
+        energyRefreshBusy,
+        energySaveBusy,
+        energyState,
+        handleBindDefaultMedia: () => void handleBindDefaultMedia(),
+        handleBindSgccEnergyAccount: () => void handleBindSgccEnergyAccount(),
+        handleClearEnergyBinding: () => void handleClearEnergyBinding(),
+        handleRefreshEnergy: () => void handleRefreshEnergy(),
+        handleRegenerateSgccLoginQrCode: () => void handleRegenerateSgccLoginQrCode(),
+        handleSaveEnergyBinding: () => void handleSaveEnergyBinding(),
+        handleSaveSystemConnection: () => void handleSaveSystemConnection(),
+        handleSyncHomeAssistantDevices: () => void handleSyncHomeAssistantDevices(),
+        handleTestSystemConnection: (saved) => void handleTestSystemConnection(saved),
+        handleUnbindDefaultMedia: () => void handleUnbindDefaultMedia(),
+        loadMediaState: () => void loadMediaState(),
+        loadSgccLoginQrCode: () => void loadSgccLoginQrCode(),
+        mediaBindBusy,
+        mediaCandidateLoading,
+        mediaCandidates,
+        mediaMessage,
+        mediaState,
+        mediaStatus,
+        mediaUnbindBusy,
+        pinActive: pin.active,
+        selectedMediaDeviceId,
+        setSelectedMediaDeviceId,
+        sgccLoginQrCode,
+        sgccLoginQrCodeBindBusy,
+        sgccLoginQrCodeImageUrl,
+        sgccLoginQrCodeLoading,
+        sgccLoginQrCodeMessage,
+        sgccLoginQrCodeRegenerateBusy,
+        sgccStatus,
+        systemDraft,
+        systemMessage,
+        systemSaveBusy,
+        systemSyncBusy,
+        systemTestBusy,
+        updateEnergyAccountId,
+        updateEnergyEntity,
+        updateSystemDraft,
+      }}
+      overview={{
+        backupCount: backupItems.length,
+        onSelectSection: handleSelectSection,
+        pinActive: pin.active,
+        runtimeCards,
+        selectedFavoriteCount,
+      }}
+      terminal={{
+        bootstrapActivationCode,
+        bootstrapActivationLink,
+        bootstrapTokenAuditLoading,
+        bootstrapTokenAudits,
+        bootstrapTokenCreateBusy,
+        bootstrapTokenDirectory,
+        bootstrapTokenFeedback,
+        bootstrapTokenLoading,
+        bootstrapTokenReveal,
+        bootstrapTokenState,
+        handleClaimPairingCode: () => void handleClaimPairingCode(),
+        handleCopyBootstrapActivationCode: () => void handleCopyBootstrapActivationCode(),
+        handleCopyBootstrapActivationLink: () => void handleCopyBootstrapActivationLink(),
+        handleCopyBootstrapToken: () => void handleCopyBootstrapToken(),
+        handleCreateOrResetBootstrapToken: () => void handleCreateOrResetBootstrapToken(),
+        loadBootstrapTokenAudits: () => void loadBootstrapTokenAudits(),
+        loadBootstrapTokenDirectory: () => void loadBootstrapTokenDirectory(),
+        pairingClaimBusy,
+        pairingClaimFeedback,
+        pairingCodeInput,
+        pinActive: pin.active,
+        selectedBootstrapTerminal,
+        selectedBootstrapTerminalId,
+        setPairingCodeInput,
+        setSelectedBootstrapTerminalId,
+        setShowPinManager,
+        terminalStatus,
+      }}
+    />
+  );
 
   return (
     <section className="page page--settings">

@@ -1,3 +1,4 @@
+import type { SettingsDto } from "../api/types";
 import { asArray, asBoolean, asRecord, asString } from "./utils";
 
 export interface SettingsSectionViewModel {
@@ -19,9 +20,7 @@ export interface SettingsViewModel {
   overview: SettingsFieldViewModel[];
 }
 
-export function mapSettingsViewModel(
-  value: Record<string, unknown> | null,
-): SettingsViewModel {
+export function mapSettingsViewModel(value: SettingsDto | null): SettingsViewModel {
   const system = asRecord(value?.system_settings_summary);
   const favorites = asArray<Record<string, unknown>>(value?.favorites);
 

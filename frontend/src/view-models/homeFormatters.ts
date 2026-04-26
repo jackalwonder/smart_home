@@ -1,4 +1,5 @@
 import { asNumber, asOptionalString, asRecord } from "./utils";
+import type { HomeOverviewDto } from "../api/types";
 import { type ImageSize } from "../types/image";
 
 export function normalizeKeyword(value: string | null | undefined) {
@@ -305,7 +306,7 @@ export function isPolicyEnabled(
   return raw !== false;
 }
 
-export function shouldShowFavoriteDevices(value: Record<string, unknown> | null) {
+export function shouldShowFavoriteDevices(value: HomeOverviewDto | null) {
   const uiPolicy = asRecord(value?.ui_policy);
   const homepageDisplayPolicy = asRecord(uiPolicy?.homepage_display_policy);
   const quickEntries = asRecord(value?.quick_entries);

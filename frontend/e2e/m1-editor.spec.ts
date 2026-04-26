@@ -713,7 +713,9 @@ async function unlockManagementPin(page: Page) {
   await page.getByRole("link", { name: "设置" }).click();
   await expect(page.getByRole("navigation", { name: "设置分区" })).toBeVisible();
 
-  const verifiedState = page.getByText(/PIN 验证通过|当前管理会话已生效|PIN 已验证/).first();
+  const verifiedState = page
+    .getByText(/PIN 验证通过|当前管理会话已生效|PIN 已验证|已验证/)
+    .first();
   if ((await verifiedState.count()) > 0 && (await verifiedState.isVisible())) {
     return;
   }
@@ -733,7 +735,7 @@ async function unlockManagementPin(page: Page) {
 async function openSettingsTaskFlow(page: Page) {
   const settingsNav = page.getByRole("navigation", { name: "设置分区" });
   await expect(settingsNav).toBeVisible();
-  await settingsNav.getByRole("button", { name: /终端交付/ }).click();
+  await settingsNav.getByRole("button", { name: /终端与权限|终端交付/ }).click();
 
   const taskFlow = page.locator("section[aria-label='现场任务流']");
   if ((await taskFlow.count()) === 0 || !(await taskFlow.first().isVisible())) {
@@ -746,7 +748,7 @@ async function openSettingsTaskFlow(page: Page) {
 async function openDeliveryDetails(page: Page) {
   await page
     .getByRole("navigation", { name: "设置分区" })
-    .getByRole("button", { name: /终端交付/ })
+    .getByRole("button", { name: /终端与权限|终端交付/ })
     .click();
   const expandButton = page.getByRole("button", { name: "展开交付详情" });
   if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
@@ -758,7 +760,7 @@ async function openDeliveryDetails(page: Page) {
 async function openBackupDetails(page: Page) {
   await page
     .getByRole("navigation", { name: "设置分区" })
-    .getByRole("button", { name: /备份与恢复/ })
+    .getByRole("button", { name: /备份恢复|备份与恢复/ })
     .click();
   const expandButton = page.getByRole("button", { name: "展开备份详情" });
   if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
@@ -776,12 +778,20 @@ async function openEditorWorkspace(page: Page) {
     await publishButton.click();
   }
 
-  const advancedEditorButton = page.getByRole("button", { name: "展开高级编辑" });
+  const advancedEditorButton = page.getByRole("button", { name: "展开编辑器" });
   if ((await advancedEditorButton.count()) > 0 && (await advancedEditorButton.isVisible())) {
     await advancedEditorButton.click();
   }
 
-  await expect(page.getByRole("heading", { name: "户型编辑器" })).toBeVisible();
+  const editorModule = page.locator("section.settings-task-module").filter({
+    has: page.getByRole("heading", { name: "布局与发布" }),
+  });
+  const editorDetails = editorModule.locator("details").first();
+  if (!(await editorDetails.evaluate((element) => element.open))) {
+    await editorDetails.locator("summary").click();
+  }
+
+  await expect(page.getByRole("button", { name: "保存草稿" })).toBeVisible();
 }
 
 async function openHomeDashboard(page: Page) {

@@ -1,4 +1,5 @@
 import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
+import type { HomeOverviewDto } from "../api/types";
 import {
   asArray,
   asBoolean,
@@ -38,9 +39,7 @@ import {
 export type * from "./homeTypes";
 export { homeFavoriteDeviceToHotspot } from "./homeCollections";
 
-export function mapHomeOverviewViewModel(
-  value: Record<string, unknown> | null,
-): HomeViewModel {
+export function mapHomeOverviewViewModel(value: HomeOverviewDto | null): HomeViewModel {
   const stage = asRecord(value?.stage);
   const sidebar = asRecord(value?.sidebar);
   const summaryRecord = asRecord(sidebar?.summary);

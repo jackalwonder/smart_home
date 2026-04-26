@@ -21,11 +21,14 @@ function device(input: Partial<DeviceListItemDto>): DeviceListItemDto {
 
 describe("settingsIntegrationModels", () => {
   it("infers energy account and builds a trimmed binding payload", () => {
-    const energy = {
+    const energy: EnergyDto = {
+      binding_status: "BOUND",
+      cache_mode: false,
       entity_map: {
         balance: "sensor.electricity_charge_balance_8170",
       },
-    } as unknown as EnergyDto;
+      refresh_status: "SUCCESS",
+    };
     const draft = createEnergyBindingDraft(energy);
 
     expect(inferEnergyAccountIdFromEntities(energy.entity_map ?? {})).toBe("8170");
@@ -53,9 +56,14 @@ describe("settingsIntegrationModels", () => {
   it("formats refresh detail and detects media candidates", () => {
     expect(
       formatEnergyRefreshMessage({
+        accepted: true,
         refresh_status: "FAILED",
         refresh_status_detail: "FAILED_SOURCE_TIMEOUT",
-      } as EnergyRefreshDto),
+        source_updated: false,
+        started_at: "2026-04-26T10:00:00Z",
+        timeout_seconds: 45,
+        upstream_triggered: true,
+      } satisfies EnergyRefreshDto),
     ).toBe("已触发上游同步，但等待 HA 更新超时。");
     expect(isMediaCandidateDevice(device({ device_type: "media_player" }))).toBe(true);
     expect(isMediaCandidateDevice(device({ display_name: "Kitchen speaker" }))).toBe(true);

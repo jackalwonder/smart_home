@@ -1,6 +1,7 @@
 import { formatRealtimeEvent } from "../ws/eventPresentation";
 import { WsEvent } from "../ws/types";
 import { resolveHotspotIconUrl } from "../api/pageAssetsApi";
+import type { EditorDraftLayoutDto } from "../api/types";
 import { asArray, asNumber, asOptionalString, asRecord, asString } from "./utils";
 import { type ImageSize } from "../types/image";
 
@@ -88,35 +89,40 @@ export function mapEditorViewModel(input: {
   leaseExpiresAt: string | null;
   heartbeatIntervalSeconds: number | null;
   lockedByTerminalId: string | null;
-  draft: Record<string, unknown> | null;
+  draft: EditorDraftLayoutDto | null;
   draftVersion: string | null;
   baseLayoutVersion: string | null;
   readonly: boolean;
   pinActive: boolean;
   events: WsEvent[];
 }): EditorViewModel {
-  const draft = asRecord(input.draft);
-  const hotspots = asArray<Record<string, unknown>>(draft?.hotspots)
-    .map((hotspot, index) => ({
-      id: asString(hotspot.hotspot_id ?? `draft-hotspot-${index}`),
-      label: asString(
-        hotspot.display_name ??
-          hotspot.device_id ??
-          hotspot.entity_id ??
-          `Hotspot ${index + 1}`,
-      ),
-      deviceId: asString(hotspot.device_id ?? hotspot.entity_id ?? ""),
-      x: asNumber(hotspot.x),
-      y: asNumber(hotspot.y),
-      iconType: asString(hotspot.icon_type ?? "device"),
-      iconAssetId: asOptionalString(hotspot.icon_asset_id),
-      iconAssetUrl: resolveHotspotIconUrl(
-        asOptionalString(hotspot.icon_asset_url) ?? asOptionalString(hotspot.icon_asset_id),
-      ),
-      labelMode: asString(hotspot.label_mode ?? "AUTO"),
-      isVisible: hotspot.is_visible !== false,
-      structureOrder: asNumber(hotspot.structure_order, index),
-    }))
+  const draft = input.draft;
+  const hotspots = asArray<NonNullable<EditorDraftLayoutDto["hotspots"]>[number]>(
+    draft?.hotspots,
+  )
+    .map((hotspot, index) => {
+      const legacyEntityId = asOptionalString((hotspot as { entity_id?: unknown }).entity_id);
+      return {
+        id: asString(hotspot.hotspot_id ?? `draft-hotspot-${index}`),
+        label: asString(
+          hotspot.display_name ??
+            hotspot.device_id ??
+            legacyEntityId ??
+            `Hotspot ${index + 1}`,
+        ),
+        deviceId: asString(hotspot.device_id ?? legacyEntityId ?? ""),
+        x: asNumber(hotspot.x),
+        y: asNumber(hotspot.y),
+        iconType: asString(hotspot.icon_type ?? "device"),
+        iconAssetId: asOptionalString(hotspot.icon_asset_id),
+        iconAssetUrl: resolveHotspotIconUrl(
+          asOptionalString(hotspot.icon_asset_url) ?? asOptionalString(hotspot.icon_asset_id),
+        ),
+        labelMode: asString(hotspot.label_mode ?? "AUTO"),
+        isVisible: hotspot.is_visible !== false,
+        structureOrder: asNumber(hotspot.structure_order, index),
+      };
+    })
     .sort((left, right) => left.structureOrder - right.structureOrder);
 
   let modeLabel = "只读预览";

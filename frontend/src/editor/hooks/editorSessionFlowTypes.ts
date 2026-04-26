@@ -1,4 +1,5 @@
 import type { EditorDraftState } from "../editorDraftState";
+import type { EditorDraftLayoutDto } from "../../api/types";
 import type { WsEvent } from "../../ws/types";
 
 export interface EditorSessionFlowState {
@@ -7,7 +8,7 @@ export interface EditorSessionFlowState {
   leaseExpiresAt: string | null;
   heartbeatIntervalSeconds: number | null;
   lockedByTerminalId: string | null;
-  draft: Record<string, unknown> | null;
+  draft: EditorDraftLayoutDto | null;
   draftVersion: string | null;
   baseLayoutVersion: string | null;
   readonly: boolean;

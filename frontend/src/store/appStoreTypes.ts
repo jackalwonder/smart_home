@@ -1,5 +1,12 @@
-import type { EditorDraftDto, HomeOverviewDto, SessionModel, SettingsDto } from "../api/types";
+import type {
+  EditorDraftLayoutDto,
+  HomeOverviewDto,
+  SessionModel,
+  SettingsDto,
+} from "../api/types";
 import type { WsEvent, WsEventType } from "../ws/types";
+
+export type { EditorDraftLayoutDto };
 
 export type AsyncStatus = "idle" | "loading" | "success" | "error";
 
@@ -36,8 +43,6 @@ export interface SettingsState {
   data: SettingsDto | null;
   error: string | null;
 }
-
-export type EditorDraftLayoutDto = NonNullable<EditorDraftDto["layout"]>;
 
 export interface EditorState {
   status: AsyncStatus;
