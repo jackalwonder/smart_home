@@ -43,6 +43,10 @@ describe("frontend architecture boundaries", () => {
   it("keeps home control components behind the shared control flow hook", () => {
     const constrainedFiles = [
       join(homeRoot, "HomeClusterControlModal.tsx"),
+      join(homeRoot, "ClusterDeviceCard.tsx"),
+      join(homeRoot, "ClusterModeControls.tsx"),
+      join(homeRoot, "ClusterPowerControls.tsx"),
+      join(homeRoot, "ClusterRangeControl.tsx"),
       join(homeRoot, "HomeDeviceControlPanel.tsx"),
     ];
     const violations = constrainedFiles.flatMap((filePath) => {

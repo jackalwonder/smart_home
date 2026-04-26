@@ -1,4 +1,4 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, type EditorDraftDto } from "../../../api/types";
 import * as editorApi from "../../../api/editorApi";
@@ -109,6 +109,16 @@ beforeEach(() => {
   });
   appStore.clearEditorError();
   mockedEditorApi.fetchEditorDraft.mockResolvedValue(makeDraftResponse());
+  mockedEditorApi.createEditorSession.mockResolvedValue({
+    lease_id: "lease-1",
+    lease_expires_at: "2026-04-24T12:00:00Z",
+    lock_status: "GRANTED",
+    heartbeat_interval_seconds: 20,
+    locked_by: null,
+    granted: true,
+    draft_version: "draft-1",
+    current_layout_version: "layout-1",
+  });
   mockedEditorApi.saveEditorDraft.mockResolvedValue({
     draft_version: "draft-2",
     lock_status: "GRANTED",
@@ -263,5 +273,151 @@ describe("useEditorSessionFlow", () => {
 
     expect(mockedEditorApi.heartbeatEditorSession).toHaveBeenCalledWith("lease-1");
     expect(appStore.getSnapshot().editor.leaseExpiresAt).toBe("2026-04-24T12:02:00Z");
+  });
+
+  it("loads a readonly draft when a terminal becomes available without an active PIN session", async () => {
+    renderSessionFlow({
+      editor: {
+        ...grantedEditor,
+        lockStatus: "READ_ONLY",
+        leaseId: null,
+        readonly: true,
+      },
+      pinSessionActive: false,
+      terminalId: "terminal-1",
+    });
+
+    await waitFor(() => {
+      expect(mockedEditorApi.fetchEditorDraft).toHaveBeenCalledOnce();
+    });
+    expect(appStore.getSnapshot().editor).toEqual(
+      expect.objectContaining({
+        draftVersion: "draft-2",
+        lockStatus: "GRANTED",
+      }),
+    );
+  });
+
+  it("opens an editable session automatically when the PIN session is active", async () => {
+    renderSessionFlow({
+      pinSessionActive: true,
+      terminalId: "terminal-1",
+    });
+
+    await waitFor(() => {
+      expect(mockedEditorApi.createEditorSession).toHaveBeenCalledOnce();
+    });
+    expect(mockedEditorApi.fetchEditorDraft).toHaveBeenCalledWith("lease-1");
+    expect(appStore.getSnapshot().editor).toEqual(
+      expect.objectContaining({
+        draftVersion: "draft-2",
+        leaseId: "lease-1",
+        lockStatus: "GRANTED",
+      }),
+    );
+  });
+
+  it("refreshes and offers retry when a publish hits a version conflict", async () => {
+    const { result } = renderSessionFlow();
+
+    await act(async () => {
+      await result.current.handleEditorActionError(
+        new ApiError({
+          code: "VERSION_CONFLICT",
+          message: "version conflict",
+          details: {
+            current: { draft_version: "draft-remote" },
+            submitted: { draft_version: "draft-1" },
+          },
+        }),
+        "publish",
+      );
+    });
+
+    expect(mockedEditorApi.fetchEditorDraft).toHaveBeenCalledWith("lease-1");
+    expect(result.current.editorNotice).toEqual(
+      expect.objectContaining({
+        actions: ["retry-publish"],
+        title: "发布前草稿版本已更新",
+        tone: "warning",
+      }),
+    );
+  });
+
+  it("keeps the editor lease when publish fails after the draft save succeeds", async () => {
+    appStore.setEditorSession({
+      lockStatus: "GRANTED",
+      leaseId: "lease-1",
+      leaseExpiresAt: "2026-04-24T12:00:00Z",
+      heartbeatIntervalSeconds: 20,
+      lockedByTerminalId: null,
+    });
+    mockedEditorApi.fetchEditorDraft.mockResolvedValueOnce(
+      makeDraftResponse({
+        draft_version: "draft-saved",
+        base_layout_version: "layout-saved",
+      }),
+    );
+    mockedEditorApi.publishEditorDraft.mockRejectedValueOnce(
+      new ApiError({ code: "UPSTREAM_ERROR", message: "publish failed" }),
+    );
+    const { result } = renderSessionFlow();
+
+    await act(async () => {
+      await result.current.handlePublishDraft();
+    });
+
+    expect(mockedEditorApi.saveEditorDraft).toHaveBeenCalledOnce();
+    expect(mockedEditorApi.publishEditorDraft).toHaveBeenCalledOnce();
+    expect(appStore.getSnapshot().editor.lockStatus).toBe("GRANTED");
+    expect(result.current.editorNotice).toEqual(
+      expect.objectContaining({
+        title: "发布草稿失败",
+        tone: "error",
+      }),
+    );
+  });
+
+  it("recovers draft takeover realtime events into locked-by-other state", async () => {
+    const resetSelection = vi.fn();
+    const options: Parameters<typeof useEditorSessionFlow>[0] = {
+      canEdit: true,
+      draftState,
+      editor: grantedEditor,
+      events: [],
+      pinActive: true,
+      pinSessionActive: false,
+      resetSelection,
+      terminalId: "terminal-1",
+    };
+    const { rerender } = renderHook(() => useEditorSessionFlow(options));
+
+    await waitFor(() => {
+      expect(mockedEditorApi.fetchEditorDraft).toHaveBeenCalledOnce();
+    });
+    vi.clearAllMocks();
+    options.events = [
+      {
+        change_domain: "EDITOR_LOCK",
+        event_id: "event-1",
+        event_type: "draft_taken_over",
+        home_id: "home",
+        occurred_at: "2026-04-24T12:00:00Z",
+        payload: {
+          new_lease_id: "lease-remote",
+          new_terminal_id: "terminal-remote",
+          previous_terminal_id: "terminal-1",
+        },
+        sequence: 1,
+        snapshot_required: false,
+      },
+    ];
+    rerender();
+
+    await waitFor(() => {
+      expect(appStore.getSnapshot().editor.lockStatus).toBe("LOCKED_BY_OTHER");
+    });
+    expect(appStore.getSnapshot().editor.lockedByTerminalId).toBe("terminal-remote");
+    expect(mockedEditorApi.fetchEditorDraft).toHaveBeenCalledWith("lease-remote");
   });
 });
