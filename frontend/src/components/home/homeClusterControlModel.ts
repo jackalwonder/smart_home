@@ -6,6 +6,7 @@ import {
 } from "../../api/types";
 
 export type HomeClusterKey = "lights" | "climate" | "battery" | "offline";
+export type HomeClusterDevice = DeviceListItemDto;
 
 export type FeedbackTone = "info" | "success" | "warning" | "error";
 

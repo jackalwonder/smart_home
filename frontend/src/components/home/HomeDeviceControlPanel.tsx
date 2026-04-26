@@ -1,25 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { acceptDeviceControl, fetchDeviceControlResult } from "../../api/deviceControlsApi";
-import { fetchDeviceDetail } from "../../api/devicesApi";
-import {
-  DeviceControlAcceptedDto,
-  DeviceControlResultDto,
-  DeviceDetailDto,
-} from "../../api/types";
+import { useMemo, useState } from "react";
 import { HomeHotspotViewModel } from "../../view-models/home";
 import { HomeDeviceControlInput } from "./HomeDeviceControlInput";
 import {
   describeAction,
   describeResult,
-  formatControlError,
   formatStatus,
-  getInitialValue,
   isBooleanSchema,
-  makeRequestId,
-  normalizeControlValue,
   schemaKey,
   toneLabel,
 } from "./homeDeviceControlModel";
+import { useDeviceControlFlow } from "./useDeviceControlFlow";
 
 interface HomeDeviceControlPanelProps {
   hotspot: HomeHotspotViewModel;
@@ -27,62 +17,29 @@ interface HomeDeviceControlPanelProps {
 }
 
 export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPanelProps) {
-  const [device, setDevice] = useState<DeviceDetailDto | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [values, setValues] = useState<Record<string, unknown>>({});
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [queryingResult, setQueryingResult] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [accepted, setAccepted] = useState<DeviceControlAcceptedDto | null>(null);
-  const [result, setResult] = useState<DeviceControlResultDto | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    setDevice(null);
-    setSelectedIndex(0);
-    setValues({});
-    setAccepted(null);
-    setResult(null);
-    setError(null);
-    setLoading(true);
-
-    void (async () => {
-      try {
-        const detail = await fetchDeviceDetail(hotspot.deviceId);
-        if (!active) {
-          return;
-        }
-        const initialValues: Record<string, unknown> = {};
-        detail.control_schema.forEach((schema, index) => {
-          initialValues[schemaKey(schema, index)] = getInitialValue(schema);
-        });
-        setDevice(detail);
-        setValues(initialValues);
-      } catch (fetchError) {
-        if (active) {
-          setError(formatControlError(fetchError));
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [hotspot.deviceId]);
+  const control = useDeviceControlFlow({
+    deviceIds: [hotspot.deviceId],
+    enabled: Boolean(hotspot.deviceId),
+    requestPrefix: "hotspot",
+  });
+  const device = control.details[0] ?? null;
 
   const schemas = device?.control_schema ?? [];
   const selectedSchema = schemas[selectedIndex] ?? null;
-  const selectedKey = selectedSchema ? schemaKey(selectedSchema, selectedIndex) : "";
-  const selectedValue = selectedKey ? values[selectedKey] : undefined;
+  const selectedKey =
+    device && selectedSchema
+      ? control.controlKey(device.device_id, selectedSchema, selectedIndex)
+      : "";
+  const selectedValue = selectedKey ? control.values[selectedKey] : undefined;
   const selectedAction = selectedSchema ? describeAction(selectedSchema) : null;
   const powerSchemaIndex = schemas.findIndex(isBooleanSchema);
   const isSimpleQuickPanel =
     schemas.length <= 2 && powerSchemaIndex >= 0 && !hotspot.isComplex;
+  const accepted = device ? control.acceptedByDeviceId[device.device_id] : null;
+  const result = device ? control.resultByDeviceId[device.device_id] : null;
+  const submitting = Object.values(control.pendingByKey).some(Boolean);
+  const queryingResult = Boolean(accepted && !result && submitting);
   const panelClass = useMemo(
     () =>
       [
@@ -93,55 +50,20 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
     [hotspot.x, hotspot.y],
   );
 
-  async function submitControl(
+  function submitSelectedControl(
     schema = selectedSchema,
     overrideValue?: unknown,
     index = selectedIndex,
   ) {
-    if (!schema) {
+    if (!device || !schema) {
       return;
     }
-
-    setSubmitting(true);
-    setQueryingResult(false);
-    setAccepted(null);
-    setResult(null);
-    setError(null);
-
-    const requestId = makeRequestId(hotspot.deviceId);
-    try {
-      const acceptedResponse = await acceptDeviceControl({
-        request_id: requestId,
-        device_id: hotspot.deviceId,
-        action_type: schema.action_type,
-        payload: {
-          target_scope: schema.target_scope,
-          target_key: schema.target_key,
-          value: normalizeControlValue(
-            schema,
-            overrideValue ?? values[schemaKey(schema, index)],
-          ),
-          unit: schema.unit,
-        },
-        client_ts: new Date().toISOString(),
-      });
-      setAccepted(acceptedResponse);
-      setSubmitting(false);
-      setQueryingResult(true);
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 320 : 580));
-        const nextResult = await fetchDeviceControlResult(acceptedResponse.request_id);
-        setResult(nextResult);
-        if (nextResult.execution_status !== "PENDING") {
-          break;
-        }
-      }
-    } catch (submitError) {
-      setError(formatControlError(submitError));
-    } finally {
-      setSubmitting(false);
-      setQueryingResult(false);
-    }
+    void control.submitControl({
+      detail: device,
+      overrideValue,
+      schema,
+      schemaIndex: index,
+    });
   }
 
   const quickSchema = powerSchemaIndex >= 0 ? schemas[powerSchemaIndex] : null;
@@ -184,10 +106,10 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
         {device?.is_offline ? <span>当前离线</span> : null}
       </div>
 
-      {loading ? <p className="muted-copy">正在读取设备控制能力…</p> : null}
-      {error ? <p className="inline-error">{error}</p> : null}
+      {control.loading ? <p className="muted-copy">正在读取设备控制能力…</p> : null}
+      {control.error ? <p className="inline-error">{control.error}</p> : null}
 
-      {!loading && isSimpleQuickPanel && quickSchema ? (
+      {!control.loading && isSimpleQuickPanel && quickSchema ? (
         <div className="home-device-control-panel__quick">
           <strong>快速控制</strong>
           <p>这个设备适合直接在热点旁完成开关操作。</p>
@@ -195,7 +117,7 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
             <button
               aria-label="开启"
               disabled={submitting || queryingResult || Boolean(device?.is_readonly_device)}
-              onClick={() => void submitControl(quickSchema, true, powerSchemaIndex)}
+              onClick={() => submitSelectedControl(quickSchema, true, powerSchemaIndex)}
               type="button"
             >
               开启
@@ -203,7 +125,7 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
             <button
               aria-label="关闭"
               disabled={submitting || queryingResult || Boolean(device?.is_readonly_device)}
-              onClick={() => void submitControl(quickSchema, false, powerSchemaIndex)}
+              onClick={() => submitSelectedControl(quickSchema, false, powerSchemaIndex)}
               type="button"
             >
               关闭
@@ -212,7 +134,7 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
         </div>
       ) : null}
 
-      {!loading && !isSimpleQuickPanel && selectedSchema && selectedAction ? (
+      {!control.loading && !isSimpleQuickPanel && selectedSchema && selectedAction ? (
         <div className="home-device-control-panel__form">
           <label className="form-field">
             <span>控制项目</span>
@@ -221,8 +143,6 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
               className="control-input"
               onChange={(event) => {
                 setSelectedIndex(Number(event.target.value));
-                setAccepted(null);
-                setResult(null);
               }}
               value={selectedIndex}
             >
@@ -245,10 +165,7 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
               schema={selectedSchema}
               value={selectedValue}
               onChange={(nextValue) => {
-                setValues((current) => ({
-                  ...current,
-                  [selectedKey]: nextValue,
-                }));
+                control.setValue(selectedKey, nextValue);
               }}
             />
           </label>
@@ -256,7 +173,7 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
           <button
             className="button button--primary"
             disabled={submitting || queryingResult || Boolean(device?.is_readonly_device)}
-            onClick={() => void submitControl()}
+            onClick={() => submitSelectedControl()}
             type="button"
           >
             {queryingResult
@@ -268,7 +185,7 @@ export function HomeDeviceControlPanel({ hotspot, onClose }: HomeDeviceControlPa
         </div>
       ) : null}
 
-      {!loading && !schemas.length ? (
+      {!control.loading && !schemas.length ? (
         <div className="home-device-control-panel__empty">
           <strong>暂无可用控制</strong>
           <p>这个热点现在只用于展示状态，后续接入更多控制能力后会自动升级。</p>

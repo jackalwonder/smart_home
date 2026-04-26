@@ -2,12 +2,12 @@ import { normalizeApiError } from "../../api/httpClient";
 import { DeviceControlResultDto, DeviceControlSchemaItemDto } from "../../api/types";
 import { HomeHotspotViewModel } from "../../view-models/home";
 
-export function makeRequestId(deviceId: string) {
+export function makeRequestId(deviceId: string, prefix = "home-ui") {
   const suffix =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `home-ui-${deviceId}-${suffix}`;
+  return `${prefix}-${deviceId}-${suffix}`;
 }
 
 export function normalizeKeyword(value: string | null | undefined) {

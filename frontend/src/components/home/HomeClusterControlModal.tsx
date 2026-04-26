@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { acceptDeviceControl, fetchDeviceControlResult } from "../../api/deviceControlsApi";
-import { fetchDeviceDetail } from "../../api/devicesApi";
+import { useMemo } from "react";
 import {
-  DeviceControlSchemaItemDto,
-  DeviceDetailDto,
-  DeviceListItemDto,
-} from "../../api/types";
-import {
+  HomeClusterDevice,
   HomeClusterKey,
   clusterEyebrow,
   clusterIcon,
   feedbackTone,
   filterClusterDevices,
-  formatControlError,
   formatOptionLabel,
   formatRuntimeState,
   getInitialValue,
@@ -20,19 +13,18 @@ import {
   isModeSchema,
   isPowerSchema,
   isTemperatureSchema,
-  makeRequestId,
   modalSubtitle,
   modalTitle,
   rangeNumber,
-  schemaId,
 } from "./homeClusterControlModel";
+import { useDeviceControlFlow } from "./useDeviceControlFlow";
 
 export type { HomeClusterKey } from "./homeClusterControlModel";
 
 interface HomeClusterControlModalProps {
   open: boolean;
   cluster: HomeClusterKey | null;
-  devices: DeviceListItemDto[];
+  devices: HomeClusterDevice[];
   onClose: () => void;
 }
 
@@ -42,125 +34,31 @@ export function HomeClusterControlModal({
   devices,
   onClose,
 }: HomeClusterControlModalProps) {
-  const [details, setDetails] = useState<DeviceDetailDto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [values, setValues] = useState<Record<string, unknown>>({});
-  const [messages, setMessages] = useState<Record<string, string>>({});
-  const [pending, setPending] = useState<Record<string, boolean>>({});
-
   const filteredDevices = useMemo(() => {
     return filterClusterDevices(cluster, devices);
   }, [cluster, devices]);
-
-  useEffect(() => {
-    if (!open || !cluster) {
-      return;
-    }
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setMessages({});
-    setPending({});
-
-    void (async () => {
-      try {
-        const targetDevices =
-          cluster === "battery" || cluster === "offline"
-            ? filteredDevices
-            : filteredDevices.slice(0, 8);
-        const responses = await Promise.allSettled(
-          targetDevices.map((device) => fetchDeviceDetail(device.device_id)),
-        );
-        if (!active) {
-          return;
-        }
-        const loadedDetails = responses
-          .filter(
-            (entry): entry is PromiseFulfilledResult<DeviceDetailDto> =>
-              entry.status === "fulfilled",
-          )
-          .map((entry) => entry.value);
-        const initialValues: Record<string, unknown> = {};
-        loadedDetails.forEach((detail) => {
-          detail.control_schema.forEach((schema, index) => {
-            initialValues[`${detail.device_id}:${schemaId(schema, index)}`] =
-              getInitialValue(schema);
-          });
-        });
-        setDetails(loadedDetails);
-        setValues(initialValues);
-      } catch (nextError) {
-        if (active) {
-          setError(formatControlError(nextError));
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [cluster, filteredDevices, open]);
+  const controlTargetDevices =
+    cluster === "battery" || cluster === "offline"
+      ? filteredDevices
+      : filteredDevices.slice(0, 8);
+  const control = useDeviceControlFlow({
+    deviceIds: controlTargetDevices.map((device) => device.device_id),
+    enabled: open && Boolean(cluster),
+    requestPrefix: "cluster",
+  });
 
   if (!open || !cluster) {
     return null;
   }
 
   const onlineCount = filteredDevices.filter((device) => !device.is_offline).length;
-  const controllableCount = details.filter(
+  const controllableCount = control.details.filter(
     (detail) =>
       detail.control_schema.some(isPowerSchema) ||
       detail.control_schema.some(isTemperatureSchema) ||
       detail.control_schema.some(isBrightnessSchema),
   ).length;
   const compactPanel = filteredDevices.length <= 2;
-
-  async function submitControl(
-    detail: DeviceDetailDto,
-    schema: DeviceControlSchemaItemDto,
-    schemaIndex: number,
-    overrideValue?: unknown,
-  ) {
-    const key = `${detail.device_id}:${schemaId(schema, schemaIndex)}`;
-    const nextValue = overrideValue ?? values[key];
-    setPending((current) => ({ ...current, [key]: true }));
-    setMessages((current) => ({ ...current, [detail.device_id]: "正在发送控制…" }));
-
-    try {
-      const accepted = await acceptDeviceControl({
-        request_id: makeRequestId(detail.device_id),
-        device_id: detail.device_id,
-        action_type: schema.action_type,
-        payload: {
-          target_scope: schema.target_scope,
-          target_key: schema.target_key,
-          value: nextValue,
-          unit: schema.unit,
-        },
-        client_ts: new Date().toISOString(),
-      });
-      await new Promise((resolve) => window.setTimeout(resolve, 450));
-      const result = await fetchDeviceControlResult(accepted.request_id);
-      setMessages((current) => ({
-        ...current,
-        [detail.device_id]:
-          result.execution_status === "SUCCESS"
-            ? "设备已完成控制"
-            : (result.error_message ?? "设备尚未返回成功确认"),
-      }));
-    } catch (nextError) {
-      setMessages((current) => ({
-        ...current,
-        [detail.device_id]: formatControlError(nextError),
-      }));
-    } finally {
-      setPending((current) => ({ ...current, [key]: false }));
-    }
-  }
 
   return (
     <div className="home-cluster-modal" role="dialog" aria-modal="true">
@@ -183,7 +81,7 @@ export function HomeClusterControlModal({
             <span>{filteredDevices.length} 个设备</span>
             <span>{onlineCount} 个在线</span>
             {cluster === "lights" || cluster === "climate" ? (
-              <span>{loading ? "读取中" : `${controllableCount} 个可控`}</span>
+              <span>{control.loading ? "读取中" : `${controllableCount} 个可控`}</span>
             ) : null}
           </div>
           <button
@@ -196,9 +94,9 @@ export function HomeClusterControlModal({
           </button>
         </header>
 
-        {error ? <p className="inline-error">{error}</p> : null}
-        {loading ? <p className="muted-copy">正在读取设备控制能力…</p> : null}
-        {!loading && !filteredDevices.length ? (
+        {control.error ? <p className="inline-error">{control.error}</p> : null}
+        {control.loading ? <p className="muted-copy">正在读取设备控制能力…</p> : null}
+        {!control.loading && !filteredDevices.length ? (
           <div className="home-cluster-modal__empty">
             <strong>当前没有匹配设备</strong>
             <p>等你把更多设备接入或加入首页后，这里会更像一套完整中控。</p>
@@ -206,7 +104,7 @@ export function HomeClusterControlModal({
         ) : null}
 
         <div className="home-cluster-modal__grid">
-          {(details.length ? details : filteredDevices).map((item) => {
+          {(control.details.length ? control.details : filteredDevices).map((item) => {
             const detail = "control_schema" in item ? item : null;
             const deviceId = detail?.device_id ?? item.device_id;
             const stateLabel = formatRuntimeState(detail ?? item);
@@ -226,13 +124,17 @@ export function HomeClusterControlModal({
               cluster === "climate"
                 ? (detail?.control_schema.findIndex(isModeSchema) ?? -1)
                 : -1;
+            const powerKey =
+              detail && powerSchema && powerIndex >= 0
+                ? control.controlKey(detail.device_id, powerSchema, powerIndex)
+                : "";
             const rangeKey =
               detail && rangeSchema && rangeIndex >= 0
-                ? `${detail.device_id}:${schemaId(rangeSchema, rangeIndex)}`
+                ? control.controlKey(detail.device_id, rangeSchema, rangeIndex)
                 : "";
             const modeKey =
               detail && modeSchema && modeIndex >= 0
-                ? `${detail.device_id}:${schemaId(modeSchema, modeIndex)}`
+                ? control.controlKey(detail.device_id, modeSchema, modeIndex)
                 : "";
 
             return (
@@ -267,20 +169,28 @@ export function HomeClusterControlModal({
                 {powerSchema && detail ? (
                   <div className="home-cluster-modal__device-actions">
                     <button
-                      disabled={Boolean(
-                        pending[`${detail.device_id}:${schemaId(powerSchema, powerIndex)}`],
-                      )}
-                      onClick={() => void submitControl(detail, powerSchema, powerIndex, true)}
+                      disabled={Boolean(control.pendingByKey[powerKey])}
+                      onClick={() =>
+                        void control.submitControl({
+                          detail,
+                          overrideValue: true,
+                          schema: powerSchema,
+                          schemaIndex: powerIndex,
+                        })
+                      }
                       type="button"
                     >
                       开启
                     </button>
                     <button
-                      disabled={Boolean(
-                        pending[`${detail.device_id}:${schemaId(powerSchema, powerIndex)}`],
-                      )}
+                      disabled={Boolean(control.pendingByKey[powerKey])}
                       onClick={() =>
-                        void submitControl(detail, powerSchema, powerIndex, false)
+                        void control.submitControl({
+                          detail,
+                          overrideValue: false,
+                          schema: powerSchema,
+                          schemaIndex: powerIndex,
+                        })
                       }
                       type="button"
                     >
@@ -296,7 +206,7 @@ export function HomeClusterControlModal({
                       <div className="home-cluster-modal__stepper">
                         <button
                           onClick={() =>
-                            setValues((current) => {
+                            control.setValues((current) => {
                               const currentValue = rangeNumber(current[rangeKey]) ?? 0;
                               const step = rangeNumber(rangeSchema.value_range?.step) ?? 1;
                               return { ...current, [rangeKey]: currentValue - step };
@@ -307,12 +217,12 @@ export function HomeClusterControlModal({
                           −
                         </button>
                         <strong>
-                          {String(values[rangeKey] ?? getInitialValue(rangeSchema))}
+                          {String(control.values[rangeKey] ?? getInitialValue(rangeSchema))}
                           {rangeSchema.unit ? ` ${rangeSchema.unit}` : ""}
                         </strong>
                         <button
                           onClick={() =>
-                            setValues((current) => {
+                            control.setValues((current) => {
                               const currentValue = rangeNumber(current[rangeKey]) ?? 0;
                               const step = rangeNumber(rangeSchema.value_range?.step) ?? 1;
                               return { ...current, [rangeKey]: currentValue + step };
@@ -328,19 +238,25 @@ export function HomeClusterControlModal({
                       max={rangeNumber(rangeSchema.value_range?.max)}
                       min={rangeNumber(rangeSchema.value_range?.min)}
                       onChange={(event) =>
-                        setValues((current) => ({
+                        control.setValues((current) => ({
                           ...current,
                           [rangeKey]: Number(event.target.value),
                         }))
                       }
                       step={rangeNumber(rangeSchema.value_range?.step) ?? 1}
                       type="range"
-                      value={Number(values[rangeKey] ?? getInitialValue(rangeSchema))}
+                      value={Number(control.values[rangeKey] ?? getInitialValue(rangeSchema))}
                     />
                     <button
                       className="home-cluster-modal__apply"
-                      disabled={Boolean(pending[rangeKey])}
-                      onClick={() => void submitControl(detail, rangeSchema, rangeIndex)}
+                      disabled={Boolean(control.pendingByKey[rangeKey])}
+                      onClick={() =>
+                        void control.submitControl({
+                          detail,
+                          schema: rangeSchema,
+                          schemaIndex: rangeIndex,
+                        })
+                      }
                       type="button"
                     >
                       应用
@@ -356,10 +272,15 @@ export function HomeClusterControlModal({
                     {modeSchema.allowed_values.slice(0, 4).map((option) => (
                       <button
                         key={String(option)}
-                        className={values[modeKey] === option ? "is-active" : ""}
+                        className={control.values[modeKey] === option ? "is-active" : ""}
                         onClick={() => {
-                          setValues((current) => ({ ...current, [modeKey]: option }));
-                          void submitControl(detail, modeSchema, modeIndex, option);
+                          control.setValue(modeKey, option);
+                          void control.submitControl({
+                            detail,
+                            overrideValue: option,
+                            schema: modeSchema,
+                            schemaIndex: modeIndex,
+                          });
                         }}
                         type="button"
                       >
@@ -375,11 +296,11 @@ export function HomeClusterControlModal({
                   </p>
                 ) : null}
 
-                {messages[deviceId] ? (
+                {control.messageByDeviceId[deviceId] ? (
                   <p
-                    className={`home-cluster-modal__feedback is-${feedbackTone(messages[deviceId])}`}
+                    className={`home-cluster-modal__feedback is-${feedbackTone(control.messageByDeviceId[deviceId])}`}
                   >
-                    {messages[deviceId]}
+                    {control.messageByDeviceId[deviceId]}
                   </p>
                 ) : null}
               </article>

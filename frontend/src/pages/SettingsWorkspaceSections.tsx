@@ -12,7 +12,7 @@ type HomeProps = ComponentProps<typeof SettingsHomeSection>;
 type TerminalProps = ComponentProps<typeof SettingsTerminalSection>;
 type BackupProps = ComponentProps<typeof SettingsBackupSection>;
 
-interface SettingsSectionPanelProps {
+export interface SettingsSectionPanelProps {
   activeSection: SettingsSectionViewModel["key"];
   backup: BackupProps;
   home: HomeProps;

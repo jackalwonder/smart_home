@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const srcRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const pagesRoot = join(srcRoot, "pages");
+const homeRoot = join(srcRoot, "components", "home");
 const pageComponentPattern = /(Page|Workspace)\.tsx$/;
 
 function pageComponentFiles() {
@@ -31,6 +32,29 @@ describe("frontend architecture boundaries", () => {
       }
       if (source.includes("Record<string, unknown>")) {
         fileViolations.push(`${relativePath}: consumes unadapted record-shaped data`);
+      }
+
+      return fileViolations;
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps home control components behind the shared control flow hook", () => {
+    const constrainedFiles = [
+      join(homeRoot, "HomeClusterControlModal.tsx"),
+      join(homeRoot, "HomeDeviceControlPanel.tsx"),
+    ];
+    const violations = constrainedFiles.flatMap((filePath) => {
+      const source = readFileSync(filePath, "utf-8");
+      const relativePath = filePath.slice(srcRoot.length + 1);
+      const fileViolations: string[] = [];
+
+      if (source.match(/from\s+["'][^"']*\/api\//)) {
+        fileViolations.push(`${relativePath}: imports API modules directly`);
+      }
+      if (source.includes("deviceControlsApi") || source.includes("devicesApi")) {
+        fileViolations.push(`${relativePath}: bypasses useDeviceControlFlow`);
       }
 
       return fileViolations;
