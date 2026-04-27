@@ -1,26 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useCallback, useState } from "react";
 import {
   createEditorSession,
   fetchEditorDraft,
-  heartbeatEditorSession,
   publishEditorDraft,
-  saveEditorDraft,
 } from "../../api/editorApi";
 import { normalizeApiError } from "../../api/httpClient";
 import {
   areEditorDraftStatesEqual,
-  buildDraftHotspotInputs,
-  buildLayoutMetaWithHotspotLabels,
-  parseLayoutMetaText,
   type EditorDraftState,
 } from "../../editor/editorDraftState";
 import { appStore } from "../../store/useAppStore";
 import {
   draftResponseToStageState,
-  isConflictErrorCode,
   type EditorNoticeState,
   type LightEditorSessionState,
 } from "./homeStageEditorModel";
+import { useEditorSessionHeartbeat } from "./useEditorSessionHeartbeat";
+import { persistDraft as persistDraftUtil } from "./homeStageEditorPersistence";
 
 interface UseHomeStageEditorSessionOptions {
   onApplied: () => Promise<void> | void;
@@ -168,62 +164,32 @@ export function useHomeStageEditorSession({
     void openLightEditorSession();
   }, [pinActive]);
 
-  useEffect(() => {
-    if (editorSession.lockStatus !== "GRANTED" || !editorSession.leaseId) {
-      return;
-    }
+  const handleHeartbeatSuccess = useCallback(
+    (nextState: Partial<LightEditorSessionState>) => {
+      applySessionState(nextState);
+    },
+    [],
+  );
 
-    const intervalSeconds = editorSession.heartbeatIntervalSeconds ?? 20;
-    const heartbeatDelayMs = Math.max(5000, Math.floor(intervalSeconds * 750));
-    let active = true;
+  const handleHeartbeatError = useCallback(
+    (errorNotice: EditorNoticeState) => {
+      setNotice(errorNotice);
+      applySessionState({
+        lockStatus: "READ_ONLY",
+        leaseId: null,
+        leaseExpiresAt: null,
+      });
+    },
+    [],
+  );
 
-    const timer = window.setInterval(() => {
-      const leaseId = editorSession.leaseId;
-      if (!leaseId) {
-        return;
-      }
-
-      void (async () => {
-        try {
-          const heartbeat = await heartbeatEditorSession(leaseId);
-          if (!active) {
-            return;
-          }
-          applySessionState({
-            leaseId: heartbeat.lease_id,
-            leaseExpiresAt: heartbeat.lease_expires_at ?? null,
-            lockStatus: heartbeat.lock_status,
-          });
-        } catch (error) {
-          if (!active) {
-            return;
-          }
-          const apiError = normalizeApiError(error);
-          setNotice({
-            tone: "warning",
-            title: "首页轻编辑已中断",
-            detail: isConflictErrorCode(apiError.code)
-              ? "当前草稿锁状态已变化，请前往首页高级设置继续处理。"
-              : apiError.message,
-          });
-          applySessionState({
-            lockStatus: "READ_ONLY",
-            leaseId: null,
-            leaseExpiresAt: null,
-          });
-        }
-      })();
-    }, heartbeatDelayMs);
-
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [
-    editorSession.heartbeatIntervalSeconds,
-    editorSession.leaseId,
-    editorSession.lockStatus,
-  ]);
+  useEditorSessionHeartbeat({
+    leaseId: editorSession.leaseId,
+    lockStatus: editorSession.lockStatus,
+    heartbeatIntervalSeconds: editorSession.heartbeatIntervalSeconds,
+    onHeartbeatSuccess: handleHeartbeatSuccess,
+    onHeartbeatError: handleHeartbeatError,
+  });
 
   async function persistDraft() {
     if (
@@ -235,42 +201,26 @@ export function useHomeStageEditorSession({
       return null;
     }
 
-    try {
-      const parsedLayoutMeta = parseLayoutMetaText(draftState.layoutMetaText);
-      const layoutMeta = buildLayoutMetaWithHotspotLabels(
-        parsedLayoutMeta,
-        draftState.hotspots,
-      );
-
-      await saveEditorDraft({
-        lease_id: editorSession.leaseId,
-        draft_version: editorSession.draftVersion,
-        base_layout_version: editorSession.baseLayoutVersion,
-        background_asset_id: draftState.backgroundAssetId,
-        layout_meta: layoutMeta,
-        hotspots: buildDraftHotspotInputs(draftState.hotspots),
-      });
-
-      const refreshed = await fetchEditorDraft(editorSession.leaseId);
-      applyDraftResponse(refreshed, {
+    return persistDraftUtil(
+      {
         leaseId: editorSession.leaseId,
+        draftVersion: editorSession.draftVersion,
+        baseLayoutVersion: editorSession.baseLayoutVersion,
+        draftState,
         leaseExpiresAt: editorSession.leaseExpiresAt,
         heartbeatIntervalSeconds: editorSession.heartbeatIntervalSeconds,
-      });
-      return refreshed;
-    } catch (error) {
-      const apiError = normalizeApiError(error);
-      setNotice({
-        tone: isConflictErrorCode(apiError.code) ? "warning" : "error",
-        title: isConflictErrorCode(apiError.code)
-          ? "请前往首页高级设置继续处理"
-          : "保存首页草稿失败",
-        detail: isConflictErrorCode(apiError.code)
-          ? "当前草稿锁或版本已变化，首页轻编辑不再继续承载这次修改。"
-          : apiError.message,
-      });
-      return null;
-    }
+      },
+      {
+        onDraftRefreshed: (refreshed) => {
+          applyDraftResponse(refreshed, {
+            leaseId: editorSession.leaseId,
+            leaseExpiresAt: editorSession.leaseExpiresAt,
+            heartbeatIntervalSeconds: editorSession.heartbeatIntervalSeconds,
+          });
+        },
+        onError: setNotice,
+      },
+    );
   }
 
   async function handleApplyChanges() {
@@ -315,28 +265,14 @@ export function useHomeStageEditorSession({
     }
   }
 
-  async function handleExitEditor() {
+  async function saveBeforeAction(action: () => void) {
     if (canEdit && hasUnsavedChanges) {
       setIsSaving(true);
       const saved = await persistDraft();
       setIsSaving(false);
-      if (!saved) {
-        return;
-      }
+      if (!saved) return;
     }
-    onExit();
-  }
-
-  async function handleOpenAdvancedSettings() {
-    if (canEdit && hasUnsavedChanges) {
-      setIsSaving(true);
-      const saved = await persistDraft();
-      setIsSaving(false);
-      if (!saved) {
-        return;
-      }
-    }
-    onOpenAdvancedSettings();
+    action();
   }
 
   return {
@@ -346,8 +282,8 @@ export function useHomeStageEditorSession({
     draftState,
     editorSession,
     handleApplyChanges,
-    handleExitEditor,
-    handleOpenAdvancedSettings,
+    handleExitEditor: () => saveBeforeAction(onExit),
+    handleOpenAdvancedSettings: () => saveBeforeAction(onOpenAdvancedSettings),
     hasUnsavedChanges,
     isApplying,
     isLoading,

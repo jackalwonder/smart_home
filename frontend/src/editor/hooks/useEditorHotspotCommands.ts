@@ -1,5 +1,4 @@
 import { DeviceListItemDto } from "../../api/types";
-import { deriveHotspotIconKey } from "../../utils/hotspotIcons";
 import { EditorHotspotViewModel } from "../../view-models/editor";
 import {
   resequenceHotspots,
@@ -8,16 +7,15 @@ import {
   type EditorDraftStateUpdater,
 } from "../editorDraftState";
 import { type EditorNoticeState } from "../editorWorkbenchNotices";
-import { buildDeviceHotspotId, getNextHotspotPosition } from "./editorHotspotEditingHelpers";
+import {
+  applyHotspotFieldUpdate,
+  buildDeviceHotspot,
+  buildDuplicatedHotspot,
+  buildEmptyHotspot,
+  type EditorHotspotField,
+} from "./editorHotspotEditingHelpers";
 
-export type EditorHotspotField =
-  | "label"
-  | "deviceId"
-  | "iconType"
-  | "labelMode"
-  | "x"
-  | "y"
-  | "structureOrder";
+export type { EditorHotspotField };
 
 interface UseEditorHotspotCommandsOptions {
   canEdit: boolean;
@@ -56,61 +54,23 @@ export function useEditorHotspotCommands({
     }
 
     updateDraftStateWithHistory(
-      (current) => {
-        const nextHotspots = current.hotspots.map((hotspot) => {
-          if (hotspot.id !== selectedHotspotId) {
-            return hotspot;
-          }
-
-          if (field === "x" || field === "y") {
-            const next = Math.min(Math.max(Number(value) / 100, 0), 1);
-            return {
-              ...hotspot,
-              [field]: Number.isFinite(next) ? next : hotspot[field],
-            };
-          }
-
-          if (field === "structureOrder") {
-            const next = Number(value);
-            return {
-              ...hotspot,
-              structureOrder: Number.isFinite(next)
-                ? Math.max(0, Math.round(next))
-                : hotspot.structureOrder,
-            };
-          }
-
-          if (field === "label") {
-            return { ...hotspot, label: value };
-          }
-
-          if (field === "deviceId") {
-            const device = deviceCatalog.find((item) => item.device_id === value);
-            return {
-              ...hotspot,
-              deviceId: value,
-              label: device?.display_name ?? hotspot.label,
-            };
-          }
-
-          if (field === "iconType") {
-            return {
-              ...hotspot,
-              iconType: value,
-              iconAssetId: null,
-              iconAssetUrl: null,
-            };
-          }
-
-          return { ...hotspot, [field]: value };
-        });
-
-        return {
-          ...current,
-          hotspots:
-            field === "structureOrder" ? resequenceHotspots(nextHotspots) : nextHotspots,
-        };
-      },
+      (current) => ({
+        ...current,
+        hotspots:
+          field === "structureOrder"
+            ? resequenceHotspots(
+                current.hotspots.map((hotspot) =>
+                  hotspot.id === selectedHotspotId
+                    ? applyHotspotFieldUpdate(hotspot, field, value, deviceCatalog)
+                    : hotspot,
+                ),
+              )
+            : current.hotspots.map((hotspot) =>
+                hotspot.id === selectedHotspotId
+                  ? applyHotspotFieldUpdate(hotspot, field, value, deviceCatalog)
+                  : hotspot,
+              ),
+      }),
       "修改热点属性",
       field === "label" || field === "deviceId" ? `field-${field}` : undefined,
     );
@@ -175,14 +135,8 @@ export function useEditorHotspotCommands({
       return;
     }
 
-    const duplicatedHotspot: EditorHotspotViewModel = {
-      ...selectedHotspot,
-      id: `${selectedHotspot.id}-copy-${Date.now()}`,
-      label: `${selectedHotspot.label} 副本`,
-      x: Math.min(selectedHotspot.x + 0.04, 1),
-      y: Math.min(selectedHotspot.y + 0.04, 1),
-      structureOrder: draftState.hotspots.length,
-    };
+    const order = draftState.hotspots.length + 1;
+    const duplicatedHotspot = buildDuplicatedHotspot(selectedHotspot, order);
 
     updateDraftStateWithHistory(
       (current) => ({
@@ -200,19 +154,8 @@ export function useEditorHotspotCommands({
       return;
     }
 
-    const newHotspot: EditorHotspotViewModel = {
-      id: `draft-hotspot-${Date.now()}`,
-      label: `热点 ${draftState.hotspots.length + 1}`,
-      deviceId: "",
-      x: 0.5,
-      y: 0.5,
-      iconType: "device",
-      iconAssetId: null,
-      iconAssetUrl: null,
-      labelMode: "AUTO",
-      isVisible: true,
-      structureOrder: draftState.hotspots.length,
-    };
+    const order = draftState.hotspots.length + 1;
+    const newHotspot = buildEmptyHotspot(order);
 
     updateDraftStateWithHistory(
       (current) => ({
@@ -238,20 +181,8 @@ export function useEditorHotspotCommands({
       return;
     }
 
-    const position = getNextHotspotPosition(draftState.hotspots.length);
-    const newHotspot: EditorHotspotViewModel = {
-      id: buildDeviceHotspotId(device.device_id),
-      label: device.display_name,
-      deviceId: device.device_id,
-      x: position.x,
-      y: position.y,
-      iconType: deriveHotspotIconKey(device.device_type, device.device_type),
-      iconAssetId: null,
-      iconAssetUrl: null,
-      labelMode: "AUTO",
-      isVisible: true,
-      structureOrder: draftState.hotspots.length,
-    };
+    const order = draftState.hotspots.length + 1;
+    const newHotspot = buildDeviceHotspot(device, order);
 
     updateDraftStateWithHistory(
       (current) => ({
