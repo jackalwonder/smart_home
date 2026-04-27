@@ -97,7 +97,6 @@ export function TerminalActivationPage({
           <div className="terminal-activation__entries">
             <ScanActivationForm
               disabled={loading}
-              error={flow.localError}
               scanInputRef={flow.scanInputRef}
               scanValue={flow.scanValue}
               onActivate={(value) => void flow.submitActivation(null, value, "scan")}

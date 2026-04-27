@@ -2,7 +2,6 @@ import type { RefObject } from "react";
 
 interface ScanActivationFormProps {
   disabled: boolean;
-  error: string | null;
   scanInputRef: RefObject<HTMLTextAreaElement | null>;
   scanValue: string;
   onActivate: (value: string) => void;
@@ -11,7 +10,6 @@ interface ScanActivationFormProps {
 
 export function ScanActivationForm({
   disabled,
-  error,
   scanInputRef,
   scanValue,
   onActivate,

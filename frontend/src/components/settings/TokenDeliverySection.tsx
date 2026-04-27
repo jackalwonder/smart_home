@@ -131,12 +131,7 @@ export function TokenDeliverySection({
               现场浏览器可访问时使用。复制链接给现场人员打开即可完成激活。
             </p>
           </div>
-          <input
-            className="control-input"
-            readOnly
-            type="text"
-            value={activationLink ?? ""}
-          />
+          <input className="control-input" readOnly type="text" value={activationLink ?? ""} />
           <button
             className="button button--ghost"
             disabled={!activationLink}

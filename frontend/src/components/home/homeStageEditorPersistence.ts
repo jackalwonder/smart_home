@@ -1,7 +1,4 @@
-import {
-  fetchEditorDraft,
-  saveEditorDraft,
-} from "../../api/editorApi";
+import { fetchEditorDraft, saveEditorDraft } from "../../api/editorApi";
 import { normalizeApiError } from "../../api/httpClient";
 import {
   buildDraftHotspotInputs,
@@ -26,10 +23,7 @@ interface PersistCallbacks {
   onError: (notice: EditorNoticeState) => void;
 }
 
-export async function persistDraft(
-  input: PersistDraftInput,
-  callbacks: PersistCallbacks,
-) {
+export async function persistDraft(input: PersistDraftInput, callbacks: PersistCallbacks) {
   try {
     const parsedLayoutMeta = parseLayoutMetaText(input.draftState.layoutMetaText);
     const layoutMeta = buildLayoutMetaWithHotspotLabels(

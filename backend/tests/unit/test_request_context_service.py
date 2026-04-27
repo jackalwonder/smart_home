@@ -312,7 +312,7 @@ async def test_websocket_subprotocol_can_carry_bearer_jwt():
 
 
 @pytest.mark.asyncio
-async def test_websocket_query_access_token_is_legacy_compatible():
+async def test_websocket_query_access_token_is_not_accepted():
     resolver = _resolver()
     token = resolver.issue(
         home_id="home-1",
@@ -324,16 +324,16 @@ async def test_websocket_query_access_token_is_legacy_compatible():
         access_token_resolver=resolver,
     )
 
-    context = await service.resolve_websocket_request(
-        _request(query_params={"access_token": token}),
-        require_home=True,
-        require_terminal=True,
-        require_session_auth=True,
-    )
+    with pytest.raises(AppError) as exc_info:
+        await service.resolve_websocket_request(
+            _request(query_params={"access_token": token}),
+            require_home=True,
+            require_terminal=True,
+            require_session_auth=True,
+        )
 
-    assert context.auth_mode == "bearer"
-    assert context.home_id == "home-1"
-    assert context.terminal_id == "terminal-1"
+    assert exc_info.value.code == ErrorCode.UNAUTHORIZED
+    assert exc_info.value.message == "session authentication is required"
 
 
 @pytest.mark.asyncio

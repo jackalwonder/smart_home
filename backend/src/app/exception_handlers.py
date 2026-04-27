@@ -29,6 +29,8 @@ def status_code_for_error(code: ErrorCode) -> int:
         return 403
     if code in {ErrorCode.DEVICE_NOT_FOUND, ErrorCode.CONTROL_REQUEST_NOT_FOUND}:
         return 404
+    if code == ErrorCode.FORBIDDEN:
+        return 403
     if code == ErrorCode.HA_UNAVAILABLE:
         return 503
     return 400

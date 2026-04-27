@@ -18,10 +18,9 @@ export function RestoreConfirmPanel({
       <div>
         <strong>确认恢复 {backup.backup_id}</strong>
         <p className="muted-copy">
-          恢复会生成新的设置和布局版本。快照设置版本{" "}
-          {backup.summary.settings_version ?? "-"}，当前{" "}
-          {backup.comparison.current_settings_version ?? "-"}；
-          快照布局版本 {backup.summary.layout_version ?? "-"}，当前{" "}
+          恢复会生成新的设置和布局版本。快照设置版本 {backup.summary.settings_version ?? "-"}
+          ，当前 {backup.comparison.current_settings_version ?? "-"}； 快照布局版本{" "}
+          {backup.summary.layout_version ?? "-"}，当前{" "}
           {backup.comparison.current_layout_version ?? "-"}。
         </p>
       </div>

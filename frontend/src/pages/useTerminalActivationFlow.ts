@@ -159,11 +159,11 @@ export function useTerminalActivationFlow({
   }, [onActivate, pairingSession?.pairing_id, pairingSession?.terminal_id, successState]);
 
   async function submitActivation(
-    event: FormEvent<HTMLFormElement>,
+    event: FormEvent<HTMLFormElement> | null,
     rawValue: string,
     mode: TerminalActivationEntryMode,
   ) {
-    event.preventDefault();
+    event?.preventDefault();
     if (!rawValue.trim() || loading) {
       return;
     }

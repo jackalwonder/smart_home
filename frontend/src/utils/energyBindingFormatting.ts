@@ -1,6 +1,6 @@
 import type { EnergyDto } from "../api/types";
 import { formatSettingsStatus, getSettingsStatusTone } from "../settings/statusFormat";
-import type { EnergyBindingDraft, EnergyEntityMapKey } from "../components/settings/EnergyBindingPanel";
+import type { EnergyBindingDraft } from "../components/settings/EnergyBindingPanel";
 
 export function formatValue(value: string | number | boolean | null | undefined) {
   if (value === null || value === undefined || value === "") {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EditorHotspotViewModel } from "../../view-models/editor";
+import type { EditorHotspotViewModel } from "../../../view-models/editor";
 import {
   applyHotspotFieldUpdate,
   buildDeviceHotspot,

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import FastAPI, Request
 from redis.asyncio import Redis
 
-from src.shared.config.Settings import Settings
+from src.shared.config.Settings import LOCAL_APP_ENVS, Settings
+from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.http.ResponseEnvelope import SuccessEnvelope, error_response, success_response
 from src.shared.observability import get_observability_metrics
@@ -34,6 +36,22 @@ async def check_redis(redis_url: str, timeout_seconds: float) -> None:
         await client.ping()
     finally:
         await client.aclose()
+
+
+def is_observability_client_allowed(client_host: str | None, cidrs_config: str) -> bool:
+    if client_host is None:
+        return False
+    try:
+        host_addr = ipaddress.ip_address(client_host)
+    except ValueError:
+        return False
+    for cidr in cidrs_config.split(","):
+        try:
+            if host_addr in ipaddress.ip_network(cidr.strip()):
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 def register_health_routes(
@@ -94,4 +112,11 @@ def register_health_routes(
         include_in_schema=False,
     )
     async def observabilityz(request: Request):
+        normalized_env = settings.app_env.strip().lower()
+        if normalized_env not in LOCAL_APP_ENVS:
+            client_host = request.client.host if request.client else None
+            if not is_observability_client_allowed(
+                client_host, settings.observability_allowed_cidrs
+            ):
+                raise AppError(ErrorCode.FORBIDDEN, "observabilityz is restricted")
         return success_response(request, get_observability_metrics().snapshot())

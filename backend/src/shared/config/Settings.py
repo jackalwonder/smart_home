@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     energy_upstream_ha_entity_id: str | None = None
     energy_upstream_wait_timeout_seconds: int = 900
     energy_upstream_poll_interval_seconds: float = 10.0
+    observability_allowed_cidrs: str = "127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 
     @model_validator(mode="after")
     def validate_non_local_secrets(self) -> "Settings":

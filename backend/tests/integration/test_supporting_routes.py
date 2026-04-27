@@ -604,3 +604,21 @@ def test_readyz_returns_503_when_dependency_is_unavailable(monkeypatch, client):
     assert body["error"]["details"]["checks"]["database"]["status"] == "ok"
     assert body["error"]["details"]["checks"]["redis"]["status"] == "unavailable"
     assert body["error"]["details"]["checks"]["redis"]["error_type"] == "RuntimeError"
+
+
+def test_observabilityz_rejects_non_local_ip_on_production_env(monkeypatch):
+    from fastapi.testclient import TestClient
+    from src.shared.config.Settings import get_settings
+
+    monkeypatch.setenv("APP_ENV", "production")
+    get_settings.cache_clear()
+    try:
+        app = main_module.create_app()
+        with TestClient(app) as client:
+            response = client.get("/observabilityz")
+            assert response.status_code == 403
+            body = response.json()
+            assert body["success"] is False
+            assert body["error"]["code"] == "FORBIDDEN"
+    finally:
+        get_settings.cache_clear()

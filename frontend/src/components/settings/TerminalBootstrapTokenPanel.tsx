@@ -172,9 +172,7 @@ export function TerminalBootstrapTokenPanel({
       <AuditTimeline
         ariaLabel="激活凭据审计"
         canEdit={canEdit}
-        emptyLabel={
-          auditLoading ? "正在加载激活凭据审计。" : "当前还没有激活凭据审计记录。"
-        }
+        emptyLabel={auditLoading ? "正在加载激活凭据审计。" : "当前还没有激活凭据审计记录。"}
         items={audits}
         loading={auditLoading}
         loadingLabel="刷新中..."

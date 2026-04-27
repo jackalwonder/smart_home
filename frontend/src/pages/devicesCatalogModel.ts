@@ -1,8 +1,4 @@
-import {
-  DeviceDetailDto,
-  DeviceEntityLinkDto,
-  DeviceListItemDto,
-} from "../api/types";
+import { DeviceDetailDto, DeviceEntityLinkDto, DeviceListItemDto } from "../api/types";
 import {
   describeControlSchema,
   formatControlAction,

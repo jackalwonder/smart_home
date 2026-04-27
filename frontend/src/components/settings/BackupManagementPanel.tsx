@@ -264,9 +264,7 @@ export function BackupManagementPanel({
       <AuditTimeline
         ariaLabel="恢复历史"
         canEdit={canEdit}
-        emptyLabel={
-          auditLoading ? "正在加载恢复历史。" : "当前还没有恢复审计记录。"
-        }
+        emptyLabel={auditLoading ? "正在加载恢复历史。" : "当前还没有恢复审计记录。"}
         items={restoreAudits}
         loading={auditLoading}
         loadingLabel="刷新中..."

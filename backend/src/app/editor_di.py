@@ -5,7 +5,6 @@ from injector import Module, provider, singleton
 from src.shared.kernel.implementations import SystemClock, UuidEventIdGenerator, UuidIdGenerator
 from src.shared.kernel.implementations import TimestampVersionTokenGenerator
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
-from src.modules.editor.services.EditorDraftConflictDetails import EditorDraftConflictDetails
 from src.modules.editor.services.EditorDraftDiffBuilder import EditorDraftDiffBuilder
 from src.modules.editor.services.EditorDraftService import EditorDraftService
 from src.modules.editor.services.EditorPublishService import EditorPublishService
@@ -42,11 +41,6 @@ class EditorModule(Module):
     @singleton
     def provide_editor_draft_diff_builder(self) -> EditorDraftDiffBuilder:
         return EditorDraftDiffBuilder()
-
-    @provider
-    @singleton
-    def provide_editor_draft_conflict_details(self) -> EditorDraftConflictDetails:
-        return EditorDraftConflictDetails()
 
     @provider
     @singleton
@@ -97,7 +91,6 @@ class EditorModule(Module):
         version_token_generator: TimestampVersionTokenGenerator,
         clock: SystemClock,
         diff_builder: EditorDraftDiffBuilder,
-        conflict_details: EditorDraftConflictDetails,
     ) -> EditorDraftService:
         return EditorDraftService(
             unit_of_work=unit_of_work,
@@ -111,7 +104,6 @@ class EditorModule(Module):
             version_token_generator=version_token_generator,
             clock=clock,
             diff_builder=diff_builder,
-            conflict_details=conflict_details,
         )
 
     @provider

@@ -731,8 +731,7 @@ export async function openRealtimeProbe(page: Page, accessToken: string) {
       const events: unknown[] = [];
       const url = new URL("/ws", window.location.origin);
       url.protocol = url.protocol.replace("http", "ws");
-      url.searchParams.set("access_token", token);
-      const ws = new WebSocket(url.toString());
+      const ws = new WebSocket(url.toString(), ["bearer", token]);
       (
         window as typeof window & {
           __m1Ws?: WebSocket;

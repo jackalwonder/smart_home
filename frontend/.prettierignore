@@ -1,5 +1,6 @@
 dist
 node_modules
 test-results
+test-results-*
 src/api/types.generated.ts
 src/ws/realtime.generated.ts

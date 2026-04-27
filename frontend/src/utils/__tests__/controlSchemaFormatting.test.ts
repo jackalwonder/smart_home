@@ -78,25 +78,27 @@ describe("controlSchemaFormatting", () => {
 
   describe("formatControlTarget", () => {
     it("detects fridge and freezer target keys", () => {
-      expect(formatControlTarget({ target_key: "fridge_temp", target_scope: null } as any)).toBe(
-        "冷藏室温度",
-      );
-      expect(formatControlTarget({ target_key: "freeze.temp", target_scope: null } as any)).toBe(
-        "冷冻室温度",
-      );
+      expect(
+        formatControlTarget({ target_key: "fridge_temp", target_scope: null } as any),
+      ).toBe("冷藏室温度");
+      expect(
+        formatControlTarget({ target_key: "freeze.temp", target_scope: null } as any),
+      ).toBe("冷冻室温度");
     });
 
     it("detects temperature, brightness, mode, and power targets", () => {
-      expect(formatControlTarget({ target_key: "temperature", target_scope: null } as any)).toBe(
-        "温度",
+      expect(
+        formatControlTarget({ target_key: "temperature", target_scope: null } as any),
+      ).toBe("温度");
+      expect(
+        formatControlTarget({ target_key: "brightness", target_scope: null } as any),
+      ).toBe("亮度");
+      expect(formatControlTarget({ target_key: "mode", target_scope: null } as any)).toBe(
+        "模式",
       );
-      expect(formatControlTarget({ target_key: "brightness", target_scope: null } as any)).toBe(
-        "亮度",
-      );
-      expect(formatControlTarget({ target_key: "mode", target_scope: null } as any)).toBe("模式");
-      expect(formatControlTarget({ target_key: "power_switch", target_scope: null } as any)).toBe(
-        "开关",
-      );
+      expect(
+        formatControlTarget({ target_key: "power_switch", target_scope: null } as any),
+      ).toBe("开关");
     });
 
     it("returns 主操作 for PRIMARY scope", () => {
@@ -144,7 +146,9 @@ describe("controlSchemaFormatting", () => {
 
   describe("formatControlRange", () => {
     it("formats a valid range object", () => {
-      expect(formatControlRange({ min: 0, max: 100, step: 5 }, "%")).toBe("0 到 100 %，步进 5");
+      expect(formatControlRange({ min: 0, max: 100, step: 5 }, "%")).toBe(
+        "0 到 100 %，步进 5",
+      );
     });
 
     it("returns formatted json for non-object values", () => {

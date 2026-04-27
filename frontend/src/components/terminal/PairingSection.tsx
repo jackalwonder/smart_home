@@ -5,15 +5,15 @@ import {
   pairingStatusSummary,
   statusTone,
 } from "../../pages/terminalActivationModel";
-import type { TerminalPairingIssueDto } from "../../api/types";
+import type { TerminalPairingIssueDto, TerminalPairingPollDto } from "../../api/types";
 
 interface PairingSectionProps {
-  expiresInSeconds: number;
+  expiresInSeconds: number | null;
   pairingBusy: boolean;
   pairingClaimedAt: string | null;
   pairingError: string | null;
   pairingSession: TerminalPairingIssueDto | null;
-  pairingStatus: string | null;
+  pairingStatus: TerminalPairingPollDto["status"];
   pairingTokenExpiresAt: string | null;
   refreshCooldownSeconds: number;
   terminalId: string;
@@ -33,8 +33,7 @@ export function PairingSection({
 }: PairingSectionProps) {
   const pairingSummary = pairingStatusSummary(pairingStatus);
   const pairingStages = buildPairingStages(pairingStatus);
-  const pairingCode =
-    pairingSession?.pairing_code ?? (pairingBusy ? "Loading..." : "--");
+  const pairingCode = pairingSession?.pairing_code ?? (pairingBusy ? "Loading..." : "--");
 
   return (
     <section
@@ -46,9 +45,7 @@ export function PairingSection({
           <span className="terminal-activation__entry-tag">现场认领</span>
           <h2 id="pairing-title">等待绑定码认领</h2>
         </div>
-        <span
-          className={`terminal-activation__entry-badge is-${statusTone(pairingStatus)}`}
-        >
+        <span className={`terminal-activation__entry-badge is-${statusTone(pairingStatus)}`}>
           {pairingSummary.hint}
         </span>
       </div>
@@ -62,9 +59,7 @@ export function PairingSection({
           <span className="terminal-activation__pairing-label">绑定码</span>
           <strong data-testid="pairing-code-value">{pairingCode}</strong>
         </div>
-        <div
-          className={`terminal-activation__pairing-meta is-${statusTone(pairingStatus)}`}
-        >
+        <div className={`terminal-activation__pairing-meta is-${statusTone(pairingStatus)}`}>
           <span>当前状态</span>
           <strong data-testid="pairing-status-value">{pairingSummary.label}</strong>
           <small>{pairingSummary.detail}</small>

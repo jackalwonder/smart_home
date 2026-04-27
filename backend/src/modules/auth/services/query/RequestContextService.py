@@ -425,6 +425,7 @@ class RequestContextService:
             require_bearer=False,
             require_session_auth=require_session_auth,
             required_access_scope="ws",
+            allow_query_access_token=False,
             allow_cookie_access_token=False,
             allow_explicit_token=False,
         )

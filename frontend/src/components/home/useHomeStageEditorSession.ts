@@ -12,6 +12,7 @@ import {
 import { appStore } from "../../store/useAppStore";
 import {
   draftResponseToStageState,
+  isConflictErrorCode,
   type EditorNoticeState,
   type LightEditorSessionState,
 } from "./homeStageEditorModel";
@@ -164,24 +165,18 @@ export function useHomeStageEditorSession({
     void openLightEditorSession();
   }, [pinActive]);
 
-  const handleHeartbeatSuccess = useCallback(
-    (nextState: Partial<LightEditorSessionState>) => {
-      applySessionState(nextState);
-    },
-    [],
-  );
+  const handleHeartbeatSuccess = useCallback((nextState: Partial<LightEditorSessionState>) => {
+    applySessionState(nextState);
+  }, []);
 
-  const handleHeartbeatError = useCallback(
-    (errorNotice: EditorNoticeState) => {
-      setNotice(errorNotice);
-      applySessionState({
-        lockStatus: "READ_ONLY",
-        leaseId: null,
-        leaseExpiresAt: null,
-      });
-    },
-    [],
-  );
+  const handleHeartbeatError = useCallback((errorNotice: EditorNoticeState) => {
+    setNotice(errorNotice);
+    applySessionState({
+      lockStatus: "READ_ONLY",
+      leaseId: null,
+      leaseExpiresAt: null,
+    });
+  }, []);
 
   useEditorSessionHeartbeat({
     leaseId: editorSession.leaseId,
