@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from injector import Module, provider, singleton
 
-from src.app.containers.core_container import SystemClock, UuidIdGenerator
+from src.shared.kernel.implementations import SystemClock, UuidIdGenerator
 from src.modules.auth.services.command.BootstrapTokenService import BootstrapTokenService
 from src.modules.auth.services.command.PinVerificationService import PinVerificationService
 from src.modules.auth.services.command.TerminalPairingCodeService import (

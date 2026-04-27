@@ -48,27 +48,31 @@ class AppModule:
 
 
 async def _start_ha_realtime_sync() -> None:
-    from src.app.container import get_ha_realtime_sync_service
+    from src.app.injector import get_injector
+    from src.modules.system_connections.services.HaRealtimeSyncService import HaRealtimeSyncService
 
-    await get_ha_realtime_sync_service().start()
+    await get_injector().get(HaRealtimeSyncService).start()
 
 
 async def _stop_ha_realtime_sync() -> None:
-    from src.app.container import get_ha_realtime_sync_service
+    from src.app.injector import get_injector
+    from src.modules.system_connections.services.HaRealtimeSyncService import HaRealtimeSyncService
 
-    await get_ha_realtime_sync_service().stop()
+    await get_injector().get(HaRealtimeSyncService).stop()
 
 
 async def _start_energy_auto_refresh() -> None:
-    from src.app.container import get_energy_auto_refresh_service
+    from src.app.injector import get_injector
+    from src.modules.energy.services.EnergyAutoRefreshService import EnergyAutoRefreshService
 
-    await get_energy_auto_refresh_service().start()
+    await get_injector().get(EnergyAutoRefreshService).start()
 
 
 async def _stop_energy_auto_refresh() -> None:
-    from src.app.container import get_energy_auto_refresh_service
+    from src.app.injector import get_injector
+    from src.modules.energy.services.EnergyAutoRefreshService import EnergyAutoRefreshService
 
-    await get_energy_auto_refresh_service().stop()
+    await get_injector().get(EnergyAutoRefreshService).stop()
 
 
 async def start_app_modules(modules: tuple[AppModule, ...] | None = None) -> None:

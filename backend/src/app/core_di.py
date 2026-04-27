@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from injector import Module, provider, singleton
 
-from src.app.containers.core_container import (
+from src.shared.kernel.implementations import (
     SystemClock,
     TimestampVersionTokenGenerator,
     UuidEventIdGenerator,

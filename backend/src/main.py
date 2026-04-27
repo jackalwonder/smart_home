@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.app.container import get_database
+from src.app.injector import get_injector
+from src.infrastructure.db.connection.Database import Database
 from src.app.exception_handlers import register_exception_handlers
 from src.app.health_routes import check_redis as _check_redis
 from src.app.health_routes import register_health_routes
