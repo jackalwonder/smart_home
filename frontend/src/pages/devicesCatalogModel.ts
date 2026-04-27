@@ -1,11 +1,35 @@
 import {
-  DeviceControlSchemaItemDto,
   DeviceDetailDto,
   DeviceEntityLinkDto,
   DeviceListItemDto,
-  SettingsDto,
-  SettingsSaveInput,
 } from "../api/types";
+import {
+  describeControlSchema,
+  formatControlAction,
+  formatControlOption,
+  formatControlRange,
+  formatControlTarget,
+  formatControlValueType,
+} from "../utils/controlSchemaFormatting";
+import {
+  buildNextFavorites,
+  buildSettingsSaveInput,
+  getNextFavoriteOrder,
+  normalizeFavorites,
+} from "../utils/deviceFavorites";
+
+export {
+  buildNextFavorites,
+  buildSettingsSaveInput,
+  describeControlSchema,
+  formatControlAction,
+  formatControlOption,
+  formatControlRange,
+  formatControlTarget,
+  formatControlValueType,
+  getNextFavoriteOrder,
+  normalizeFavorites,
+};
 
 export type OfflineFilter = "ALL" | "ONLINE" | "OFFLINE";
 export type HomeEntryAction = "add" | "remove";
@@ -106,107 +130,6 @@ export function getEntityLinks(detail: DeviceDetailDto): DeviceEntityLinkDto[] {
   return Array.isArray(links) ? links : [];
 }
 
-export function describeControlSchema(schema: DeviceControlSchemaItemDto) {
-  const target = formatControlTarget(schema);
-  const value = schema.allowed_values?.length
-    ? schema.allowed_values.map(formatControlOption).join("、")
-    : schema.value_range
-      ? formatControlRange(schema.value_range, schema.unit)
-      : formatControlValueType(schema.value_type);
-  return { target: target || "-", value };
-}
-
-export function formatControlAction(value: string | null | undefined) {
-  const normalized = (value ?? "").toUpperCase();
-  const labels: Record<string, string> = {
-    EXECUTE_ACTION: "执行动作",
-    RESET: "重置",
-    SET_BRIGHTNESS: "调节亮度",
-    SET_MODE: "切换模式",
-    SET_TEMPERATURE: "设置温度",
-    TOGGLE: "开关切换",
-    TOGGLE_POWER: "开关切换",
-    TURN_OFF: "关闭",
-    TURN_ON: "开启",
-  };
-  return labels[normalized] ?? (value ? value.replaceAll("_", " ") : "控制项");
-}
-
-export function formatControlTarget(schema: DeviceControlSchemaItemDto) {
-  const source = `${schema.target_scope ?? ""} ${schema.target_key ?? ""}`.toLowerCase();
-  const scope = (schema.target_scope ?? "").toUpperCase();
-  const targetKey = (schema.target_key ?? "").toLowerCase();
-  if (source.includes("fridge") || source.includes("refrigerator")) {
-    return "冷藏室温度";
-  }
-  if (source.includes("freezer") || source.includes("freeze")) {
-    return "冷冻室温度";
-  }
-  if (source.includes("temperature") || source.includes("temp")) {
-    return "温度";
-  }
-  if (source.includes("brightness")) {
-    return "亮度";
-  }
-  if (source.includes("mode")) {
-    return "模式";
-  }
-  if (source.includes("power") || source.includes("switch")) {
-    return "开关";
-  }
-  if (scope === "PRIMARY") {
-    return "主操作";
-  }
-  if (targetKey.startsWith("button.") || targetKey.includes(".button.")) {
-    return "设备动作";
-  }
-  if (schema.target_scope || schema.target_key) {
-    return "设备控制";
-  }
-  return "设备控制";
-}
-
-export function formatControlOption(value: unknown) {
-  const normalized = String(value).toLowerCase();
-  const labels: Record<string, string> = {
-    auto: "自动",
-    boost: "速冷",
-    holiday: "假日",
-    manual: "手动",
-    none: "无需输入",
-    off: "关闭",
-    on: "开启",
-    smart: "智能",
-    super_cool: "速冷",
-    super_freeze: "速冻",
-  };
-  return labels[normalized] ?? String(value);
-}
-
-export function formatControlValueType(value: string | null | undefined) {
-  const normalized = (value ?? "").toUpperCase();
-  const labels: Record<string, string> = {
-    BOOLEAN: "开关值",
-    FLOAT: "数字",
-    INTEGER: "整数",
-    NONE: "无需输入",
-    NUMBER: "数字",
-    STRING: "文本",
-  };
-  return labels[normalized] ?? (value ? value.replaceAll("_", " ") : "无需输入");
-}
-
-export function formatControlRange(value: unknown, unit?: string | null) {
-  if (!value || typeof value !== "object") {
-    return compactJson(value);
-  }
-  const range = value as { min?: unknown; max?: unknown; step?: unknown };
-  const min = range.min ?? "-";
-  const max = range.max ?? "-";
-  const step = range.step ? `，步进 ${range.step}` : "";
-  return `${min} 到 ${max}${unit ? ` ${unit}` : ""}${step}`;
-}
-
 export function formatEntityDomain(value: string | null | undefined) {
   const normalized = (value ?? "").toLowerCase();
   const labels: Record<string, string> = {
@@ -239,77 +162,6 @@ export function formatEntityRole(value: string | null | undefined) {
     temperature: "温度",
   };
   return labels[normalized] ?? (value || "-");
-}
-
-export function normalizeFavorites(settings: SettingsDto): SettingsSaveInput["favorites"] {
-  return (settings.favorites ?? []).map((favorite, index) => ({
-    device_id: favorite.device_id,
-    selected: favorite.selected ?? true,
-    favorite_order:
-      typeof favorite.favorite_order === "number" ? favorite.favorite_order : index,
-  }));
-}
-
-export function getNextFavoriteOrder(favorites: SettingsSaveInput["favorites"]) {
-  const orders = favorites
-    .map((favorite, index) =>
-      typeof favorite.favorite_order === "number" ? favorite.favorite_order : index,
-    )
-    .filter((order) => Number.isFinite(order));
-  return orders.length ? Math.max(...orders) + 1 : 0;
-}
-
-export function buildSettingsSaveInput(
-  settings: SettingsDto,
-  favorites: SettingsSaveInput["favorites"],
-): SettingsSaveInput {
-  const pageSettings = settings.page_settings;
-  const functionSettings = settings.function_settings;
-
-  return {
-    settings_version: settings.settings_version ?? null,
-    page_settings: {
-      room_label_mode: pageSettings?.room_label_mode ?? "ROOM_NAME",
-      homepage_display_policy: pageSettings?.homepage_display_policy ?? {},
-      icon_policy: pageSettings?.icon_policy ?? {},
-      layout_preference: pageSettings?.layout_preference ?? {},
-    },
-    function_settings: {
-      low_battery_threshold: functionSettings?.low_battery_threshold ?? 20,
-      offline_threshold_seconds: functionSettings?.offline_threshold_seconds ?? 300,
-      quick_entry_policy: functionSettings?.quick_entry_policy ?? {
-        favorites: true,
-      },
-      music_enabled: functionSettings?.music_enabled ?? true,
-      favorite_limit: functionSettings?.favorite_limit ?? 8,
-      auto_home_timeout_seconds: functionSettings?.auto_home_timeout_seconds ?? 30,
-      position_device_thresholds: functionSettings?.position_device_thresholds ?? {},
-    },
-    favorites,
-  };
-}
-
-export function buildNextFavorites(
-  settings: SettingsDto,
-  deviceId: string,
-  action: HomeEntryAction,
-) {
-  const favorites = normalizeFavorites(settings).filter(
-    (favorite) => favorite.device_id !== deviceId,
-  );
-
-  if (action === "remove") {
-    return favorites;
-  }
-
-  return [
-    ...favorites,
-    {
-      device_id: deviceId,
-      selected: true,
-      favorite_order: getNextFavoriteOrder(favorites),
-    },
-  ];
 }
 
 export function filterDevicesByOfflineStatus(

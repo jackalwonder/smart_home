@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { BackupListItemDto, BackupRestoreAuditItemDto } from "../../api/types";
+import { AuditTimeline } from "../shared/AuditTimeline";
+import { RestoreConfirmPanel } from "./RestoreConfirmPanel";
+import { formatDateTime, formatShortId } from "../../utils/formatting";
 import { SettingsModuleCard } from "./SettingsModuleCard";
 
 interface BackupManagementPanelProps {
@@ -17,27 +20,6 @@ interface BackupManagementPanelProps {
   onRefresh: () => void;
   onRefreshAudits: () => void;
   onRestoreBackup: (backup: BackupListItemDto) => void;
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) {
-    return "-";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString("zh-CN", {
-    dateStyle: "short",
-    timeStyle: "medium",
-  });
-}
-
-function formatShortId(value: string | null | undefined) {
-  if (!value) {
-    return "-";
-  }
-  return value.length > 14 ? `...${value.slice(-10)}` : value;
 }
 
 function formatVersion(value: string | null | undefined) {
@@ -181,7 +163,7 @@ export function BackupManagementPanel({
           backups.map((backup) => (
             <div className="backup-list__row" key={backup.backup_id}>
               <div className="backup-list__summary">
-                <strong>{formatShortId(backup.backup_id)}</strong>
+                <strong>{formatShortId(backup.backup_id, 14, 10)}</strong>
                 <span>{backup.note || "无备注"}</span>
               </div>
               <div className="backup-snapshot" aria-label={`快照摘要 ${backup.backup_id}`}>
@@ -246,39 +228,15 @@ export function BackupManagementPanel({
                 </div>
               </dl>
               {pendingRestoreId === backup.backup_id && pendingRestore ? (
-                <div className="backup-restore-confirm" role="alert">
-                  <div>
-                    <strong>确认恢复 {pendingRestore.backup_id}</strong>
-                    <p className="muted-copy">
-                      恢复会生成新的设置和布局版本。快照设置版本{" "}
-                      {pendingRestore.summary.settings_version ?? "-"}，当前{" "}
-                      {pendingRestore.comparison.current_settings_version ?? "-"}；
-                      快照布局版本 {pendingRestore.summary.layout_version ?? "-"}，当前{" "}
-                      {pendingRestore.comparison.current_layout_version ?? "-"}。
-                    </p>
-                  </div>
-                  <div className="settings-module-card__actions">
-                    <button
-                      className="button button--ghost"
-                      disabled={restoreBusyId !== null}
-                      onClick={() => setPendingRestoreId(null)}
-                      type="button"
-                    >
-                      取消
-                    </button>
-                    <button
-                      className="button button--primary"
-                      disabled={restoreBusyId !== null}
-                      onClick={() => {
-                        onRestoreBackup(pendingRestore);
-                        setPendingRestoreId(null);
-                      }}
-                      type="button"
-                    >
-                      {restoreBusyId === pendingRestore.backup_id ? "恢复中..." : "确认恢复"}
-                    </button>
-                  </div>
-                </div>
+                <RestoreConfirmPanel
+                  backup={pendingRestore}
+                  busy={restoreBusyId !== null}
+                  onCancel={() => setPendingRestoreId(null)}
+                  onConfirm={() => {
+                    onRestoreBackup(pendingRestore);
+                    setPendingRestoreId(null);
+                  }}
+                />
               ) : (
                 <button
                   className="button button--ghost"
@@ -303,68 +261,59 @@ export function BackupManagementPanel({
         )}
       </div>
 
-      <section className="backup-audit" aria-label="恢复历史">
-        <div className="backup-audit__header">
-          <div>
-            <h4>恢复历史</h4>
-            <p className="muted-copy">按最近恢复时间查看审计记录和恢复后的版本。</p>
-          </div>
-          <button
-            className="button button--ghost"
-            disabled={!canEdit || auditLoading}
-            onClick={onRefreshAudits}
-            type="button"
-          >
-            {auditLoading ? "刷新中..." : "刷新历史"}
-          </button>
-        </div>
-        <div className="backup-audit__timeline">
-          {restoreAudits.length ? (
-            restoreAudits.map((audit) => (
-              <article className="backup-audit__item" key={audit.audit_id}>
-                <div className="backup-audit__summary">
-                  <strong>{formatShortId(audit.backup_id)}</strong>
-                  <span>{formatDateTime(audit.restored_at)}</span>
-                </div>
-                <dl className="backup-audit__meta">
-                  <div>
-                    <dt>记录编号</dt>
-                    <dd>{formatShortId(audit.audit_id)}</dd>
-                  </div>
-                  <div>
-                    <dt>设置版本</dt>
-                    <dd>{formatVersion(audit.settings_version)}</dd>
-                  </div>
-                  <div>
-                    <dt>布局版本</dt>
-                    <dd>{formatVersion(audit.layout_version)}</dd>
-                  </div>
-                  <div>
-                    <dt>操作人</dt>
-                    <dd>{audit.operator_name ?? audit.operator_id ?? "-"}</dd>
-                  </div>
-                  <div>
-                    <dt>终端</dt>
-                    <dd>{formatShortId(audit.terminal_id)}</dd>
-                  </div>
-                  <div>
-                    <dt>结果</dt>
-                    <dd>{formatRestoreResult(audit.result_status)}</dd>
-                  </div>
-                  <div>
-                    <dt>失败原因</dt>
-                    <dd>{formatRestoreFailure(audit)}</dd>
-                  </div>
-                </dl>
-              </article>
-            ))
-          ) : (
-            <p className="backup-list__empty">
-              {auditLoading ? "正在加载恢复历史。" : "当前还没有恢复审计记录。"}
-            </p>
-          )}
-        </div>
-      </section>
+      <AuditTimeline
+        ariaLabel="恢复历史"
+        canEdit={canEdit}
+        emptyLabel={
+          auditLoading ? "正在加载恢复历史。" : "当前还没有恢复审计记录。"
+        }
+        items={restoreAudits}
+        loading={auditLoading}
+        loadingLabel="刷新中..."
+        refreshLabel="刷新历史"
+        sectionDescription="按最近恢复时间查看审计记录和恢复后的版本。"
+        sectionTitle="恢复历史"
+        getItemKey={(audit) => audit.audit_id}
+        renderItem={(audit) => (
+          <>
+            <div className="backup-audit__summary">
+              <strong>{formatShortId(audit.backup_id, 14, 10)}</strong>
+              <span>{formatDateTime(audit.restored_at)}</span>
+            </div>
+            <dl className="backup-audit__meta">
+              <div>
+                <dt>记录编号</dt>
+                <dd>{formatShortId(audit.audit_id, 14, 10)}</dd>
+              </div>
+              <div>
+                <dt>设置版本</dt>
+                <dd>{formatVersion(audit.settings_version)}</dd>
+              </div>
+              <div>
+                <dt>布局版本</dt>
+                <dd>{formatVersion(audit.layout_version)}</dd>
+              </div>
+              <div>
+                <dt>操作人</dt>
+                <dd>{audit.operator_name ?? audit.operator_id ?? "-"}</dd>
+              </div>
+              <div>
+                <dt>终端</dt>
+                <dd>{formatShortId(audit.terminal_id, 14, 10)}</dd>
+              </div>
+              <div>
+                <dt>结果</dt>
+                <dd>{formatRestoreResult(audit.result_status)}</dd>
+              </div>
+              <div>
+                <dt>失败原因</dt>
+                <dd>{formatRestoreFailure(audit)}</dd>
+              </div>
+            </dl>
+          </>
+        )}
+        onRefresh={onRefreshAudits}
+      />
     </SettingsModuleCard>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { DeviceListItemDto } from "../../api/types";
 import { HomeHotspotViewModel } from "../../view-models/home";
 import { HotspotDetailControls } from "./HotspotDetailControls";
@@ -24,20 +24,7 @@ export function HomeHotspotControlModal({
 }: HomeHotspotControlModalProps) {
   const control = useHomeHotspotControl({ devices, hotspot, mode, open });
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
+  useEscapeKey(onClose, open);
 
   if (!open || !hotspot || !control.primaryCandidate) {
     return null;
