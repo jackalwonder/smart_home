@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from src.shared.config.Settings import LOCAL_APP_ENVS, get_settings
 from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.http.ResponseEnvelope import error_response
+
+logger = logging.getLogger(__name__)
 
 
 def status_code_for_error(code: ErrorCode) -> int:
@@ -90,10 +95,20 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
         request.state.error_code = str(ErrorCode.INTERNAL_SERVER_ERROR)
+        logger.exception(
+            "Unhandled exception while processing request trace_id=%s path=%s",
+            getattr(request.state, "trace_id", None),
+            request.url.path,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
+        normalized_env = get_settings().app_env.strip().lower()
+        details = None
+        if normalized_env in LOCAL_APP_ENVS:
+            details = {"exception_type": exc.__class__.__name__}
         return error_response(
             request,
             str(ErrorCode.INTERNAL_SERVER_ERROR),
             "服务端内部异常",
-            details={"exception_type": exc.__class__.__name__},
+            details=details,
             status_code=500,
         )

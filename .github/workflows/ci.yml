@@ -7,6 +7,16 @@ on:
       - main
 
 jobs:
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/check_plaintext_secrets.py
+
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -56,6 +66,8 @@ jobs:
       CONNECTION_ENCRYPTION_SECRET: ci-connection-secret-value-000001
       ACCESS_TOKEN_SECRET: ci-access-token-secret-value-000001
       BOOTSTRAP_TOKEN_SECRET: ci-bootstrap-token-secret-value-0001
+      APP_ENV: "test"
+      BOOTSTRAP_DEV_DATA: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,7 +82,7 @@ jobs:
       - run: docker compose up -d --build postgres redis backend frontend
       - run: |
           for attempt in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:25173/ >/dev/null; then
+            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then
               exit 0
             fi
             sleep 2

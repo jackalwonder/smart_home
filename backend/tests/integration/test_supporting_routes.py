@@ -512,13 +512,22 @@ def test_auth_session_always_requires_bearer_context(app, client):
     assert context_service.kwargs["require_bearer"] is True
 
 
-def test_http_404_and_unhandled_errors_are_wrapped(app, client):
+def test_http_404_and_unhandled_errors_are_wrapped_without_internal_details(
+    monkeypatch,
+    app,
+    client,
+):
+    monkeypatch.setenv("APP_ENV", "docker")
+    get_settings.cache_clear()
     app.dependency_overrides[get_device_catalog_service] = lambda: FailingDeviceCatalogService()
     app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
 
-    not_found_response = client.get("/api/v1/route-does-not-exist")
-    non_raising_client = TestClient(app, raise_server_exceptions=False)
-    failure_response = non_raising_client.get("/api/v1/devices")
+    try:
+        not_found_response = client.get("/api/v1/route-does-not-exist")
+        non_raising_client = TestClient(app, raise_server_exceptions=False)
+        failure_response = non_raising_client.get("/api/v1/devices")
+    finally:
+        get_settings.cache_clear()
 
     assert not_found_response.status_code == 404
     not_found_body = not_found_response.json()
@@ -530,6 +539,24 @@ def test_http_404_and_unhandled_errors_are_wrapped(app, client):
     failure_body = failure_response.json()
     assert failure_body["success"] is False
     assert failure_body["error"]["code"] == "INTERNAL_SERVER_ERROR"
+    assert "details" not in failure_body["error"]
+    assert failure_body["meta"]["trace_id"]
+
+
+def test_local_unhandled_errors_keep_debug_exception_type(monkeypatch, app):
+    monkeypatch.setenv("APP_ENV", "local")
+    get_settings.cache_clear()
+    app.dependency_overrides[get_device_catalog_service] = lambda: FailingDeviceCatalogService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
+
+    try:
+        non_raising_client = TestClient(app, raise_server_exceptions=False)
+        failure_response = non_raising_client.get("/api/v1/devices")
+    finally:
+        get_settings.cache_clear()
+
+    assert failure_response.status_code == 500
+    failure_body = failure_response.json()
     assert failure_body["error"]["details"]["exception_type"] == "RuntimeError"
 
 

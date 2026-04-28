@@ -60,6 +60,51 @@ npm install
 npm run dev
 ```
 
+### 配置与运行态数据
+
+- 根目录 `.env` 保存 Compose 启动所需的端口、密钥和集成配置，必须从
+  `.env.example` 复制后在本机填写，不应提交真实值。
+- `deploy/` 只跟踪 README 和示例模板；Home Assistant 数据库、日志、
+  SGCC 缓存、二维码和真实 `.env` 都属于运行态数据，默认被 `.gitignore`
+  排除。
+- SGCC sidecar 如需账号密码模式，在运行机器上从
+  `deploy/sgcc_electricity/.env.example` 复制出本地
+  `deploy/sgcc_electricity/.env`，并使用密钥管理工具或本机权限保护该文件。
+- 后端容器默认不会写入开发演示数据。只有显式设置
+  `BOOTSTRAP_DEV_DATA=true`，且 `APP_ENV` 为 `local`、`dev`、`development`
+  或 `test` 时才会执行开发数据脚本。
+
+### 验证命令
+
+```bash
+# 后端
+python -m ruff check backend/src backend/tests
+python -m pytest backend/tests -q
+python scripts/check_plaintext_secrets.py
+
+# 前端
+cd frontend
+npm run lint
+npm run format:check
+npm run typecheck
+npm test
+npm run build
+
+# E2E（当前 Compose 前端端口）
+set PLAYWRIGHT_BASE_URL=http://127.0.0.1:25173
+npm run test:e2e
+```
+
+### 镜像与依赖维护
+
+Dockerfile 和 Compose 中的基础镜像使用 digest pin，避免 `latest`/`stable`
+隐式漂移。升级镜像时应同时更新 digest、记录升级原因，并运行后端测试、
+前端测试、Docker build 和 E2E。
+
+后端 Python 依赖仍以 `backend/pyproject.toml` 为解析入口。引入锁文件前，
+应先完成已知安全依赖升级，再在 Python 3.12 环境生成锁文件并让 CI 使用同
+一套安装路径。
+
 ## 项目结构
 
 ```

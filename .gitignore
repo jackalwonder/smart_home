@@ -17,5 +17,13 @@ frontend/.cache/
 frontend/playwright-report/
 frontend/test-results/
 frontend/test-results-*/
-deploy/
+deploy/*
+!deploy/README.md
+!deploy/sgcc_electricity/
+deploy/sgcc_electricity/*
+!deploy/sgcc_electricity/.env.example
+!deploy/sgcc_electricity/README.md
+!deploy/homeassistant/
+deploy/homeassistant/*
+!deploy/homeassistant/README.md
 picture/

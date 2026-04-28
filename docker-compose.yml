@@ -45,6 +45,7 @@ services:
       SGCC_SIDECAR_FALLBACK_ENABLED: ${SGCC_SIDECAR_FALLBACK_ENABLED:-false}
       WEATHER_LOCATION_LABEL: ${WEATHER_LOCATION_LABEL:-}
       WEATHER_HOME_ASSISTANT_ENTITY_ID: ${WEATHER_HOME_ASSISTANT_ENTITY_ID:-}
+      BOOTSTRAP_DEV_DATA: ${BOOTSTRAP_DEV_DATA:-false}
       WEATHER_LATITUDE: ${WEATHER_LATITUDE:-42.26298161148389}
       WEATHER_LONGITUDE: ${WEATHER_LONGITUDE:-118.94726859100243}
       ENERGY_AUTO_REFRESH_ENABLED: ${ENERGY_AUTO_REFRESH_ENABLED:-true}
@@ -79,7 +80,7 @@ services:
       start_period: 15s
 
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+    image: ghcr.io/home-assistant/home-assistant@sha256:c1e5f0147f4cb51ccb05bb30b62a1269cc1bd48a6274792d3b38a77ab274dfd2
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Asia/Shanghai}
@@ -126,7 +127,7 @@ services:
       start_period: 20s
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-smart_home}
@@ -143,7 +144,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
