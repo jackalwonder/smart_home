@@ -63,13 +63,7 @@ def main() -> None:
                 pin_session_ttl_seconds
             )
             VALUES (%s, %s, 'FIXED_HOME_ACCOUNT', %s, %s, 5, 5, 600)
-            ON CONFLICT (home_id) DO UPDATE
-            SET pin_hash = EXCLUDED.pin_hash,
-                pin_salt = EXCLUDED.pin_salt,
-                pin_retry_limit = EXCLUDED.pin_retry_limit,
-                pin_lock_minutes = EXCLUDED.pin_lock_minutes,
-                pin_session_ttl_seconds = EXCLUDED.pin_session_ttl_seconds,
-                updated_at = now()
+            ON CONFLICT (home_id) DO NOTHING
             """,
             (AUTH_CONFIG_ID, HOME_ID, _hash_pin("1234", "dev-salt"), "dev-salt"),
         )

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from injector import Module, provider, singleton
 
-from src.infrastructure.capabilities.impl.DbCapabilityProvider import DbCapabilityProvider
 from src.infrastructure.weather.impl.OpenMeteoWeatherProvider import OpenMeteoWeatherProvider
 from src.modules.home_overview.services.DeviceCatalogService import DeviceCatalogService
 from src.modules.home_overview.services.query.HomeOverviewQueryService import (
