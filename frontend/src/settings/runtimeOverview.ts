@@ -26,6 +26,8 @@ export function formatCount(value: number, unit: string) {
   return `${value} ${unit}`;
 }
 
+const SETTINGS_DISPLAY_TIME_ZONE = "Asia/Shanghai";
+
 export function formatShortTimestamp(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -34,10 +36,20 @@ export function formatShortTimestamp(value: string | null | undefined) {
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-  const month = parsed.getMonth() + 1;
-  const day = parsed.getDate();
-  const hour = String(parsed.getHours()).padStart(2, "0");
-  const minute = String(parsed.getMinutes()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: SETTINGS_DISPLAY_TIME_ZONE,
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(parsed);
+  const partValue = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  const month = partValue("month");
+  const day = partValue("day");
+  const hour = partValue("hour").padStart(2, "0");
+  const minute = partValue("minute").padStart(2, "0");
   return `${month}月${day}日 ${hour}:${minute}`;
 }
 
