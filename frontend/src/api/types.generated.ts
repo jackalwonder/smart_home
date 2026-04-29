@@ -9814,9 +9814,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "image/gif": unknown;
                     "image/jpeg": unknown;
                     "image/png": unknown;
-                    "image/svg+xml": unknown;
                     "image/webp": unknown;
                 };
             };

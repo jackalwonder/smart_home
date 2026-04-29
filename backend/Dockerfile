@@ -8,6 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app/backend
 
 COPY pyproject.toml ./
+COPY requirements.lock ./
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY scripts ./scripts
@@ -15,7 +16,9 @@ COPY src ./src
 COPY 家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql /app/家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
-RUN pip install --upgrade pip && pip install .
+RUN pip install --upgrade pip \
+    && pip install --requirement requirements.lock \
+    && pip install --no-deps .
 RUN sed -i 's/\r$//' ./docker-entrypoint.sh && chmod +x ./docker-entrypoint.sh
 
 EXPOSE 8000

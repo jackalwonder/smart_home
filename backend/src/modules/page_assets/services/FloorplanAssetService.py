@@ -13,6 +13,17 @@ from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.kernel.Clock import Clock
 
+FLOORPLAN_MAX_BYTES = 8 * 1024 * 1024
+HOTSPOT_ICON_MAX_BYTES = 512 * 1024
+
+
+@dataclass(frozen=True)
+class ImageInspection:
+    mime_type: str
+    extension: str
+    width: int | None
+    height: int | None
+
 
 def _image_size(data: bytes) -> tuple[int | None, int | None]:
     if len(data) >= 24 and data.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -38,6 +49,44 @@ def _image_size(data: bytes) -> tuple[int | None, int | None]:
                 break
             index += block_length + 2
     return None, None
+
+
+def _inspect_image(data: bytes) -> ImageInspection | None:
+    width, height = _image_size(data)
+    if len(data) >= 24 and data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ImageInspection(
+            mime_type="image/png",
+            extension=".png",
+            width=width,
+            height=height,
+        )
+    if len(data) >= 10 and data.startswith((b"GIF87a", b"GIF89a")):
+        return ImageInspection(
+            mime_type="image/gif",
+            extension=".gif",
+            width=width,
+            height=height,
+        )
+    if len(data) >= 4 and data.startswith(b"\xff\xd8"):
+        return ImageInspection(
+            mime_type="image/jpeg",
+            extension=".jpg",
+            width=width,
+            height=height,
+        )
+    if len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return ImageInspection(
+            mime_type="image/webp",
+            extension=".webp",
+            width=None,
+            height=None,
+        )
+    return None
+
+
+def _looks_like_svg(data: bytes) -> bool:
+    prefix = data[:512].lstrip().lower()
+    return prefix.startswith(b"<svg") or (prefix.startswith(b"<?xml") and b"<svg" in prefix)
 
 
 @dataclass(frozen=True)
@@ -90,7 +139,7 @@ class FloorplanAssetService:
         content_type: str | None,
         data: bytes,
         max_bytes: int,
-    ) -> None:
+    ) -> ImageInspection:
         if not data:
             raise AppError(
                 ErrorCode.INVALID_PARAMS,
@@ -109,6 +158,20 @@ class FloorplanAssetService:
                 "file must be an image",
                 details={"fields": [{"field": "file", "reason": "invalid_type"}]},
             )
+        if _looks_like_svg(data):
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "svg uploads are not supported",
+                details={"fields": [{"field": "file", "reason": "unsupported_svg"}]},
+            )
+        inspection = _inspect_image(data)
+        if inspection is None:
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "file must be a supported image",
+                details={"fields": [{"field": "file", "reason": "invalid_image"}]},
+            )
+        return inspection
 
     async def upload_floorplan(
         self,
@@ -121,22 +184,22 @@ class FloorplanAssetService:
         data: bytes,
         replace_current: bool,
     ) -> FloorplanAssetView:
+        del filename
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
-        self._validate_image_upload(
+        inspection = self._validate_image_upload(
             content_type=content_type,
             data=data,
-            max_bytes=8 * 1024 * 1024,
+            max_bytes=FLOORPLAN_MAX_BYTES,
         )
 
         timestamp = self._clock.now().strftime("%Y%m%d%H%M%S%f")
         stored_path = self._asset_storage.save_floorplan(
             home_id=home_id,
-            filename=filename,
+            filename=f"floorplan{inspection.extension}",
             data=data,
             timestamp_token=timestamp,
         )
 
-        width, height = _image_size(data)
         file_hash = hashlib.sha256(data).hexdigest()
         now_iso = self._clock.now().isoformat()
         row = await self._page_asset_repository.upsert_floorplan_asset(
@@ -144,9 +207,9 @@ class FloorplanAssetService:
                 home_id=home_id,
                 file_url=stored_path,
                 file_hash=file_hash,
-                width=width,
-                height=height,
-                mime_type=content_type or "application/octet-stream",
+                width=inspection.width,
+                height=inspection.height,
+                mime_type=inspection.mime_type,
                 uploaded_by_member_id=operator_id,
                 uploaded_by_terminal_id=terminal_id,
             ),
@@ -157,7 +220,7 @@ class FloorplanAssetService:
             asset_updated=True,
             asset_id=row.asset_id,
             background_image_url=f"/api/v1/page-assets/floorplan/{row.asset_id}/file",
-            background_image_size={"width": width, "height": height},
+            background_image_size={"width": inspection.width, "height": inspection.height},
             updated_at=row.updated_at or now_iso,
         )
 
@@ -197,22 +260,22 @@ class FloorplanAssetService:
         content_type: str | None,
         data: bytes,
     ) -> HotspotIconAssetView:
+        del filename
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
-        self._validate_image_upload(
+        inspection = self._validate_image_upload(
             content_type=content_type,
             data=data,
-            max_bytes=512 * 1024,
+            max_bytes=HOTSPOT_ICON_MAX_BYTES,
         )
 
         timestamp = self._clock.now().strftime("%Y%m%d%H%M%S%f")
         stored_path = self._asset_storage.save_hotspot_icon(
             home_id=home_id,
-            filename=filename,
+            filename=f"hotspot-icon{inspection.extension}",
             data=data,
             timestamp_token=timestamp,
         )
 
-        width, height = _image_size(data)
         file_hash = hashlib.sha256(data).hexdigest()
         now_iso = self._clock.now().isoformat()
         row = await self._page_asset_repository.create_hotspot_icon_asset(
@@ -220,9 +283,9 @@ class FloorplanAssetService:
                 home_id=home_id,
                 file_url=stored_path,
                 file_hash=file_hash,
-                width=width,
-                height=height,
-                mime_type=content_type or "application/octet-stream",
+                width=inspection.width,
+                height=inspection.height,
+                mime_type=inspection.mime_type,
                 uploaded_by_member_id=operator_id,
                 uploaded_by_terminal_id=terminal_id,
             )
@@ -231,9 +294,9 @@ class FloorplanAssetService:
         return HotspotIconAssetView(
             asset_id=row.asset_id,
             icon_asset_url=f"/api/v1/page-assets/hotspot-icons/{row.asset_id}/file",
-            mime_type=content_type or "application/octet-stream",
-            width=width,
-            height=height,
+            mime_type=inspection.mime_type,
+            width=inspection.width,
+            height=inspection.height,
             updated_at=row.updated_at or now_iso,
         )
 

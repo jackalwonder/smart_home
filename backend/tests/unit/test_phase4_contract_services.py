@@ -280,14 +280,16 @@ async def test_hotspot_icon_upload_creates_hotspot_icon_asset(tmp_path):
         home_id="home-1",
         terminal_id="terminal-1",
         operator_id="member-1",
-        filename="fan.svg",
-        content_type="image/svg+xml",
-        data=b"<svg />",
+        filename="fan.png",
+        content_type="image/png",
+        data=_png_bytes(16, 16),
     )
 
     assert view.asset_id == "icon-asset-1"
     assert view.icon_asset_url == "/api/v1/page-assets/hotspot-icons/icon-asset-1/file"
-    assert repository.hotspot_icon_calls[0].mime_type == "image/svg+xml"
+    assert repository.hotspot_icon_calls[0].mime_type == "image/png"
+    assert repository.hotspot_icon_calls[0].width == 16
+    assert repository.hotspot_icon_calls[0].height == 16
     assert storage.saved_hotspot_icons[0][0] == "home-1"
 
 
@@ -311,6 +313,82 @@ async def test_hotspot_icon_upload_rejects_non_image(tmp_path):
             content_type="text/plain",
             data=b"not an image",
         )
+
+
+@pytest.mark.asyncio
+async def test_hotspot_icon_upload_rejects_svg_active_content(tmp_path):
+    repository = _PageAssetRepository()
+    storage = _AssetStorage(tmp_path)
+    service = FloorplanAssetService(
+        page_asset_repository=repository,
+        asset_storage=storage,
+        management_pin_guard=_NoopPinGuard(),
+        clock=_Clock(),
+    )
+
+    with pytest.raises(Exception):
+        await service.upload_hotspot_icon(
+            home_id="home-1",
+            terminal_id="terminal-1",
+            operator_id="member-1",
+            filename="icon.svg",
+            content_type="image/svg+xml",
+            data=b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+        )
+
+    assert repository.hotspot_icon_calls == []
+    assert storage.saved_hotspot_icons == []
+
+
+@pytest.mark.asyncio
+async def test_floorplan_upload_rejects_forged_image_content_type(tmp_path):
+    repository = _PageAssetRepository()
+    storage = _AssetStorage(tmp_path)
+    service = FloorplanAssetService(
+        page_asset_repository=repository,
+        asset_storage=storage,
+        management_pin_guard=_NoopPinGuard(),
+        clock=_Clock(),
+    )
+
+    with pytest.raises(Exception):
+        await service.upload_floorplan(
+            home_id="home-1",
+            terminal_id="terminal-1",
+            operator_id="member-1",
+            filename="floorplan.png",
+            content_type="image/png",
+            data=b"not really an image",
+            replace_current=True,
+        )
+
+    assert repository.floorplan_calls == []
+    assert storage.saved_floorplans == []
+
+
+@pytest.mark.asyncio
+async def test_floorplan_upload_uses_detected_mime_and_extension(tmp_path):
+    repository = _PageAssetRepository()
+    storage = _AssetStorage(tmp_path)
+    service = FloorplanAssetService(
+        page_asset_repository=repository,
+        asset_storage=storage,
+        management_pin_guard=_NoopPinGuard(),
+        clock=_Clock(),
+    )
+
+    await service.upload_floorplan(
+        home_id="home-1",
+        terminal_id="terminal-1",
+        operator_id="member-1",
+        filename="floorplan.txt",
+        content_type="image/jpeg",
+        data=_png_bytes(64, 32),
+        replace_current=True,
+    )
+
+    assert repository.floorplan_calls[0][0].mime_type == "image/png"
+    assert storage.saved_floorplans[0][1] == "floorplan.png"
 
 
 @pytest.mark.asyncio

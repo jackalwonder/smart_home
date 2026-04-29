@@ -78,9 +78,16 @@ npm run dev
 
 ```bash
 # 后端
-python -m ruff check backend/src backend/tests
-python -m pytest backend/tests -q
-python scripts/check_plaintext_secrets.py
+uv run --project backend --extra dev python -m ruff check backend/src backend/tests scripts/check_plaintext_secrets.py
+uv run --project backend --extra dev python -m pip_audit --requirement backend/requirements.lock --strict
+uv run --project backend --extra dev python -m pytest backend/tests -q
+uv run --project backend --extra dev python scripts/check_plaintext_secrets.py
+
+# Compose 配置校验需要提供三个必填 secret，生产必须使用真实随机值。
+CONNECTION_ENCRYPTION_SECRET=cccccccccccccccccccccccccccccccc \
+ACCESS_TOKEN_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+BOOTSTRAP_TOKEN_SECRET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+docker compose config --quiet
 
 # 前端
 cd frontend
@@ -101,9 +108,10 @@ Dockerfile 和 Compose 中的基础镜像使用 digest pin，避免 `latest`/`st
 隐式漂移。升级镜像时应同时更新 digest、记录升级原因，并运行后端测试、
 前端测试、Docker build 和 E2E。
 
-后端 Python 依赖仍以 `backend/pyproject.toml` 为解析入口。引入锁文件前，
-应先完成已知安全依赖升级，再在 Python 3.12 环境生成锁文件并让 CI 使用同
-一套安装路径。
+后端 Python 依赖以 `backend/pyproject.toml` 为声明入口，`backend/uv.lock`
+为解析锁文件，`backend/requirements.lock` 和 `backend/requirements-dev.lock`
+为 Docker/CI 安装入口。升级依赖后需要重新生成锁文件和 requirements 导出，
+再运行 `pip-audit`、后端测试、Docker build 和 E2E。
 
 ## 项目结构
 
