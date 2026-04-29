@@ -13,7 +13,6 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY scripts ./scripts
 COPY src ./src
-COPY 家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql /app/家庭智能中控_Web_App_PostgreSQL首版DDL_v2.4.sql
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN pip install --upgrade pip \

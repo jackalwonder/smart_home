@@ -15,8 +15,16 @@ When deploying to a platform that ignores these Compose fields, configure the
 same CPU and memory ceilings in that platform's deployment settings.
 
 The frontend container serves HTTP behind the real edge. Keep HSTS at the
-actual HTTPS/TLS termination layer. The bundled Nginx config only emits a
-minimal report-only CSP so violations can be observed before enforcing a policy.
+actual HTTPS/TLS termination layer. The bundled Nginx config emits an enforced
+minimal CSP for the SPA, same-origin API/WebSocket traffic, data URL QR codes,
+and blob URL runtime images.
+
+Example HSTS header for the real HTTPS edge after certificate and redirect
+behavior are verified:
+
+```nginx
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+```
 
 Before sharing a workspace or creating a release artifact, run:
 
