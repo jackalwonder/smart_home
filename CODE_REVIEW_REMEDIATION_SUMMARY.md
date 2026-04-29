@@ -35,6 +35,7 @@
 | P2-7 | 已完成 | 删除 ruff F401 未使用导入；后端 ruff 全量检查通过。 | `backend/src/app/catalog_di.py`、`backend/src/main.py` |
 | P3-1 | 已完成 | 后端 Python 依赖锁文件已引入；外部基础镜像使用 digest pin；README 补充镜像升级策略。 | `backend/requirements.lock`、`backend/requirements-dev.lock`、`backend/uv.lock`、`docker-compose.yml`、`backend/Dockerfile`、`frontend/Dockerfile`、`services/sgcc_electricity_direct_qrcode/Dockerfile` |
 | P3-2 | 已完成 | 明确 deploy 模板与运行态数据边界；真实 secret、HA 数据库、SGCC 缓存/二维码继续忽略。 | `.gitignore`、`deploy/README.md`、`deploy/homeassistant/README.md`、`deploy/sgcc_electricity/README.md`、`deploy/sgcc_electricity/.env.example` |
+| P3-3 | 已完成 | 后端 DI 结构性拆分完成：`repository_di.py` 已按 domain 聚合安装；`container.py` 已从集中 getter facade 收敛为显式 re-export 兼容层，getter 实现拆到 `container_getters/*`；新增兼容 re-export 和 repository DI 回归测试。 | `backend/src/app/repository_di.py`、`backend/src/app/repository_modules/*`、`backend/src/app/container.py`、`backend/src/app/container_getters/*`、`backend/tests/unit/test_repository_di.py`、`backend/tests/unit/test_container_getters.py` |
 | P3-5 | 已完成 | Alembic 初始迁移改为自包含 SQL；移除 backend 生产镜像对额外 DDL SQL COPY 的依赖；删除 backend 根目录运行时 DDL 文件；明文凭据扫描兼容本地已删除但未暂存的跟踪文件。 | `backend/alembic/versions/20260414_0001_initial_schema.py`、`backend/Dockerfile`、`backend/tests/unit/test_initial_schema_migration.py`、`scripts/check_plaintext_secrets.py` |
 | P3-6 | 已完成 | SGCC sidecar 基础镜像改为 digest pin；补丁脚本增加 marker 缺失失败和补丁后断言；新增补丁 helper 单测。 | `services/sgcc_electricity_direct_qrcode/Dockerfile`、`services/sgcc_electricity_direct_qrcode/patch_direct_qrcode.py`、`backend/tests/unit/test_sgcc_direct_qrcode_patch.py` |
 
@@ -42,8 +43,7 @@
 
 | 编号 | 当前进展 | 未完成内容 | 建议处理方式 |
 |---|---|---|---|
-| P3-3 | 已增加架构边界测试；`repository_di.py` 已拆成按 domain 聚合安装的 repository modules，并新增 DI 解析回归测试。 | `container.py` 仍保留兼容 controller 的集中 getter facade。 | 后续可按 controller 依赖把 facade 拆成 domain getter 模块，再由 `container.py` 显式 re-export。 |
-| P3-4 | 已新增样式模块边界说明；`layout.css` 中 terminal activation 页面样式已拆到 `terminal.css`，并保持导入顺序。 | `home.css`、`settings.css` 仍是大文件。 | 后续继续按页面/组件 ownership 拆分，配合 Playwright 截图或 E2E 验证。 |
+| P3-4 | 已新增样式模块边界说明；`layout.css` 中 terminal activation 页面样式已拆到 `terminal.css`；`settings.css` 中 terminal delivery workbench 样式已拆到 `settings-terminal-delivery.css`，并保持 base-before-responsive 的选择器顺序。 | `home.css` 仍是大文件；`settings.css` 除 terminal delivery 外仍包含较多 settings 页面级样式。 | 后续继续按页面/组件 ownership 拆分 `home.css` 与 `settings.css`，每次保留导入顺序说明并配合 Playwright 截图或 E2E 验证。 |
 
 ## 4. 未完成问题清单及原因
 
@@ -120,10 +120,15 @@
 
 - `backend/src/app/repository_di.py`
 - `backend/src/app/repository_modules/*`
+- `backend/src/app/container.py`
+- `backend/src/app/container_getters/*`
+- `backend/tests/unit/test_container_getters.py`
 - `backend/tests/unit/test_repository_di.py`
 - `frontend/src/main.tsx`
 - `frontend/src/styles/README.md`
 - `frontend/src/styles/layout.css`
+- `frontend/src/styles/settings.css`
+- `frontend/src/styles/settings-terminal-delivery.css`
 - `frontend/src/styles/terminal.css`
 
 ### 第一阶段已存在的治理文件
@@ -149,7 +154,8 @@
 | 命令 | 结果 |
 |---|---|
 | `uv run --project backend --extra dev python -m ruff check backend/src backend/tests scripts/check_plaintext_secrets.py` | 通过 |
-| `uv run --project backend --extra dev python -m pytest backend/tests -q` | 通过，`229 passed` |
+| `uv run --project backend --extra dev python -m pytest backend/tests -q` | 通过，`230 passed` |
+| `uv run --project backend --extra dev python -m pytest backend/tests/unit/test_container_getters.py backend/tests/unit/test_repository_di.py -q` | 通过，`2 passed` |
 | `uv run --project backend --extra dev python -m pytest backend/tests/unit/test_initial_schema_migration.py -q` | 通过，`2 passed` |
 | `uv run --project backend --extra dev python -m pytest backend/tests/unit/test_frontend_nginx_security_headers.py -q` | 通过，`2 passed` |
 | `DATABASE_URL=... uv run --extra dev alembic upgrade head` | 通过，临时空 PostgreSQL 容器验证 |
@@ -162,12 +168,14 @@
 | `uv run --project backend --extra dev python -m pip_audit --requirement backend/requirements.lock --strict` | 通过，无已知漏洞 |
 | `uv run --project backend --extra dev python scripts/check_plaintext_secrets.py` | 通过 |
 | `CONNECTION_ENCRYPTION_SECRET=... ACCESS_TOKEN_SECRET=... BOOTSTRAP_TOKEN_SECRET=... docker compose config --quiet` | 通过 |
-| `npm run format:check` | 通过 |
-| `npm run typecheck` | 通过 |
-| `npm run lint` | 通过 |
-| `npm test` | 通过，`40` 个测试文件、`180` 个测试通过 |
-| `npm run build` | 通过 |
-| `PLAYWRIGHT_BASE_URL=http://127.0.0.1:<temp> npm run test:e2e` | 通过，临时新版 frontend 容器验证，`20 passed` |
+| `(cd frontend && npm run format:check)` | 通过 |
+| `(cd frontend && npm run typecheck)` | 通过 |
+| `(cd frontend && npm run lint)` | 通过 |
+| `(cd frontend && npm test)` | 通过，`40` 个测试文件、`180` 个测试通过 |
+| `(cd frontend && npm run build)` | 通过 |
+| `(cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:<temp> npm run test:e2e)` | 通过，临时新版 frontend 容器验证，`20 passed` |
+| `(cd frontend && CONNECTION_ENCRYPTION_SECRET=... ACCESS_TOKEN_SECRET=... BOOTSTRAP_TOKEN_SECRET=... PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npm run test:e2e)` | 通过，本轮结构性拆分 smoke 验证，`20 passed` |
+| in-app browser settings 页面截图检查 | 通过，`settings-terminal-delivery.css` 对应的 `.terminal-delivery-workbench` 可见 |
 | `docker compose build frontend` | 通过 |
 | `git diff --check` | 通过 |
 
@@ -197,10 +205,10 @@
 
 ## 9. 当前做到什么程度
 
-当前 `main` 已经从“阶段性整改”进入“安全主线基本收口”状态：
+当前整改分支已经从“阶段性整改”进入“安全主线基本收口”状态：
 
 - 依赖漏洞、上传安全、限流、异常信息泄露、端口漂移、开发数据保护、PIN 快速哈希等高风险和中风险项已经落到代码、测试和 CI。
-- 第六批已启动结构性拆分：repository DI 已按 domain 拆分，terminal activation 样式已从 layout 样式中独立。
+- 第六批已启动结构性拆分：repository DI 已按 domain 拆分；`container.py` 已收敛为兼容 re-export 层，getter 实现移入 `container_getters/*`；terminal activation 样式已从 layout 样式中独立，settings 终端交付面板样式已拆到独立样式模块。
 - 本地验证与 PR CI 都覆盖了后端单测/集成测试、前端 lint/typecheck/test/build、契约生成、secret scan、pip-audit 和 E2E smoke。
 - 剩余问题不再是明显的安全阻塞项，更多是生产上线前的运维确认和中长期结构化维护。
 
@@ -208,11 +216,11 @@
 
 ### 第六批：结构性债务拆分
 
-目标：降低后续维护成本，不把结构性改造混入安全修复。当前已完成 repository DI domain 拆分和 terminal activation CSS 拆分，后续继续做更小粒度的无行为改动。
+目标：降低后续维护成本，不把结构性改造混入安全修复。当前已完成 repository DI domain 拆分、`container.py` getter facade 拆分、terminal activation CSS 拆分和 settings terminal delivery CSS 拆分，后续继续做更小粒度的无行为改动。
 
 建议步骤：
 
-1. DI 拆分：继续把 `container.py` 从集中 getter facade 拆为 domain getter 模块，并保持 `container.py` 显式 re-export 兼容现有 controller import。
+1. DI 拆分：继续观察 controller 侧 import，后续可逐步迁移到 domain getter 模块；`container.py` 当前保留显式 re-export 兼容现有 controller import。
 2. CSS 拆分：继续拆 `home.css`、`settings.css` 中低风险页面级样式，再拆共享 layout；每次保留选择器顺序说明并跑截图检查。
 3. 每个结构性 PR 控制 diff，要求无行为改动；主要验证 `backend tests`、`npm test`、`npm run build` 和 E2E smoke。
 
