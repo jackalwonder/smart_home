@@ -6,6 +6,7 @@ import os
 import re
 import socket
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -20,13 +21,37 @@ QR_CODE_FILE = Path(os.getenv("SGCC_QR_CODE_FILE", str(DATA_DIR / "login_qr_code
 CACHE_FILE = Path(os.getenv("SGCC_CACHE_FILE", str(DATA_DIR / "sgcc_cache.json")))
 QR_CODE_TTL_SECONDS = int(os.getenv("SGCC_QR_CODE_TTL_SECONDS", "60"))
 CHROME_PROFILE_DIR = Path(os.getenv("SGCC_CHROME_PROFILE_DIR", str(DATA_DIR / "chrome-profile")))
+KEEPALIVE_ENABLED = os.getenv("SGCC_KEEPALIVE_ENABLED", "true").lower() == "true"
+KEEPALIVE_INTERVAL_SECONDS = max(60, int(os.getenv("SGCC_KEEPALIVE_INTERVAL_SECONDS", "480")))
+KEEPALIVE_INITIAL_DELAY_SECONDS = max(
+    0,
+    int(os.getenv("SGCC_KEEPALIVE_INITIAL_DELAY_SECONDS", str(KEEPALIVE_INTERVAL_SECONDS))),
+)
+KEEPALIVE_PAGE_LOAD_TIMEOUT_SECONDS = max(
+    5,
+    int(os.getenv("SGCC_KEEPALIVE_PAGE_LOAD_TIMEOUT_SECONDS", "20")),
+)
+KEEPALIVE_URL = os.getenv(
+    "SGCC_KEEPALIVE_URL",
+    "https://95598.cn/osgweb/electricityCharge",
+)
 
 app = FastAPI(title="SGCC Electricity Sidecar")
 _job_lock = threading.Lock()
 _webdriver_lock = threading.Lock()
+_keepalive_state_lock = threading.Lock()
 _current_job: dict[str, object] | None = None
 _last_job: dict[str, object] | None = None
 _persistent_webdriver: object | None = None
+_keepalive_thread_started = False
+_last_keepalive: dict[str, object] = {
+    "enabled": KEEPALIVE_ENABLED,
+    "interval_seconds": KEEPALIVE_INTERVAL_SECONDS,
+    "last_started_at": None,
+    "last_finished_at": None,
+    "last_result": None,
+    "last_error": None,
+}
 
 
 class TaskStartResponse(BaseModel):
@@ -34,6 +59,12 @@ class TaskStartResponse(BaseModel):
     state: str
     job: dict[str, object] | None
     message: str
+
+
+@app.on_event("startup")
+def start_keepalive_worker() -> None:
+    if KEEPALIVE_ENABLED:
+        _start_keepalive_thread_once()
 
 
 @app.get("/healthz")
@@ -208,6 +239,152 @@ def _get_or_create_persistent_webdriver(create_driver: object) -> object:
         return _persistent_webdriver
 
 
+def _start_keepalive_thread_once() -> None:
+    global _keepalive_thread_started
+    with _keepalive_state_lock:
+        if _keepalive_thread_started:
+            return
+        _keepalive_thread_started = True
+    thread = threading.Thread(target=_keepalive_loop, name="sgcc-keepalive", daemon=True)
+    thread.start()
+    logging.info(
+        "SGCC keepalive enabled: interval=%ss initial_delay=%ss",
+        KEEPALIVE_INTERVAL_SECONDS,
+        KEEPALIVE_INITIAL_DELAY_SECONDS,
+    )
+
+
+def _keepalive_loop() -> None:
+    if KEEPALIVE_INITIAL_DELAY_SECONDS:
+        time.sleep(KEEPALIVE_INITIAL_DELAY_SECONDS)
+    while True:
+        try:
+            _run_keepalive_probe()
+        except Exception as exc:  # pragma: no cover - background safety net
+            logging.exception("SGCC keepalive probe crashed")
+            _update_keepalive_state("FAILED", str(exc))
+        time.sleep(KEEPALIVE_INTERVAL_SECONDS)
+
+
+def _run_keepalive_probe() -> None:
+    started_at = _utc_now()
+    with _keepalive_state_lock:
+        _last_keepalive.update(
+            {
+                "enabled": KEEPALIVE_ENABLED,
+                "interval_seconds": KEEPALIVE_INTERVAL_SECONDS,
+                "last_started_at": started_at,
+                "last_finished_at": None,
+                "last_result": "RUNNING",
+                "last_error": None,
+            }
+        )
+
+    with _job_lock:
+        if _current_job is not None:
+            _update_keepalive_state("SKIPPED_BUSY", None)
+            return
+
+    with _webdriver_lock:
+        driver = _persistent_webdriver
+        if not _webdriver_is_alive(driver):
+            _update_keepalive_state("SKIPPED_NO_SESSION", None)
+            return
+
+        try:
+            driver.set_page_load_timeout(KEEPALIVE_PAGE_LOAD_TIMEOUT_SECONDS)
+        except Exception:
+            pass
+
+        try:
+            if not _looks_like_sgcc_business_page(driver):
+                try:
+                    driver.get(KEEPALIVE_URL)
+                except Exception as exc:
+                    logging.info("SGCC keepalive page load did not fully complete: %s", exc)
+                    _stop_page_load(driver)
+                time.sleep(2)
+
+            _stop_page_load(driver)
+            _perform_light_keepalive_action(driver)
+            if _looks_like_sgcc_business_page(driver):
+                logging.info("SGCC keepalive succeeded")
+                _update_keepalive_state("OK", None)
+                return
+
+            logging.info("SGCC keepalive found unavailable login session")
+            _update_keepalive_state("LOGIN_REQUIRED", None)
+        except Exception as exc:
+            logging.info("SGCC keepalive failed: %s", exc)
+            _update_keepalive_state("FAILED", str(exc))
+
+
+def _perform_light_keepalive_action(driver: object) -> None:
+    driver.execute_script(
+        """
+        window.stop();
+        window.scrollBy(0, 1);
+        window.scrollBy(0, -1);
+        document.dispatchEvent(new Event('visibilitychange'));
+        return document.readyState;
+        """
+    )
+
+
+def _looks_like_sgcc_business_page(driver: object) -> bool:
+    try:
+        current_url = (driver.current_url or "").lower()
+    except Exception:
+        current_url = ""
+    if "login" in current_url:
+        return False
+
+    try:
+        from selenium.webdriver.common.by import By
+    except Exception:
+        return False
+
+    try:
+        for selector in ("#login_box", ".sweepCodePic", ".tencent-captcha__mask-layer"):
+            try:
+                for element in driver.find_elements(By.CSS_SELECTOR, selector):
+                    if element.is_displayed():
+                        return False
+            except Exception:
+                continue
+
+        for selector in (".el-dropdown", ".balance_title", ".cff8", ".total"):
+            try:
+                for element in driver.find_elements(By.CSS_SELECTOR, selector):
+                    if element.is_displayed():
+                        return True
+            except Exception:
+                continue
+        return False
+    except Exception:
+        return False
+
+
+def _stop_page_load(driver: object) -> None:
+    try:
+        driver.execute_script("window.stop();")
+    except Exception:
+        pass
+
+
+def _update_keepalive_state(result: str, error: str | None) -> None:
+    with _keepalive_state_lock:
+        _last_keepalive.update(
+            {
+                "enabled": KEEPALIVE_ENABLED,
+                "interval_seconds": KEEPALIVE_INTERVAL_SECONDS,
+                "last_finished_at": _utc_now(),
+                "last_result": result,
+                "last_error": error,
+            }
+        )
+
+
 def _keep_webdriver_alive(driver: object) -> object:
     if not hasattr(driver, "_codex_original_quit"):
         driver._codex_original_quit = driver.quit
@@ -299,11 +476,14 @@ def _build_status() -> dict[str, object]:
     with _job_lock:
         current_job = dict(_current_job) if _current_job is not None else None
         last_job = dict(_last_job) if _last_job is not None else None
+    with _keepalive_state_lock:
+        keepalive = dict(_last_keepalive)
     return {
         "state": "RUNNING" if current_job is not None else "IDLE",
         "qrcode": _qrcode_status(),
         "accounts": _read_cached_accounts(),
         "job": current_job or last_job,
+        "keepalive": keepalive,
         "message": "SGCC task is running." if current_job is not None else "SGCC sidecar is idle.",
     }
 
