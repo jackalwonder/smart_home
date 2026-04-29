@@ -12,3 +12,12 @@ class HomeAuthConfigRepository(Protocol):
         home_id: str,
         ctx: RepoContext | None = None,
     ) -> HomeAuthConfigRow | None: ...
+
+    async def update_pin_hash(
+        self,
+        home_id: str,
+        *,
+        pin_hash: str,
+        pin_salt: str | None,
+        ctx: RepoContext | None = None,
+    ) -> None: ...

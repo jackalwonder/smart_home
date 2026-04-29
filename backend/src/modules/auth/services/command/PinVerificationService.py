@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from src.modules.auth.services.PinHashing import hash_pin, needs_pin_hash_upgrade, verify_pin
 from src.repositories.base.auth.HomeAuthConfigRepository import HomeAuthConfigRepository
 from src.repositories.base.auth.PinLockRepository import PinFailureUpsert, PinLockRepository
 from src.repositories.base.auth.PinSessionRepository import NewPinSessionRow, PinSessionRepository
@@ -11,11 +11,6 @@ from src.shared.errors.AppError import AppError
 from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.kernel.Clock import Clock
 from src.shared.kernel.IdGenerator import IdGenerator
-
-
-def _hash_pin(pin: str, salt: str | None) -> str:
-    return hashlib.sha256(f"{pin}:{salt or ''}".encode("utf-8")).hexdigest()
-
 
 @dataclass(frozen=True)
 class PinVerificationInput:
@@ -71,8 +66,7 @@ class PinVerificationService:
         ):
             raise AppError(ErrorCode.PIN_LOCKED, "PIN is temporarily locked")
 
-        expected_hash = auth.pin_hash
-        is_valid = expected_hash is not None and _hash_pin(input.pin, auth.pin_salt) == expected_hash
+        is_valid = verify_pin(input.pin, auth.pin_hash, auth.pin_salt)
         if not is_valid:
             attempts = (lock.failed_attempts if lock is not None else 0) + 1
             locked_until = None
@@ -88,6 +82,13 @@ class PinVerificationService:
                 )
             )
             raise AppError(ErrorCode.PIN_REQUIRED, "invalid PIN")
+
+        if needs_pin_hash_upgrade(auth.pin_hash):
+            await self._home_auth_config_repository.update_pin_hash(
+                input.home_id,
+                pin_hash=hash_pin(input.pin),
+                pin_salt=None,
+            )
 
         await self._pin_lock_repository.clear_failures(input.home_id, input.terminal_id)
         await self._pin_session_repository.deactivate_active_by_home_and_terminal(
