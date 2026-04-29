@@ -74,6 +74,16 @@ class Settings(BaseSettings):
     pairing_code_ttl_seconds: int = 600
     pairing_code_issue_cooldown_seconds: int = 30
     readiness_check_timeout_seconds: float = 3.0
+    rate_limit_enabled: bool = False
+    rate_limit_window_seconds: int = 60
+    rate_limit_redis_timeout_seconds: float = 0.25
+    rate_limit_global_per_minute: int = 600
+    rate_limit_auth_per_minute: int = 60
+    rate_limit_pin_per_minute: int = 30
+    rate_limit_bootstrap_per_minute: int = 60
+    rate_limit_pairing_per_minute: int = 60
+    rate_limit_upload_per_minute: int = 30
+    rate_limit_file_download_per_minute: int = 300
     sgcc_qr_code_file: str = str(DEFAULT_SGCC_QR_CODE_FILE)
     sgcc_cache_file: str = str(DEFAULT_SGCC_CACHE_FILE)
     sgcc_qr_code_ttl_seconds: int = 60

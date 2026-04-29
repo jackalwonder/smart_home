@@ -38,6 +38,8 @@ def status_code_for_error(code: ErrorCode) -> int:
         return 403
     if code == ErrorCode.HA_UNAVAILABLE:
         return 503
+    if code == ErrorCode.RATE_LIMITED:
+        return 429
     return 400
 
 
