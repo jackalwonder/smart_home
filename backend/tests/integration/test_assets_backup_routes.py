@@ -131,7 +131,7 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
     icon_response = client.post(
         "/api/v1/page-assets/hotspot-icons",
         data={"operator_id": "member-1"},
-        files={"file": ("fan.svg", b"<svg />", "image/svg+xml")},
+        files={"file": ("fan.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
     )
     create_response = client.post(
         "/api/v1/system/backups",
@@ -171,3 +171,21 @@ def test_assets_and_backup_routes_are_wrapped(app, client):
     assert restore_response.json()["data"]["restored"] is True
     assert restore_response.json()["data"]["layout_version"] == "lv_1"
     assert restore_response.json()["data"]["audit_id"] == "audit-1"
+
+
+def test_hotspot_icon_upload_rejects_oversized_payload_before_service(app, client):
+    class FailingFloorplanAssetService(FakeFloorplanAssetService):
+        async def upload_hotspot_icon(self, **_kwargs):
+            raise AssertionError("oversized upload should be rejected before service call")
+
+    app.dependency_overrides[get_floorplan_asset_service] = lambda: FailingFloorplanAssetService()
+    app.dependency_overrides[get_request_context_service] = lambda: FakeRequestContextService()
+
+    response = client.post(
+        "/api/v1/page-assets/hotspot-icons",
+        data={"operator_id": "member-1"},
+        files={"file": ("fan.png", b"x" * (512 * 1024 + 1), "image/png")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_PARAMS"

@@ -7,11 +7,36 @@ from fastapi.responses import FileResponse
 
 from src.app.container import get_floorplan_asset_service, get_request_context_service
 from src.modules.auth.services.query.RequestContextService import RequestContextService
-from src.modules.page_assets.services.FloorplanAssetService import FloorplanAssetService
+from src.modules.page_assets.services.FloorplanAssetService import (
+    FLOORPLAN_MAX_BYTES,
+    HOTSPOT_ICON_MAX_BYTES,
+    FloorplanAssetService,
+)
+from src.shared.errors.AppError import AppError
+from src.shared.errors.ErrorCode import ErrorCode
 from src.shared.http.ApiSchema import ApiSchema
 from src.shared.http.ResponseEnvelope import SuccessEnvelope, success_response
 
 router = APIRouter(prefix="/api/v1/page-assets", tags=["page_assets"])
+UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+async def _read_upload_file_limited(file: UploadFile, *, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    total_bytes = 0
+    while True:
+        chunk = await file.read(UPLOAD_CHUNK_BYTES)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise AppError(
+                ErrorCode.INVALID_PARAMS,
+                "file is too large",
+                details={"fields": [{"field": "file", "reason": "too_large"}]},
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 class FloorplanImageSizeResponse(ApiSchema):
@@ -60,7 +85,7 @@ async def upload_floorplan(
         require_home=True,
         require_terminal=True,
     )
-    payload = await file.read()
+    payload = await _read_upload_file_limited(file, max_bytes=FLOORPLAN_MAX_BYTES)
     view = await service.upload_floorplan(
         home_id=context.home_id,
         terminal_id=context.terminal_id,
@@ -107,7 +132,11 @@ async def get_floorplan_file(
         home_id=context.home_id,
         asset_id=asset_id,
     )
-    return FileResponse(view.path, media_type=view.mime_type)
+    return FileResponse(
+        view.path,
+        media_type=view.mime_type,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.post("/hotspot-icons", response_model=SuccessEnvelope[HotspotIconAssetResponse])
@@ -133,7 +162,7 @@ async def upload_hotspot_icon(
         require_home=True,
         require_terminal=True,
     )
-    payload = await file.read()
+    payload = await _read_upload_file_limited(file, max_bytes=HOTSPOT_ICON_MAX_BYTES)
     view = await service.upload_hotspot_icon(
         home_id=context.home_id,
         terminal_id=context.terminal_id,
@@ -153,9 +182,9 @@ async def upload_hotspot_icon(
         200: {
             "description": "Hotspot icon image file",
             "content": {
-                "image/svg+xml": {},
                 "image/png": {},
                 "image/jpeg": {},
+                "image/gif": {},
                 "image/webp": {},
             },
         }
@@ -179,4 +208,8 @@ async def get_hotspot_icon_file(
         home_id=context.home_id,
         asset_id=asset_id,
     )
-    return FileResponse(view.path, media_type=view.mime_type)
+    return FileResponse(
+        view.path,
+        media_type=view.mime_type,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )

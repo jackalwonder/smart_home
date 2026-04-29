@@ -23583,9 +23583,9 @@
         "responses": {
           "200": {
             "content": {
+              "image/gif": {},
               "image/jpeg": {},
               "image/png": {},
-              "image/svg+xml": {},
               "image/webp": {}
             },
             "description": "Hotspot icon image file"

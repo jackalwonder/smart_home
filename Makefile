@@ -10,6 +10,7 @@ contract-check:
 
 backend-check:
 	cd backend && $(BACKEND_PYTHON) -m ruff check src tests
+	cd backend && $(BACKEND_PYTHON) -m pip_audit --requirement requirements.lock --strict
 	cd backend && $(BACKEND_PYTHON) -m pytest tests/unit -q
 	cd backend && $(BACKEND_PYTHON) -m pytest tests/integration -q
 
