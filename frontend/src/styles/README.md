@@ -8,6 +8,8 @@ stable unless a change is intentionally visual-regression tested.
 - `layout.css`: application shell, navigation, responsive page frames.
 - `home.css`: home overview, floorplan, device cards, and home-specific panels.
 - `settings.css`: settings workspace, forms, tables, backups, and admin panels.
+- `settings-terminal-delivery.css`: terminal delivery workbench styles split after
+  `settings.css`; selectors retain their original base-before-responsive order.
 - `editor.css`: editor workbench and canvas controls.
 - `devices.css`: device catalog and device management views.
 

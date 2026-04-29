@@ -7,6 +7,7 @@ import "./styles/terminal.css";
 import "./styles/layout.css";
 import "./styles/home.css";
 import "./styles/settings.css";
+import "./styles/settings-terminal-delivery.css";
 import "./styles/editor.css";
 import "./styles/devices.css";
 

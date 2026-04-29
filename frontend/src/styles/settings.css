@@ -466,103 +466,6 @@
   white-space: nowrap;
 }
 
-.terminal-delivery-workbench {
-  display: grid;
-  gap: 14px;
-  border: 1px solid rgba(88, 224, 170, 0.16);
-  background:
-    linear-gradient(90deg, rgba(88, 224, 170, 0.08), rgba(47, 140, 255, 0.06)),
-    rgba(5, 12, 26, 0.76);
-}
-
-.terminal-delivery-workbench__header {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.terminal-delivery-workbench__header h3 {
-  margin: 0 0 6px;
-}
-
-.terminal-delivery-workbench__summary,
-.terminal-delivery-workbench__details {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-
-.terminal-delivery-workbench__summary {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.terminal-delivery-workbench__details {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.terminal-delivery-workbench__summary div,
-.terminal-delivery-workbench__details div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.terminal-delivery-workbench__summary dt,
-.terminal-delivery-workbench__details dt {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.terminal-delivery-workbench__summary dd,
-.terminal-delivery-workbench__details dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font-size: 13px;
-}
-
-.terminal-delivery-workbench__routes {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.terminal-delivery-workbench__routes article {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  padding: 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(3, 8, 19, 0.42);
-}
-
-.terminal-delivery-workbench__routes span {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: rgba(88, 224, 170, 0.1);
-  color: #b6f4de;
-  font-weight: 700;
-}
-
-.terminal-delivery-workbench__routes strong {
-  color: var(--text);
-}
-
-.terminal-delivery-workbench__routes p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
 .settings-header-bar,
 .settings-module-card {
   display: grid;
@@ -1415,10 +1318,6 @@
   .settings-task-flow__cards,
   .settings-task-flow__step,
   .settings-task-module__header,
-  .terminal-delivery-workbench__header,
-  .terminal-delivery-workbench__summary,
-  .terminal-delivery-workbench__details,
-  .terminal-delivery-workbench__routes,
   .delivery-steps,
   .favorite-editor__row,
   .policy-editor__row,
