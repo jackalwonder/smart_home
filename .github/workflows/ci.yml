@@ -70,6 +70,9 @@ jobs:
       BOOTSTRAP_TOKEN_SECRET: ci-bootstrap-token-secret-value-0001
       APP_ENV: "test"
       BOOTSTRAP_DEV_DATA: "true"
+      FRONTEND_PORT: "5173"
+      PLAYWRIGHT_BASE_URL: "http://127.0.0.1:5173"
+      RATE_LIMIT_ENABLED: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -84,7 +87,7 @@ jobs:
       - run: docker compose up -d --build postgres redis backend frontend
       - run: |
           for attempt in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then
+            if curl -fsS "${PLAYWRIGHT_BASE_URL}/" >/dev/null; then
               exit 0
             fi
             sleep 2
