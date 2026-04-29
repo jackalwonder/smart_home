@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import hashlib
 import os
 
 import psycopg
+
+from src.modules.auth.services.PinHashing import hash_pin
 
 HOME_ID = "11111111-1111-1111-1111-111111111111"
 TERMINAL_ID = "22222222-2222-2222-2222-222222222222"
@@ -15,10 +16,6 @@ AUTH_CONFIG_ID = "55555555-5555-5555-5555-555555555555"
 def _database_url() -> str:
     url = os.getenv("DATABASE_URL", "postgresql://smart_home:smart_home@postgres:5432/smart_home")
     return url.replace("postgresql+psycopg://", "postgresql://")
-
-
-def _hash_pin(pin: str, salt: str) -> str:
-    return hashlib.sha256(f"{pin}:{salt}".encode("utf-8")).hexdigest()
 
 
 def main() -> None:
@@ -65,7 +62,7 @@ def main() -> None:
             VALUES (%s, %s, 'FIXED_HOME_ACCOUNT', %s, %s, 5, 5, 600)
             ON CONFLICT (home_id) DO NOTHING
             """,
-            (AUTH_CONFIG_ID, HOME_ID, _hash_pin("1234", "dev-salt"), "dev-salt"),
+            (AUTH_CONFIG_ID, HOME_ID, hash_pin("1234"), None),
         )
 
         cur.execute(

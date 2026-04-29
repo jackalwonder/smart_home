@@ -24,3 +24,5 @@ def test_dev_seed_does_not_overwrite_existing_pin_config() -> None:
 
     assert "ON CONFLICT (home_id) DO NOTHING" in home_auth_section
     assert "SET pin_hash = EXCLUDED.pin_hash" not in home_auth_section
+    assert "hash_pin(\"1234\")" in home_auth_section
+    assert "dev-salt" not in home_auth_section

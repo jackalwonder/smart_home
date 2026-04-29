@@ -37,3 +37,30 @@ class HomeAuthConfigRepositoryImpl:
         if row is None:
             return None
         return HomeAuthConfigRow(**row)
+
+    async def update_pin_hash(
+        self,
+        home_id: str,
+        *,
+        pin_hash: str,
+        pin_salt: str | None,
+        ctx: RepoContext | None = None,
+    ) -> None:
+        stmt = text(
+            """
+            UPDATE home_auth_configs
+            SET pin_hash = :pin_hash,
+                pin_salt = :pin_salt,
+                updated_at = now()
+            WHERE home_id = :home_id
+            """
+        )
+        async with session_scope(self._database, ctx) as (session, _):
+            await session.execute(
+                stmt,
+                {
+                    "home_id": home_id,
+                    "pin_hash": pin_hash,
+                    "pin_salt": pin_salt,
+                },
+            )

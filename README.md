@@ -60,6 +60,11 @@ npm install
 npm run dev
 ```
 
+前端开发服务器默认监听 `http://localhost:5173`，并通过 Vite proxy 将
+`/api/*` 与 `/ws` 转发到 `VITE_BACKEND_PROXY_TARGET`，默认
+`http://localhost:8000`。本地开发时先启动后端，再访问前端端口；浏览器不需要
+直接跨域访问后端 API。
+
 ### 配置与运行态数据
 
 - 根目录 `.env` 保存 Compose 启动所需的端口、密钥和集成配置，必须从
@@ -80,6 +85,8 @@ npm run dev
   PIN、bootstrap、pairing、上传、文件下载有独立阈值，其他 API 走全局兜底；
   命中限流时统一返回 `429` 和 `RATE_LIMITED` 错误码。Redis 短暂不可用时限流
   fail-open，避免把缓存故障扩大成全站不可用。
+- PIN 使用 Argon2id 慢哈希保存。旧版 `sha256(pin:salt)` 哈希仍可
+  验证，成功验证后会自动迁移为新格式。
 - Compose 已为各服务配置 `*_MEM_LIMIT` 和 `*_CPUS` 默认值。部署到不读取这些
   Compose 字段的平台时，需要在平台侧配置等效 CPU/内存限制。
 - 前端 Nginx 默认发送最小 `Content-Security-Policy-Report-Only`。HSTS 只应配
