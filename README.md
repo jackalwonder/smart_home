@@ -89,8 +89,9 @@ npm run dev
   验证，成功验证后会自动迁移为新格式。
 - Compose 已为各服务配置 `*_MEM_LIMIT` 和 `*_CPUS` 默认值。部署到不读取这些
   Compose 字段的平台时，需要在平台侧配置等效 CPU/内存限制。
-- 前端 Nginx 默认发送最小 `Content-Security-Policy-Report-Only`。HSTS 只应配
-  在真实 HTTPS/TLS 终止入口，不应放到本仓库的纯 HTTP 容器入口。
+- 前端 Nginx 默认发送最小 enforce `Content-Security-Policy`，允许同源
+  API/WebSocket、`data:` 二维码图片和 `blob:` 运行时图片。HSTS 只应配在真实
+  HTTPS/TLS 终止入口，不应放到本仓库的纯 HTTP 容器入口。
 
 ### 验证命令
 

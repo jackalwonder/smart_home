@@ -36,3 +36,9 @@ def test_secret_scan_flags_plaintext_env_values(tmp_path: Path) -> None:
     violations = module.scan_file(secret_file)
 
     assert len(violations) == 3
+
+
+def test_secret_scan_skips_deleted_tracked_paths(tmp_path: Path) -> None:
+    module = load_secret_scan_module()
+
+    assert module.scan_file(tmp_path / "deleted.env") == []

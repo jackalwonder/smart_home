@@ -57,6 +57,8 @@ def is_suspicious_secret(key: str, value: str) -> bool:
 
 
 def scan_file(path: Path) -> list[str]:
+    if not path.exists():
+        return []
     if path.name == ".env":
         return [f"{path}: tracked .env files are not allowed"]
     try:

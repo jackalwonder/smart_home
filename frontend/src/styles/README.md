@@ -4,6 +4,7 @@ The current stylesheet entry order is defined in `src/main.tsx` and should stay
 stable unless a change is intentionally visual-regression tested.
 
 - `theme.css`: design tokens, base colors, shared focus and surface primitives.
+- `terminal.css`: terminal activation, pairing, bootstrap-token landing states.
 - `layout.css`: application shell, navigation, responsive page frames.
 - `home.css`: home overview, floorplan, device cards, and home-specific panels.
 - `settings.css`: settings workspace, forms, tables, backups, and admin panels.
