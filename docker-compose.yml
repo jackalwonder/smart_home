@@ -8,6 +8,8 @@ services:
         VITE_HOME_ID: ${VITE_HOME_ID:-11111111-1111-1111-1111-111111111111}
         VITE_TERMINAL_ID: ${VITE_TERMINAL_ID:-22222222-2222-2222-2222-222222222222}
     restart: unless-stopped
+    mem_limit: ${FRONTEND_MEM_LIMIT:-128m}
+    cpus: ${FRONTEND_CPUS:-0.50}
     ports:
       - "${FRONTEND_PORT:-5173}:80"
     depends_on:
@@ -19,12 +21,24 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    mem_limit: ${BACKEND_MEM_LIMIT:-512m}
+    cpus: ${BACKEND_CPUS:-1.00}
     environment:
       APP_ENV: ${APP_ENV:-docker}
       APP_HOST: ${APP_HOST:-0.0.0.0}
       APP_PORT: ${APP_PORT:-8000}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://smart_home:smart_home@postgres:5432/smart_home}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_GLOBAL_PER_MINUTE: ${RATE_LIMIT_GLOBAL_PER_MINUTE:-600}
+      RATE_LIMIT_AUTH_PER_MINUTE: ${RATE_LIMIT_AUTH_PER_MINUTE:-60}
+      RATE_LIMIT_PIN_PER_MINUTE: ${RATE_LIMIT_PIN_PER_MINUTE:-30}
+      RATE_LIMIT_BOOTSTRAP_PER_MINUTE: ${RATE_LIMIT_BOOTSTRAP_PER_MINUTE:-60}
+      RATE_LIMIT_PAIRING_PER_MINUTE: ${RATE_LIMIT_PAIRING_PER_MINUTE:-60}
+      RATE_LIMIT_UPLOAD_PER_MINUTE: ${RATE_LIMIT_UPLOAD_PER_MINUTE:-30}
+      RATE_LIMIT_FILE_DOWNLOAD_PER_MINUTE: ${RATE_LIMIT_FILE_DOWNLOAD_PER_MINUTE:-300}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      RATE_LIMIT_REDIS_TIMEOUT_SECONDS: ${RATE_LIMIT_REDIS_TIMEOUT_SECONDS:-0.25}
       TZ: ${TZ:-Asia/Shanghai}
       CONNECTION_ENCRYPTION_SECRET: ${CONNECTION_ENCRYPTION_SECRET:?CONNECTION_ENCRYPTION_SECRET is required}
       ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:?ACCESS_TOKEN_SECRET is required}
@@ -82,6 +96,8 @@ services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant@sha256:c1e5f0147f4cb51ccb05bb30b62a1269cc1bd48a6274792d3b38a77ab274dfd2
     restart: unless-stopped
+    mem_limit: ${HOME_ASSISTANT_MEM_LIMIT:-1024m}
+    cpus: ${HOME_ASSISTANT_CPUS:-1.00}
     environment:
       TZ: ${TZ:-Asia/Shanghai}
     ports:
@@ -102,6 +118,8 @@ services:
     image: smart-home-sgcc-electricity-direct-qrcode:local
     container_name: ${SGCC_DOCKER_CONTAINER_NAME:-smart-home-sgcc-electricity}
     restart: unless-stopped
+    mem_limit: ${SGCC_MEM_LIMIT:-512m}
+    cpus: ${SGCC_CPUS:-1.00}
     env_file:
       - path: ./deploy/sgcc_electricity/.env
         required: false
@@ -129,6 +147,8 @@ services:
   postgres:
     image: postgres:16-alpine@sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50
     restart: unless-stopped
+    mem_limit: ${POSTGRES_MEM_LIMIT:-512m}
+    cpus: ${POSTGRES_CPUS:-1.00}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-smart_home}
       POSTGRES_USER: ${POSTGRES_USER:-smart_home}
@@ -146,6 +166,8 @@ services:
   redis:
     image: redis:7-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
     restart: unless-stopped
+    mem_limit: ${REDIS_MEM_LIMIT:-128m}
+    cpus: ${REDIS_CPUS:-0.50}
     ports:
       - "${REDIS_PORT:-6379}:6379"
     command: ["redis-server", "--appendonly", "yes"]

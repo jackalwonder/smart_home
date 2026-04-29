@@ -64,6 +64,9 @@ npm run dev
 
 - 根目录 `.env` 保存 Compose 启动所需的端口、密钥和集成配置，必须从
   `.env.example` 复制后在本机填写，不应提交真实值。
+- 本地和 CI 默认前端端口统一为 `FRONTEND_PORT=5173`。E2E 默认基址为
+  `PLAYWRIGHT_BASE_URL=http://127.0.0.1:${FRONTEND_PORT}`，如需换端口应同时
+  修改 `.env`、CI 环境变量和 Playwright 启动参数。
 - `deploy/` 只跟踪 README 和示例模板；Home Assistant 数据库、日志、
   SGCC 缓存、二维码和真实 `.env` 都属于运行态数据，默认被 `.gitignore`
   排除。
@@ -73,6 +76,14 @@ npm run dev
 - 后端容器默认不会写入开发演示数据。只有显式设置
   `BOOTSTRAP_DEV_DATA=true`，且 `APP_ENV` 为 `local`、`dev`、`development`
   或 `test` 时才会执行开发数据脚本。
+- Compose 默认启用 Redis 请求级限流（`RATE_LIMIT_ENABLED=true`）：登录、
+  PIN、bootstrap、pairing、上传、文件下载有独立阈值，其他 API 走全局兜底；
+  命中限流时统一返回 `429` 和 `RATE_LIMITED` 错误码。Redis 短暂不可用时限流
+  fail-open，避免把缓存故障扩大成全站不可用。
+- Compose 已为各服务配置 `*_MEM_LIMIT` 和 `*_CPUS` 默认值。部署到不读取这些
+  Compose 字段的平台时，需要在平台侧配置等效 CPU/内存限制。
+- 前端 Nginx 默认发送最小 `Content-Security-Policy-Report-Only`。HSTS 只应配
+  在真实 HTTPS/TLS 终止入口，不应放到本仓库的纯 HTTP 容器入口。
 
 ### 验证命令
 
@@ -97,8 +108,9 @@ npm run typecheck
 npm test
 npm run build
 
-# E2E（当前 Compose 前端端口）
-set PLAYWRIGHT_BASE_URL=http://127.0.0.1:25173
+# E2E（默认 Compose 前端端口，和 FRONTEND_PORT 保持一致）
+export FRONTEND_PORT=${FRONTEND_PORT:-5173}
+export PLAYWRIGHT_BASE_URL="http://127.0.0.1:${FRONTEND_PORT}"
 npm run test:e2e
 ```
 
