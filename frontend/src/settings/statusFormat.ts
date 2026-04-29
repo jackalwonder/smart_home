@@ -31,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
   QR_READY: "二维码可扫码",
   READY: "可用",
   SUCCESS: "成功",
+  SESSION_READY: "已登录，等待拉取",
   TIMEOUT: "超时",
   UNAVAILABLE: "不可用",
   UNBOUND: "未绑定",
@@ -48,6 +49,7 @@ const SUCCESS_VALUES = new Set([
   "DATA_READY",
   "READY",
   "SUCCESS",
+  "SESSION_READY",
 ]);
 
 const WARNING_VALUES = new Set([

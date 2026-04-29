@@ -22,6 +22,6 @@ export function clearEnergyBinding(input: EnergyBindingInput = { payload: {} }) 
 export function refreshEnergy() {
   return apiRequest<EnergyRefreshDto>("/api/v1/energy/refresh", {
     method: "POST",
-    body: JSON.stringify({ payload: {} }),
+    body: JSON.stringify({ payload: { trigger_upstream: false }, trigger_upstream: false }),
   });
 }

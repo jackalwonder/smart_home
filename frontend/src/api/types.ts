@@ -98,6 +98,7 @@ export type RoomListDto = RequireFields<Schema<"RoomListResponse">, "rooms">;
 
 export type SettingsDto = Schema<"SettingsSnapshotResponse">;
 export type SgccLoginQrCodeStatusDto = Schema<"SgccLoginQrCodeStatusResponse">;
+export type SgccEnergyPullDto = Schema<"SgccEnergyPullResponse">;
 
 export type SettingsSaveInput = RequireFields<
   Omit<Schema<"SettingsSaveRequestBody">, "home_id" | "terminal_id" | "member_id">,

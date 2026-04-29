@@ -103,9 +103,13 @@ export function buildEnergyBindingPayload(draft: EnergyBindingDraft) {
 export function formatEnergyRefreshMessage(response: EnergyRefreshDto) {
   switch (response.refresh_status_detail) {
     case "SUCCESS_UPDATED":
-      return "已完成刷新，HA 源数据已更新。";
+      return response.upstream_triggered
+        ? "已完成刷新，HA 源数据已更新。"
+        : "已从 HA 实体或 SGCC 缓存读取最新能耗。";
     case "SUCCESS_STALE_SOURCE":
-      return "已完成刷新，但源数据未更新。";
+      return response.upstream_triggered
+        ? "已完成刷新，但源数据未更新。"
+        : "已完成本地刷新，但 HA 实体/缓存没有比当前快照更新的数据。";
     case "FAILED_UPSTREAM_TRIGGER":
       return "触发上游同步失败，请检查 sgcc_electricity_new 或 HA 服务入口配置。";
     case "FAILED_SOURCE_TIMEOUT":

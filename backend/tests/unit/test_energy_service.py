@@ -364,6 +364,40 @@ def test_energy_refresh_falls_back_to_sgcc_cache_when_ha_entities_are_missing(tm
     assert outbox.events[-1].event_type == "energy_refresh_completed"
 
 
+def test_energy_refresh_from_sources_does_not_trigger_sgcc_fetch(tmp_path):
+    cache_file = tmp_path / "sgcc_cache.json"
+    cache_file.write_text(
+        json.dumps(
+            {
+                "1503525238170": {
+                    "balance": 176.67,
+                    "last_daily_usage": 4.46,
+                    "yearly_usage": "523",
+                    "month_usage": "194",
+                    "timestamp": "2026-04-23T11:41:57.719419",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    restarter = _Restarter()
+    service, _, snapshots, _ = _service(
+        gateway=_HaGateway([[], []]),
+        restarter=restarter,
+        mode="sgcc_sidecar",
+        sgcc_cache_file=cache_file,
+    )
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1503525238170"}))
+
+    result = _run(service.refresh_from_sources("home-1", "terminal-1"))
+
+    assert restarter.fetch_count == 0
+    assert result.refresh_status == "SUCCESS"
+    assert result.upstream_triggered is False
+    assert snapshots.inserts[-1].cache_mode is True
+    assert snapshots.inserts[-1].monthly_usage == 194.0
+
+
 def test_energy_refresh_failure_keeps_previous_values_as_cache():
     previous = EnergySnapshotRow(
         id="previous",

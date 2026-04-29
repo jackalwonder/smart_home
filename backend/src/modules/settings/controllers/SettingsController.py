@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import Field
 
 from src.app.container import (
+    get_energy_service,
     get_favorites_query_service,
     get_management_pin_guard,
     get_request_context_service,
@@ -17,6 +18,8 @@ from src.app.container import (
 )
 from src.modules.auth.services.guard.ManagementPinGuard import ManagementPinGuard
 from src.modules.auth.services.query.RequestContextService import RequestContextService
+from src.modules.energy.controllers.EnergyController import EnergyRefreshResponse
+from src.modules.energy.services.EnergyService import EnergyService
 from src.modules.settings.services.command.SettingsSaveService import (
     SettingsSaveInput,
     SettingsSaveService,
@@ -143,6 +146,11 @@ class SgccLoginQrCodeStatusResponse(ApiSchema):
     message: str
 
 
+class SgccEnergyPullResponse(ApiSchema):
+    sgcc_status: SgccLoginQrCodeStatusResponse
+    energy_refresh: EnergyRefreshResponse
+
+
 @router.get("/api/v1/settings", response_model=SuccessEnvelope[SettingsSnapshotResponse])
 async def get_settings(
     request: Request,
@@ -247,6 +255,38 @@ async def bind_sgcc_energy_account(
         member_id=context.operator_id,
     )
     return success_response(request, SgccLoginQrCodeStatusResponse.model_validate(asdict(view)))
+
+
+@router.post(
+    "/api/v1/settings/sgcc-login-qrcode/pull-energy-data",
+    response_model=SuccessEnvelope[SgccEnergyPullResponse],
+)
+async def pull_sgcc_energy_data(
+    request: Request,
+    service: SgccLoginQrCodeService = Depends(get_sgcc_login_qr_code_service),
+    energy_service: EnergyService = Depends(get_energy_service),
+    management_pin_guard: ManagementPinGuard = Depends(get_management_pin_guard),
+    request_context_service: RequestContextService = Depends(get_request_context_service),
+) -> object:
+    context = await request_context_service.resolve_http_request(
+        request,
+        require_home=True,
+        require_terminal=True,
+    )
+    await management_pin_guard.require_active_session(context.home_id, context.terminal_id)
+    sgcc_status = await service.pull_energy_data(
+        home_id=context.home_id,
+        terminal_id=context.terminal_id,
+        member_id=context.operator_id,
+    )
+    energy_refresh = await energy_service.refresh_from_sources(context.home_id, context.terminal_id)
+    return success_response(
+        request,
+        SgccEnergyPullResponse(
+            sgcc_status=SgccLoginQrCodeStatusResponse.model_validate(asdict(sgcc_status)),
+            energy_refresh=EnergyRefreshResponse.model_validate(asdict(energy_refresh)),
+        ),
+    )
 
 
 @router.get(

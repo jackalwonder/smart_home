@@ -160,14 +160,20 @@ def _run_job(job_id: object, kind: str, session_first: bool) -> None:
     global _current_job, _last_job
     error: str | None = None
     cache_mtime_before = _mtime(CACHE_FILE)
+    success_phase = "SESSION_READY" if kind == "LOGIN" else "DATA_READY"
     try:
-        _set_job_phase(job_id, "LOGIN_RUNNING" if not session_first else "FETCHING_DATA")
-        _run_sgcc_fetch(job_id=job_id, session_first=session_first)
-        if _mtime(CACHE_FILE) <= cache_mtime_before:
-            error = "LOGIN_REQUIRED"
-            _set_job_phase(job_id, "WAITING_FOR_SCAN")
+        if kind == "LOGIN":
+            _set_job_phase(job_id, "LOGIN_RUNNING")
+            _run_sgcc_login_only(job_id=job_id)
+            _set_job_phase(job_id, success_phase)
         else:
-            _set_job_phase(job_id, "DATA_READY")
+            _set_job_phase(job_id, "FETCHING_DATA")
+            _run_sgcc_fetch(job_id=job_id, session_first=session_first)
+            if _mtime(CACHE_FILE) <= cache_mtime_before:
+                error = "LOGIN_REQUIRED"
+                _set_job_phase(job_id, "WAITING_FOR_SCAN")
+            else:
+                _set_job_phase(job_id, success_phase)
     except Exception as exc:  # pragma: no cover - defensive sidecar boundary
         error = str(exc)
         logging.exception("SGCC %s task failed", kind)
@@ -180,12 +186,46 @@ def _run_job(job_id: object, kind: str, session_first: bool) -> None:
             {
                 "state": "FAILED" if error else "COMPLETED",
                 "finished_at": finished_at,
-                "phase": "FAILED" if error else "DATA_READY",
+                "phase": "FAILED" if error else success_phase,
                 "last_error": error,
             }
         )
         _last_job = job
         _current_job = None
+
+
+def _run_sgcc_login_only(*, job_id: object) -> None:
+    os.environ["DIRECT_QRCODE_LOGIN"] = "true"
+    os.environ["SGCC_SESSION_FIRST"] = "false"
+    os.environ.setdefault("PYTHON_IN_DOCKER", "true")
+    os.environ.setdefault("SGCC_CHROME_PROFILE_DIR", str(CHROME_PROFILE_DIR))
+    _cleanup_stale_chrome_profile_lock()
+
+    import main
+    from data_fetcher import DataFetcher
+    from error_watcher import ErrorWatcher
+
+    _patch_persistent_webdriver(DataFetcher)
+    _patch_phase_aware_qr_login(DataFetcher, job_id, next_phase="SESSION_READY")
+
+    main.logger_init(os.getenv("LOG_LEVEL", "INFO"))
+    main.RETRY_TIMES_LIMIT = int(os.getenv("RETRY_TIMES_LIMIT", "5"))
+    ErrorWatcher.init(root_dir="/data/errors")
+
+    fetcher = DataFetcher(os.getenv("PHONE_NUMBER"), os.getenv("PASSWORD"))
+    driver = fetcher._get_webdriver()
+    try:
+        ErrorWatcher.instance().set_driver(driver)
+    except Exception:
+        logging.debug("failed to attach SGCC login-only driver to ErrorWatcher", exc_info=True)
+    try:
+        driver.maximize_window()
+    except Exception:
+        pass
+    logged_in = fetcher._direct_qr_login(driver)
+    if not logged_in:
+        _set_job_phase(job_id, "WAITING_FOR_SCAN")
+        raise RuntimeError("LOGIN_REQUIRED")
 
 
 def _run_sgcc_fetch(*, job_id: object, session_first: bool) -> None:
@@ -200,7 +240,7 @@ def _run_sgcc_fetch(*, job_id: object, session_first: bool) -> None:
     from error_watcher import ErrorWatcher
 
     _patch_persistent_webdriver(DataFetcher)
-    _patch_phase_aware_qr_login(DataFetcher, job_id)
+    _patch_phase_aware_qr_login(DataFetcher, job_id, next_phase="FETCHING_DATA")
 
     main.logger_init(os.getenv("LOG_LEVEL", "INFO"))
     main.RETRY_TIMES_LIMIT = int(os.getenv("RETRY_TIMES_LIMIT", "5"))
@@ -423,7 +463,12 @@ def _close_persistent_webdriver() -> None:
         logging.debug("failed to close stale SGCC Chromium browser session", exc_info=True)
 
 
-def _patch_phase_aware_qr_login(data_fetcher_type: type[object], job_id: object) -> None:
+def _patch_phase_aware_qr_login(
+    data_fetcher_type: type[object],
+    job_id: object,
+    *,
+    next_phase: str,
+) -> None:
     original_qr_login = getattr(
         data_fetcher_type,
         "_codex_original_qr_login",
@@ -434,7 +479,7 @@ def _patch_phase_aware_qr_login(data_fetcher_type: type[object], job_id: object)
     def phase_aware_qr_login(self: object, driver: object) -> bool:
         logged_in = original_qr_login(self, driver)
         if logged_in:
-            _set_job_phase(job_id, "FETCHING_DATA")
+            _set_job_phase(job_id, next_phase)
         return logged_in
 
     data_fetcher_type._qr_login = phase_aware_qr_login

@@ -199,6 +199,8 @@ def phase_from_runtime_status(
     if job_state == "RUNNING":
         if job_phase in {"FETCHING_DATA", "DATA_READY"}:
             return job_phase
+        if job_phase == "SESSION_READY":
+            return "SESSION_READY"
         if job_phase == "WAITING_FOR_SCAN":
             return "WAITING_FOR_SCAN"
         if job_kind == "FETCH":
@@ -208,6 +210,8 @@ def phase_from_runtime_status(
         if runtime_status.last_error == "LOGIN_REQUIRED":
             return "WAITING_FOR_SCAN"
         return "FAILED"
+    if job_state == "COMPLETED" and job_kind == "LOGIN" and job_phase == "SESSION_READY":
+        return "SESSION_READY"
     if runtime_status.accounts:
         return "DATA_READY"
     return phase_from_qrcode_status(qrcode.status if qrcode else None)
@@ -229,6 +233,8 @@ def runtime_phase_message(
         return "SGCC is waiting for QR code scan confirmation."
     if phase == "FETCHING_DATA":
         return "SGCC login succeeded. Fetching account and electricity data."
+    if phase == "SESSION_READY":
+        return "SGCC login is ready. Pull electricity data when needed."
     if phase == "DATA_READY":
         account_count = len(runtime_status.accounts)
         if account_count:

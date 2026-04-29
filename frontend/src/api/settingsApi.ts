@@ -4,6 +4,7 @@ import {
   SettingsDto,
   SettingsSaveDto,
   SettingsSaveInput,
+  SgccEnergyPullDto,
   SgccLoginQrCodeStatusDto,
 } from "./types";
 
@@ -35,6 +36,16 @@ export function regenerateSgccLoginQrCode() {
 export function bindSgccEnergyAccount() {
   return apiRequest<SgccLoginQrCodeStatusDto>(
     "/api/v1/settings/sgcc-login-qrcode/bind-energy-account",
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+export function pullSgccEnergyData() {
+  return apiRequest<SgccEnergyPullDto>(
+    "/api/v1/settings/sgcc-login-qrcode/pull-energy-data",
     {
       method: "POST",
       body: JSON.stringify({}),

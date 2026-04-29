@@ -22,12 +22,14 @@ from src.shared.errors.AppError import AppError
 class FakeRestarter:
     def __init__(self) -> None:
         self.restart_count = 0
+        self.fetch_count = 0
         self.runtime_status = None
 
     async def restart(self) -> None:
         self.restart_count += 1
 
     async def fetch(self) -> None:
+        self.fetch_count += 1
         return None
 
     async def get_status(self):
@@ -42,6 +44,8 @@ def build_settings(qr_path, ttl_seconds=60):
         sgcc_qr_code_file=str(qr_path),
         sgcc_cache_file=str(qr_path.parent / "sgcc_cache.json"),
         sgcc_qr_code_ttl_seconds=ttl_seconds,
+        energy_upstream_wait_timeout_seconds=1,
+        energy_upstream_poll_interval_seconds=0.01,
     )
 
 
@@ -349,3 +353,65 @@ async def test_bind_energy_account_uses_sgcc_last_four_suffix_when_ha_states_are
     assert status.status == "BOUND"
     payload = json.loads(repository.upserts[0].account_payload_encrypted)
     assert payload["entity_map"]["balance"] == "sensor.electricity_charge_balance_8170"
+
+
+@pytest.mark.asyncio
+async def test_pull_energy_data_fetches_then_auto_binds_account(tmp_path):
+    qr_path = tmp_path / "login_qr_code.png"
+    repository = FakeEnergyAccountRepository()
+    restarter = FakeRestarter()
+    restarter.runtime_status = SgccRuntimeStatus(
+        state="IDLE",
+        qrcode=None,
+        accounts=[
+            SgccRuntimeAccount(
+                account_id="1503525238170",
+                timestamp="2026-04-20T21:35:02",
+            )
+        ],
+        job={"state": "COMPLETED", "kind": "FETCH", "phase": "DATA_READY"},
+        job_state="COMPLETED",
+        job_kind="FETCH",
+        job_phase="DATA_READY",
+        last_error=None,
+        message="idle",
+    )
+    service = SgccLoginQrCodeService(
+        build_settings(qr_path),
+        energy_account_repository=repository,
+        ha_connection_gateway=FakeHaConnectionGateway(None),
+        runtime_control=restarter,
+    )
+
+    status = await service.pull_energy_data(home_id="home-1", terminal_id="terminal-1")
+
+    assert restarter.fetch_count == 1
+    assert status.status == "BOUND"
+    assert len(repository.upserts) == 1
+    payload = json.loads(repository.upserts[0].account_payload_encrypted)
+    assert payload["account_id"] == "1503525238170"
+
+
+@pytest.mark.asyncio
+async def test_pull_energy_data_reports_login_required(tmp_path):
+    restarter = FakeRestarter()
+    restarter.runtime_status = SgccRuntimeStatus(
+        state="IDLE",
+        qrcode=None,
+        accounts=[],
+        job={"state": "FAILED", "kind": "FETCH", "phase": "FAILED", "last_error": "LOGIN_REQUIRED"},
+        job_state="FAILED",
+        job_kind="FETCH",
+        job_phase="FAILED",
+        last_error="LOGIN_REQUIRED",
+        message="idle",
+    )
+    service = SgccLoginQrCodeService(
+        build_settings(tmp_path / "login_qr_code.png"),
+        runtime_control=restarter,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await service.pull_energy_data(home_id="home-1")
+
+    assert exc_info.value.details == {"reason": "LOGIN_REQUIRED"}

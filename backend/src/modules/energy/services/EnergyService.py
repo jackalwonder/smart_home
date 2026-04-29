@@ -184,6 +184,10 @@ class EnergyService:
         await self._management_pin_guard.require_active_session(home_id, terminal_id)
         return await self._refresh_coordinator.refresh_home(home_id)
 
+    async def refresh_from_sources(self, home_id: str, terminal_id: str) -> EnergyRefreshView:
+        await self._management_pin_guard.require_active_session(home_id, terminal_id)
+        return await self._refresh_coordinator.refresh_home(home_id, trigger_upstream=False)
+
     async def refresh_system(self, home_id: str) -> EnergyRefreshView:
         return await self._refresh_coordinator.refresh_home(home_id)
 

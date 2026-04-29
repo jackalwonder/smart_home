@@ -3,7 +3,7 @@ import { formatSettingsStatus, getSettingsStatusTone } from "../../settings/stat
 import { DefaultMediaPanel } from "./DefaultMediaPanel";
 import { EnergyBindingPanel } from "./EnergyBindingPanel";
 import { SettingsTaskModule } from "./SettingsTaskModule";
-import { SgccLoginQrCodePanel } from "./SgccLoginQrCodePanel";
+import { SgccEnergySyncPanel } from "./SgccEnergySyncPanel";
 import { SystemConnectionPanel } from "./SystemConnectionPanel";
 
 interface SettingsIntegrationsSectionProps {
@@ -14,8 +14,8 @@ interface SettingsIntegrationsSectionProps {
   energySaveBusy: boolean;
   energyState: ComponentProps<typeof EnergyBindingPanel>["energy"];
   handleBindDefaultMedia: () => void;
-  handleBindSgccEnergyAccount: () => void;
   handleClearEnergyBinding: () => void;
+  handlePullSgccEnergyData: () => void;
   handleRefreshEnergy: () => void;
   handleRegenerateSgccLoginQrCode: () => void;
   handleSaveEnergyBinding: () => void;
@@ -35,11 +35,11 @@ interface SettingsIntegrationsSectionProps {
   pinActive: boolean;
   selectedMediaDeviceId: string;
   setSelectedMediaDeviceId: (value: string) => void;
-  sgccLoginQrCode: ComponentProps<typeof SgccLoginQrCodePanel>["status"];
-  sgccLoginQrCodeBindBusy: boolean;
+  sgccLoginQrCode: ComponentProps<typeof SgccEnergySyncPanel>["status"];
   sgccLoginQrCodeImageUrl: string | null;
   sgccLoginQrCodeLoading: boolean;
   sgccLoginQrCodeMessage: string | null;
+  sgccLoginQrCodePullBusy: boolean;
   sgccLoginQrCodeRegenerateBusy: boolean;
   sgccStatus: string;
   systemDraft: ComponentProps<typeof SystemConnectionPanel>["draft"];
@@ -60,8 +60,8 @@ export function SettingsIntegrationsSection({
   energySaveBusy,
   energyState,
   handleBindDefaultMedia,
-  handleBindSgccEnergyAccount,
   handleClearEnergyBinding,
+  handlePullSgccEnergyData,
   handleRefreshEnergy,
   handleRegenerateSgccLoginQrCode,
   handleSaveEnergyBinding,
@@ -82,10 +82,10 @@ export function SettingsIntegrationsSection({
   selectedMediaDeviceId,
   setSelectedMediaDeviceId,
   sgccLoginQrCode,
-  sgccLoginQrCodeBindBusy,
   sgccLoginQrCodeImageUrl,
   sgccLoginQrCodeLoading,
   sgccLoginQrCodeMessage,
+  sgccLoginQrCodePullBusy,
   sgccLoginQrCodeRegenerateBusy,
   sgccStatus,
   systemDraft,
@@ -137,69 +137,42 @@ export function SettingsIntegrationsSection({
         action={
           <button
             className="button button--ghost"
-            disabled={!pinActive || energyRefreshBusy}
-            onClick={handleRefreshEnergy}
-            type="button"
-          >
-            {energyRefreshBusy ? "刷新中..." : "刷新能耗"}
-          </button>
-        }
-        defaultOpen
-        description="绑定 SGCC 缓存读取结果，检查刷新状态，并把页面展示依赖的实体对齐。"
-        eyebrow="接入配置"
-        id="settings-module-energy"
-        status={formatSettingsStatus(energyState?.binding_status, "connection")}
-        statusTone={getSettingsStatusTone(energyState?.binding_status, "connection")}
-        title="能耗与 SGCC 缓存"
-      >
-        <EnergyBindingPanel
-          canEdit={pinActive}
-          clearBusy={energyClearBusy}
-          draft={energyDraft}
-          energy={energyState}
-          message={energyMessage}
-          onChangeAccountId={updateEnergyAccountId}
-          onChangeEntity={updateEnergyEntity}
-          onClear={handleClearEnergyBinding}
-          onRefresh={handleRefreshEnergy}
-          onSave={handleSaveEnergyBinding}
-          refreshBusy={energyRefreshBusy}
-          saveBusy={energySaveBusy}
-          sgccAccountCount={sgccLoginQrCode?.account_count ?? 0}
-          sgccLatestAccountTimestamp={sgccLoginQrCode?.latest_account_timestamp ?? null}
-          sgccPhase={sgccStatus}
-        />
-      </SettingsTaskModule>
-
-      <SettingsTaskModule
-        action={
-          <button
-            className="button button--ghost"
             disabled={sgccLoginQrCodeLoading}
             onClick={loadSgccLoginQrCode}
             type="button"
           >
-            {sgccLoginQrCodeLoading ? "刷新中..." : "刷新二维码状态"}
+            {sgccLoginQrCodeLoading ? "刷新中..." : "刷新状态"}
           </button>
         }
-        description="查看国网整体阶段、账号缓存和二维码文件状态。二维码过期不再等同于登录过期。"
+        defaultOpen
+        description="扫码登录后手动拉取国家电网能耗，自动同步到 HA 实体并生成本地缓存；刷新能耗只读取 HA/缓存。"
         eyebrow="接入配置"
-        id="settings-module-sgcc"
+        id="settings-module-energy"
         status={formatSettingsStatus(sgccStatus, "sgcc")}
         statusTone={getSettingsStatusTone(sgccStatus, "sgcc")}
-        title="国网登录二维码"
+        title="国家电网用电同步"
       >
-        <SgccLoginQrCodePanel
-          bindBusy={sgccLoginQrCodeBindBusy}
-          canBind={pinActive}
-          canRegenerate={pinActive}
+        <SgccEnergySyncPanel
+          canEdit={pinActive}
+          clearBusy={energyClearBusy}
+          draft={energyDraft}
+          energy={energyState}
+          energyMessage={energyMessage}
           imageUrl={sgccLoginQrCodeImageUrl}
           loading={sgccLoginQrCodeLoading}
-          message={sgccLoginQrCodeMessage}
-          onBindEnergyAccount={handleBindSgccEnergyAccount}
-          onRegenerate={handleRegenerateSgccLoginQrCode}
+          onChangeAccountId={updateEnergyAccountId}
+          onChangeEntity={updateEnergyEntity}
+          onClear={handleClearEnergyBinding}
+          onPullEnergyData={handlePullSgccEnergyData}
+          onRefreshEnergy={handleRefreshEnergy}
           onRefreshStatus={loadSgccLoginQrCode}
+          onRegenerate={handleRegenerateSgccLoginQrCode}
+          onSave={handleSaveEnergyBinding}
+          pullBusy={sgccLoginQrCodePullBusy}
+          refreshBusy={energyRefreshBusy}
           regenerateBusy={sgccLoginQrCodeRegenerateBusy}
+          saveBusy={energySaveBusy}
+          sgccMessage={sgccLoginQrCodeMessage}
           status={sgccLoginQrCode}
         />
       </SettingsTaskModule>

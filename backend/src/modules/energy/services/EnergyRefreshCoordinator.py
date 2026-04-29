@@ -46,7 +46,7 @@ class EnergyRefreshCoordinator:
         self._event_id_generator = event_id_generator
         self._clock = clock
 
-    async def refresh_home(self, home_id: str) -> EnergyRefreshView:
+    async def refresh_home(self, home_id: str, *, trigger_upstream: bool = True) -> EnergyRefreshView:
         started_at = self._clock.now().isoformat()
         account = await self._energy_account_repository.find_by_home_id(home_id)
         binding_status = account.binding_status if account else "UNBOUND"
@@ -70,6 +70,7 @@ class EnergyRefreshCoordinator:
                 home_id,
                 account.account_payload_encrypted,
                 previous_snapshot,
+                trigger_upstream=trigger_upstream,
             )
 
         snapshot = outcome.snapshot
@@ -129,13 +130,15 @@ class EnergyRefreshCoordinator:
         home_id: str,
         account_payload_encrypted: str | None,
         previous_snapshot: EnergySnapshotRow | None,
+        *,
+        trigger_upstream: bool,
     ) -> EnergyRefreshOutcome:
         binding_payload = _decode_binding_payload(account_payload_encrypted)
         initial_states = await self._upstream_reader.fetch_states_view(home_id)
         if isinstance(initial_states, str):
             upstream_triggered = False
             trigger_error = None
-            if self._upstream_reader.refresh_mode != "none":
+            if trigger_upstream and self._upstream_reader.refresh_mode != "none":
                 upstream_triggered = True
                 trigger_error = await self._upstream_reader.trigger_upstream_refresh(home_id)
             cache_outcome = await self._try_refresh_from_sgcc_cache(
@@ -163,7 +166,7 @@ class EnergyRefreshCoordinator:
         if not entity_ids:
             upstream_triggered = False
             trigger_error = None
-            if self._upstream_reader.refresh_mode != "none":
+            if trigger_upstream and self._upstream_reader.refresh_mode != "none":
                 upstream_triggered = True
                 trigger_error = await self._upstream_reader.trigger_upstream_refresh(home_id)
             cache_outcome = await self._try_refresh_from_sgcc_cache(
@@ -192,7 +195,7 @@ class EnergyRefreshCoordinator:
         final_states_by_entity_id = initial_states.states_by_entity_id
         baseline_source_updated_at = _collect_source_updated_at(entity_ids, initial_states.states_by_entity_id)
 
-        if self._upstream_reader.refresh_mode != "none":
+        if trigger_upstream and self._upstream_reader.refresh_mode != "none":
             upstream_triggered = True
             trigger_error = await self._upstream_reader.trigger_upstream_refresh(home_id)
             if trigger_error is not None:
@@ -266,6 +269,13 @@ class EnergyRefreshCoordinator:
             )
 
         values, source_updated_at = values_result
+        if not upstream_triggered:
+            source_updated = _is_iso_newer(
+                source_updated_at,
+                previous_snapshot.source_updated_at if previous_snapshot else None,
+            )
+            if previous_snapshot is None and source_updated_at:
+                source_updated = True
         snapshot = await self._energy_snapshot_repository.insert(
             NewEnergySnapshotRow(
                 home_id=home_id,

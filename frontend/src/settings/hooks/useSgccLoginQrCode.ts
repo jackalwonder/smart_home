@@ -4,9 +4,11 @@ import {
   bindSgccEnergyAccount,
   fetchSgccLoginQrCodeImage,
   fetchSgccLoginQrCodeStatus,
+  pullSgccEnergyData,
   regenerateSgccLoginQrCode,
 } from "../../api/settingsApi";
 import type { SgccLoginQrCodeStatusDto } from "../../api/types";
+import { formatEnergyRefreshMessage } from "./settingsIntegrationModels";
 
 interface UseSgccLoginQrCodeOptions {
   canEdit: boolean;
@@ -21,6 +23,7 @@ export function useSgccLoginQrCode({
   const [loading, setLoading] = useState(false);
   const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [bindBusy, setBindBusy] = useState(false);
+  const [pullBusy, setPullBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -105,6 +108,26 @@ export function useSgccLoginQrCode({
     }
   }, [canEdit, onEnergyAccountBound]);
 
+  const pullEnergyData = useCallback(async () => {
+    if (!canEdit) {
+      setMessage("拉取国网能耗前，请先验证管理 PIN。");
+      return;
+    }
+
+    setPullBusy(true);
+    setMessage("正在拉取国网数据，并同步到 HA 实体与本地缓存...");
+    try {
+      const response = await pullSgccEnergyData();
+      setStatus(response.sgcc_status);
+      setMessage(formatEnergyRefreshMessage(response.energy_refresh));
+      await onEnergyAccountBound();
+    } catch (error) {
+      setMessage(normalizeApiError(error).message);
+    } finally {
+      setPullBusy(false);
+    }
+  }, [canEdit, onEnergyAccountBound]);
+
   useEffect(() => {
     return () => {
       if (imageUrl?.startsWith("blob:")) {
@@ -120,6 +143,8 @@ export function useSgccLoginQrCode({
     loadStatus,
     loading,
     message,
+    pullBusy,
+    pullEnergyData,
     regenerate,
     regenerateBusy,
     status,

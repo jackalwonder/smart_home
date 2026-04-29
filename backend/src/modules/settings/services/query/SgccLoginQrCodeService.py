@@ -53,6 +53,8 @@ class SgccLoginQrCodeService:
         self._qr_code_file = Path(settings.sgcc_qr_code_file)
         self._cache_file = Path(settings.sgcc_cache_file)
         self._qr_code_ttl_seconds = settings.sgcc_qr_code_ttl_seconds
+        self._fetch_wait_timeout_seconds = max(10, settings.energy_upstream_wait_timeout_seconds + 15)
+        self._fetch_poll_interval_seconds = max(1.0, settings.energy_upstream_poll_interval_seconds)
         self._energy_account_repository = energy_account_repository
         self._ha_connection_gateway = ha_connection_gateway
         self._runtime_control = runtime_control or DockerUnixSocketContainerRestarter(
@@ -294,6 +296,44 @@ class SgccLoginQrCodeService:
             )
         return self._build_bound_status(binding, runtime_status)
 
+    async def pull_energy_data(
+        self,
+        *,
+        home_id: str,
+        terminal_id: str | None = None,
+        member_id: str | None = None,
+    ) -> SgccLoginQrCodeStatusView:
+        await self._runtime_control.fetch()
+        runtime_status = await self._wait_for_fetch_completion()
+        if runtime_status is None:
+            raise AppError(
+                ErrorCode.INTERNAL_SERVER_ERROR,
+                "SGCC sidecar did not return fetch status.",
+            )
+        last_error = (runtime_status.last_error or "").upper()
+        if (runtime_status.job_state or "").upper() == "FAILED" or last_error:
+            if last_error == "LOGIN_REQUIRED":
+                raise AppError(
+                    ErrorCode.INTERNAL_SERVER_ERROR,
+                    "登录态失效，请重新扫码。",
+                    details={"reason": "LOGIN_REQUIRED"},
+                )
+            raise AppError(
+                ErrorCode.INTERNAL_SERVER_ERROR,
+                "SGCC fetch failed.",
+                details={"reason": runtime_status.last_error or runtime_status.job_phase or "UNKNOWN"},
+            )
+
+        binding = await self._try_auto_bind_energy_account(
+            home_id=home_id,
+            terminal_id=terminal_id,
+            member_id=member_id,
+            accounts=accounts_from_runtime_status(runtime_status),
+        )
+        if binding is not None:
+            return self._build_bound_status(binding, runtime_status)
+        return await self.get_status(home_id=home_id, terminal_id=terminal_id, member_id=member_id)
+
     async def get_file(self) -> SgccLoginQrCodeFileView:
         image = await self._get_runtime_qrcode()
         if image is not None:
@@ -324,6 +364,26 @@ class SgccLoginQrCodeService:
         return self._build_pending_status(
             "Regenerating the SGCC login QR code. This may take a few minutes while sgcc_electricity retries password login and switches to QR mode."
         )
+
+    async def _wait_for_fetch_completion(self) -> SgccRuntimeStatus | None:
+        deadline = asyncio.get_running_loop().time() + self._fetch_wait_timeout_seconds
+        last_status: SgccRuntimeStatus | None = None
+        while True:
+            last_status = await self._get_runtime_status()
+            if last_status is not None:
+                job_kind = (last_status.job_kind or "").upper()
+                job_state = (last_status.job_state or last_status.state or "").upper()
+                if job_kind == "FETCH" and job_state in {"COMPLETED", "FAILED"}:
+                    return last_status
+                if job_state == "FAILED":
+                    return last_status
+            if asyncio.get_running_loop().time() >= deadline:
+                raise AppError(
+                    ErrorCode.INTERNAL_SERVER_ERROR,
+                    "服务端网关等待超时，能耗同步可能仍在后台执行，请稍后刷新状态。",
+                    details={"reason": "FETCH_WAIT_TIMEOUT"},
+                )
+            await asyncio.sleep(self._fetch_poll_interval_seconds)
 
     async def _try_auto_bind_energy_account(
         self,

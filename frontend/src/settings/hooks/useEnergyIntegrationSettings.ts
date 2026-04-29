@@ -98,7 +98,7 @@ export function useEnergyIntegrationSettings({
       return;
     }
 
-    setEnergyMessage("正在触发上游同步并等待 HA 更新...");
+    setEnergyMessage("正在从 HA 实体读取能耗，缺失时使用 SGCC 缓存兜底...");
     setEnergyRefreshBusy(true);
     try {
       const response = await refreshEnergy();

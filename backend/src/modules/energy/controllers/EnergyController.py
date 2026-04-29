@@ -27,6 +27,7 @@ class EnergyBindingBody(ApiSchema):
     )
     payload: dict = Field(default_factory=dict)
     member_id: str | None = None
+    trigger_upstream: bool | None = None
 
 
 class EnergyResponse(ApiSchema):
@@ -140,5 +141,11 @@ async def post_energy_refresh(
         require_home=True,
         require_terminal=True,
     )
-    payload = asdict(await service.refresh(context.home_id, context.terminal_id))
+    local_only = body.trigger_upstream is False or body.payload.get("trigger_upstream") is False
+    refresh_view = (
+        await service.refresh_from_sources(context.home_id, context.terminal_id)
+        if local_only
+        else await service.refresh(context.home_id, context.terminal_id)
+    )
+    payload = asdict(refresh_view)
     return success_response(request, EnergyRefreshResponse.model_validate(payload))
