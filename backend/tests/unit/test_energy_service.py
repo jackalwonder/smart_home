@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 
 from src.infrastructure.ha.HaConnectionGateway import HaStateEntry
+from src.modules.energy.services.EnergyModels import _is_iso_newer
 from src.modules.energy.services.EnergyService import EnergyService
 from src.repositories.base.energy.EnergyAccountRepository import (
     EnergyAccountRow,
@@ -106,8 +107,9 @@ class _HaGateway:
 
 
 class _Restarter:
-    def __init__(self, should_fail: bool = False):
+    def __init__(self, should_fail: bool = False, statuses=None):
         self.should_fail = should_fail
+        self.statuses = list(statuses or [])
         self.restart_count = 0
         self.fetch_count = 0
 
@@ -120,6 +122,21 @@ class _Restarter:
         self.fetch_count += 1
         if self.should_fail:
             raise RuntimeError("fetch failed")
+
+    async def get_status(self):
+        if len(self.statuses) > 1:
+            return self.statuses.pop(0)
+        if self.statuses:
+            return self.statuses[0]
+        return None
+
+
+class _SgccStatus:
+    def __init__(self, *, job_state: str, job_kind: str = "FETCH", last_error: str | None = None):
+        self.job_state = job_state
+        self.job_kind = job_kind
+        self.last_error = last_error
+        self.job_phase = None
 
 
 def _state(entity_id: str, value: str, updated_at: str = "2026-04-20T07:58:00+00:00"):
@@ -134,6 +151,17 @@ def _state(entity_id: str, value: str, updated_at: str = "2026-04-20T07:58:00+00
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+def test_is_iso_newer_normalizes_database_and_cache_timestamp_formats():
+    assert (
+        _is_iso_newer(
+            "2026-04-28T00:52:53.506097",
+            "2026-04-28 00:52:53.506097+00",
+        )
+        is False
+    )
+    assert _is_iso_newer("2026-04-28T00:52:54Z", "2026-04-28 00:52:53+00") is True
 
 
 def _service(
@@ -511,3 +539,25 @@ def test_energy_refresh_uses_sgcc_sidecar_fetch_mode():
     assert result.refresh_status == "SUCCESS"
     assert result.refresh_status_detail == "SUCCESS_UPDATED"
     assert snapshots.inserts[-1].monthly_usage == 46.0
+
+
+def test_energy_refresh_reports_sgcc_sidecar_login_required_without_waiting_for_timeout():
+    states = [
+        _state("sensor.last_electricity_usage_1234567890", "1.23", "2026-04-20T07:58:00+00:00"),
+        _state("sensor.month_electricity_usage_1234567890", "45.6", "2026-04-20T07:58:00+00:00"),
+        _state("sensor.electricity_charge_balance_1234567890", "78.9", "2026-04-20T07:58:00+00:00"),
+        _state("sensor.yearly_electricity_usage_1234567890", "345.67", "2026-04-20T07:58:00+00:00"),
+    ]
+    restarter = _Restarter(statuses=[_SgccStatus(job_state="FAILED", last_error="LOGIN_REQUIRED")])
+    service, _, snapshots, _ = _service(
+        gateway=_HaGateway(states),
+        restarter=restarter,
+        mode="sgcc_sidecar",
+    )
+    _run(service.update_binding("home-1", "terminal-1", {"account_id": "1234567890"}))
+
+    result = _run(service.refresh("home-1", "terminal-1"))
+
+    assert restarter.fetch_count == 1
+    assert result.refresh_status == "FAILED"
+    assert snapshots.inserts[-1].last_error_code == "LOGIN_REQUIRED"

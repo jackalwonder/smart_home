@@ -12,6 +12,7 @@ from src.modules.energy.services.EnergyModels import (
     UpstreamWaitResult,
     _collect_source_updated_at,
     _extract_energy_values,
+    _is_iso_newer,
     _read_sgcc_cache_values,
 )
 from src.modules.settings.services.query.SgccRuntimeControlService import SgccContainerRestarter
@@ -114,6 +115,7 @@ class EnergyUpstreamReader:
         loop = asyncio.get_running_loop()
         started_at = loop.time()
         deadline = started_at + self._upstream_wait_timeout_seconds
+        wait_for_fetch_job = self._upstream_refresh_mode in {"docker_exec_fetch", "sgcc_sidecar"}
         stale_source_return_after = min(
             deadline,
             started_at + self._upstream_poll_interval_seconds * 2,
@@ -134,6 +136,8 @@ class EnergyUpstreamReader:
                         source_updated=True,
                     )
                 if (
+                    not wait_for_fetch_job
+                    and
                     loop.time() >= stale_source_return_after
                     and not isinstance(
                         _extract_energy_values(entity_ids, latest_states_by_entity_id),
@@ -144,6 +148,13 @@ class EnergyUpstreamReader:
                         states_by_entity_id=latest_states_by_entity_id,
                         source_updated=False,
                     )
+            sidecar_error = await self._read_sgcc_sidecar_fetch_error()
+            if sidecar_error is not None:
+                return UpstreamWaitResult(
+                    states_by_entity_id=latest_states_by_entity_id,
+                    source_updated=False,
+                    error_code=sidecar_error,
+                )
             if loop.time() >= deadline:
                 break
             await asyncio.sleep(self._upstream_poll_interval_seconds)
@@ -168,17 +179,20 @@ class EnergyUpstreamReader:
             account_id,
         )
 
+    async def _read_sgcc_sidecar_fetch_error(self) -> str | None:
+        if self._upstream_refresh_mode != "sgcc_sidecar" or self._sgcc_container_restarter is None:
+            return None
+        try:
+            status = await self._sgcc_container_restarter.get_status()
+        except Exception:
+            return None
+        if status is None or status.job_kind != "FETCH" or status.job_state != "FAILED":
+            return None
+        return status.last_error or FAILED_UPSTREAM_TRIGGER
+
 
 def _clean_optional_string(value: object) -> str | None:
     if not isinstance(value, str):
         return None
     cleaned = value.strip()
     return cleaned or None
-
-
-def _is_iso_newer(current: str | None, previous: str | None) -> bool:
-    if not current:
-        return False
-    if not previous:
-        return True
-    return current > previous

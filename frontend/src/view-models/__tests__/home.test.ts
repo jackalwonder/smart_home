@@ -73,7 +73,7 @@ describe("home overview view model", () => {
 
     expect(viewModel.energyFields.slice(0, 3)).toEqual([
       { label: "状态", value: "已绑定" },
-      { label: "本月累计", value: "102 kWh" },
+      { label: "上月用电", value: "102 kWh" },
       { label: "账户余额", value: "23.5 元" },
     ]);
     expect(viewModel.railCards.find((card) => card.key === "energy")?.subtitle).toContain(
@@ -81,7 +81,7 @@ describe("home overview view model", () => {
     );
     expect(viewModel.bottomStats.map((stat) => stat.label)).toEqual([
       "昨日用电",
-      "本月累计",
+      "上月用电",
       "账户余额",
       "年度累计",
     ]);

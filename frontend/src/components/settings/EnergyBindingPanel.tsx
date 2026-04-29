@@ -52,7 +52,7 @@ const ENTITY_FIELDS: Array<{
   },
   {
     key: "monthly_usage",
-    label: "本月累计实体",
+    label: "上月用电实体",
     placeholder: "sensor.month_electricity_usage_xxxx",
   },
   {
@@ -109,7 +109,7 @@ export function EnergyBindingPanel({
           value: formatEnergyValue(energy?.yesterday_usage, "kWh"),
         },
         {
-          label: "本月累计",
+          label: "上月用电",
           value: formatEnergyValue(energy?.monthly_usage, "kWh"),
         },
         { label: "账户余额", value: formatEnergyValue(energy?.balance, "元") },

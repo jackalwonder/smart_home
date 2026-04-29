@@ -163,7 +163,7 @@ export function mapHomeOverviewViewModel(value: HomeOverviewDto | null): HomeVie
     ],
     energyFields: [
       { label: "状态", value: energy.bindingStatus },
-      { label: "本月累计", value: energy.monthlyUsage },
+      { label: "上月用电", value: energy.monthlyUsage },
       { label: "账户余额", value: energy.balance },
       { label: "HA 源更新", value: energy.sourceUpdateLabel },
       { label: "刷新状态", value: energy.refreshStatus },
@@ -172,7 +172,7 @@ export function mapHomeOverviewViewModel(value: HomeOverviewDto | null): HomeVie
     ],
     bottomStats: [
       { label: "昨日用电", value: energy.yesterdayUsage },
-      { label: "本月累计", value: energy.monthlyUsage },
+      { label: "上月用电", value: energy.monthlyUsage },
       { label: "账户余额", value: energy.balance },
       { label: "年度累计", value: energy.yearlyUsage },
     ],

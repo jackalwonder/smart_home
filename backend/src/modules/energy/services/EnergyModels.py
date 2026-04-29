@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -391,11 +392,31 @@ def _max_iso(left: str | None, right: str | None) -> str | None:
 
 
 def _is_iso_newer(current: str | None, previous: str | None) -> bool:
-    if not current:
+    current_dt = _parse_timestamp(current)
+    if current_dt is None:
         return False
-    if not previous:
+    previous_dt = _parse_timestamp(previous)
+    if previous_dt is None:
         return True
-    return current > previous
+    return current_dt > previous_dt
+
+
+def _parse_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if normalized.endswith("Z"):
+        normalized = f"{normalized[:-1]}+00:00"
+    normalized = re.sub(r"([+-]\d{2})$", r"\1:00", normalized)
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _derive_refresh_status_detail(snapshot: EnergySnapshotRow) -> str:
